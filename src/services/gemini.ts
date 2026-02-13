@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 import type { MoodType, TextRegion, BoundingBox } from '../types'
-import { getMoodFont } from '../config/fonts'
+// Font resolution now handled by resolveFont in config/fonts.ts
 
 interface GeminiTranslationItem {
   index: number
@@ -16,7 +16,11 @@ interface GeminiTranslationResponse {
 
 function getClient(): GoogleGenAI {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY is not set')
+  if (!apiKey) {
+    console.error('[gemini] VITE_GEMINI_API_KEY is not set in environment. Check .env.local has VITE_GEMINI_API_KEY=your_key')
+    throw new Error('VITE_GEMINI_API_KEY is not set — ตรวจสอบ .env.local ว่ามี VITE_GEMINI_API_KEY=xxx')
+  }
+  console.log('[gemini] API key loaded:', apiKey.slice(0, 8) + '...')
   return new GoogleGenAI({ apiKey })
 }
 
@@ -30,15 +34,20 @@ function buildPrompt(
     return `[${i}] "${text}" (x:${b?.x ?? 0}, y:${b?.y ?? 0}, w:${b?.width ?? 0}, h:${b?.height ?? 0})`
   })
 
+  const langInstruction = sourceLang === 'auto'
+    ? `ตรวจจับภาษาต้นฉบับจากข้อความ OCR โดยอัตโนมัติ`
+    : `ภาษาต้นฉบับคือ: ${sourceLang}`
+
   return `คุณเป็นนักแปลมังงะมืออาชีพ ที่เข้าใจอารมณ์ตัวละครจากภาพและบริบท
 
 ## งานของคุณ
 1. ดูภาพมังงะที่แนบมา — สังเกตสีหน้าตัวละคร, ขนาด/สไตล์ speech bubble, ฉากหลัง
 2. อ่าน OCR text ที่ตรวจจับได้จากภาพ
-3. แปลเป็นภาษาไทยที่เป็นธรรมชาติ
-4. วิเคราะห์ mood ของแต่ละ text region จากภาพจริง
+3. ${langInstruction}
+4. แปลเป็นภาษาไทยที่เป็นธรรมชาติ
+5. วิเคราะห์ mood ของแต่ละ text region จากภาพจริง
 
-## OCR Text Regions (${sourceLang}):
+## OCR Text Regions${sourceLang !== 'auto' ? ` (${sourceLang})` : ''}:
 ${regions.join('\n')}
 
 ## Mood Types
@@ -49,6 +58,18 @@ ${regions.join('\n')}
 - narration: บรรยาย / เล่าเรื่อง / ความคิดภายใน
 - sfx: เสียงเอฟเฟกต์ (ドーン, バキ, etc.)
 
+## Available Font IDs (suggestedFont ต้องเป็น ID จากรายการนี้เท่านั้น):
+- "normal" — สนทนาทั่วไป, บรรยาย
+- "normal_bold" — สนทนาจริงจัง, เน้นข้อความ
+- "normal_italic" — ความคิดในใจ, เสียงภายใน
+- "shouting" — ตะโกน, โกรธ, ตกใจ, เน้นหนัก
+- "comedy" — ตลก, สนุกสนาน
+- "comedy_bold" — ตลก เน้น
+- "whisper" — กระซิบ, เสียงเบา, นุ่มนวล
+- "narration" — บรรยาย, เล่าเรื่อง
+- "sfx" — เสียงเอฟเฟกต์ SFX
+- "cute" — เป็นกันเอง, น่ารัก
+
 ## ตอบเป็น JSON เท่านั้น:
 {
   "translations": [
@@ -57,7 +78,7 @@ ${regions.join('\n')}
       "original": "OCR text ต้นฉบับ",
       "translated": "คำแปลภาษาไทย",
       "mood": "normal|shouting|whisper|comedy|narration|sfx",
-      "suggestedFont": "ชื่อฟอนต์ที่เหมาะสม"
+      "suggestedFont": "ชื่อฟอนต์จากรายการ Available Fonts ด้านบน"
     }
   ]
 }
@@ -66,6 +87,7 @@ ${regions.join('\n')}
 - แปลให้เป็นธรรมชาติ ไม่ใช่แปลตรงตัว
 - ถ้าเป็น SFX ให้เขียนเสียงเป็นไทย (เช่น "ドーン" → "โครม!!")
 - mood ต้องอิงจากภาพจริง ไม่ใช่แค่ข้อความ
+- suggestedFont ต้องเลือกจาก Available Fonts เท่านั้น ห้ามใช้ชื่อฟอนต์อื่น
 - ตอบ JSON เท่านั้น ไม่ต้องมี markdown code block`
 }
 
@@ -97,8 +119,9 @@ export async function translateWithImage(
   const base64 = await fileToBase64(imageFile)
   const prompt = buildPrompt(ocrTexts, bboxes, sourceLang)
 
+  console.log('[gemini] Calling Gemini with', ocrTexts.length, 'OCR texts, model: gemini-2.5-flash')
   const response = await client.models.generateContent({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'gemini-2.5-flash',
     contents: [
       {
         role: 'user',
@@ -122,6 +145,7 @@ export async function translateWithImage(
   })
 
   const text = response.text ?? ''
+  console.log('[gemini] Raw response length:', text.length, 'preview:', text.slice(0, 300))
   let parsed: GeminiTranslationResponse
 
   try {
@@ -137,7 +161,6 @@ export async function translateWithImage(
 
   return parsed.translations.map((item) => {
     const mood = parseMood(item.mood)
-    const font = getMoodFont(mood)
     const bbox = bboxes[item.index] ?? { x: 0, y: 0, width: 100, height: 30 }
 
     return {
@@ -146,9 +169,9 @@ export async function translateWithImage(
       originalText: item.original,
       translatedText: item.translated,
       mood,
-      suggestedFont: item.suggestedFont || font.name,
+      suggestedFont: item.suggestedFont || mood,
       fontSize: Math.max(12, Math.min(bbox.height * 0.6, 48)),
-      fontColor: '#ffffff',
+      fontColor: '#000000',
       rotation: 0,
     }
   })

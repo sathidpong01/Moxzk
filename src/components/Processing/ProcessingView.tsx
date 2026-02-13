@@ -9,6 +9,7 @@ interface ProcessingViewProps {
   sourceLang: string
   onComplete: (regions: TextRegion[], cleanedImageUrl: string) => void
   onError: (error: string) => void
+  onLog?: (msg: string) => void
 }
 
 export default function ProcessingView({
@@ -16,18 +17,19 @@ export default function ProcessingView({
   sourceLang,
   onComplete,
   onError,
+  onLog,
 }: ProcessingViewProps) {
   const [state, setState] = useState<ProcessingState>({
     status: 'idle',
     progress: 0,
     message: 'เตรียมพร้อม...',
   })
-  const [logs, setLogs] = useState<string[]>([])
   const hasStarted = useRef(false)
 
   const addLog = useCallback((msg: string) => {
-    setLogs((prev) => [...prev.slice(-50), `[${new Date().toLocaleTimeString()}] ${msg}`])
-  }, [])
+    const entry = `[${new Date().toLocaleTimeString()}] ${msg}`
+    onLog?.(entry)
+  }, [onLog])
 
   useEffect(() => {
     if (hasStarted.current) return
@@ -64,8 +66,10 @@ export default function ProcessingView({
 
         const ocrTexts = ocrRegions.map((r) => r.text)
         const bboxes = ocrRegions.map((r) => r.bbox)
+        addLog(`OCR texts: ${ocrTexts.map((t, i) => `[${i}] "${t}"`).join(', ')}`)
+        addLog('กำลังเรียก Gemini API เพื่อแปลภาษา...')
         const translatedRegions = await translateWithImage(imageFile, ocrTexts, bboxes, sourceLang)
-        addLog(`แปลเสร็จ: ${translatedRegions.length} regions`)
+        addLog(`Gemini แปลเสร็จ: ${translatedRegions.length} regions`)
 
         setState({ status: 'done', progress: 100, message: 'เสร็จสิ้น!' })
         const cleanedUrl = cleanedImageBlob ? URL.createObjectURL(cleanedImageBlob) : ''
@@ -92,13 +96,13 @@ export default function ProcessingView({
   }
 
   return (
-    <div className="w-full max-w-lg space-y-6">
+    <div className="w-full max-w-md space-y-4">
       {/* Status */}
       <div className="text-center space-y-2">
         <p className="text-lg font-medium">{statusLabels[state.status]}</p>
-        <p className="text-base-content/60">{state.message}</p>
+        <p className="text-base-content/60 text-sm">{state.message}</p>
         {state.queuePosition !== undefined && (
-          <div className="badge badge-warning">คิว: #{state.queuePosition}</div>
+          <div className="badge badge-warning badge-sm">คิว: #{state.queuePosition}</div>
         )}
       </div>
 
@@ -127,25 +131,6 @@ export default function ProcessingView({
           Done
         </li>
       </ul>
-
-      {/* Logs */}
-      {logs.length > 0 && (
-        <div className="collapse collapse-arrow bg-base-200">
-          <input type="checkbox" />
-          <div className="collapse-title text-sm font-medium">
-            Logs ({logs.length})
-          </div>
-          <div className="collapse-content">
-            <div className="mockup-code text-xs max-h-48 overflow-y-auto">
-              {logs.map((log, i) => (
-                <pre key={i} data-prefix={i + 1}>
-                  <code>{log}</code>
-                </pre>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

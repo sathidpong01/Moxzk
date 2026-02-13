@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FontDefinition, FontMoodMap, MoodType } from '../../types'
-import { BUILT_IN_FONTS, MOOD_LABELS, registerCustomFont, fontToCss } from '../../config/fonts'
+import { BUILT_IN_FONTS, MOOD_LABELS, registerCustomFont, restoreCustomFont, fontToCss } from '../../config/fonts'
+import { getAllFonts, deleteFont as deleteFontFromDB } from '../../services/fontStorage'
 
 interface FontConfigPageProps {
   moodMap: FontMoodMap
@@ -20,6 +21,26 @@ export default function FontConfigPage({
   const [draft, setDraft] = useState<FontMoodMap>({ ...moodMap })
   const [customFonts, setCustomFonts] = useState<FontDefinition[]>([])
   const [uploading, setUploading] = useState(false)
+
+  // Load cached custom fonts from IndexedDB on mount
+  useEffect(() => {
+    getAllFonts().then(async (storedFonts) => {
+      const restored: FontDefinition[] = []
+      for (const sf of storedFonts) {
+        try {
+          const fd = await restoreCustomFont(sf)
+          restored.push(fd)
+        } catch (err) {
+          console.warn(`Failed to restore font "${sf.name}":`, err)
+        }
+      }
+      if (restored.length > 0) {
+        setCustomFonts(restored)
+      }
+    }).catch((err) => {
+      console.error('Failed to load cached fonts:', err)
+    })
+  }, [])
 
   const allFonts = [...BUILT_IN_FONTS, ...customFonts]
 
@@ -145,8 +166,18 @@ export default function FontConfigPage({
             <p className="text-xs text-base-content/60 mb-1">Custom fonts loaded:</p>
             <div className="flex flex-wrap gap-1">
               {customFonts.map((f) => (
-                <span key={f.name} className="badge badge-sm badge-accent">
+                <span key={f.name} className="badge badge-sm badge-accent gap-1">
                   {f.name}
+                  <button
+                    className="btn btn-ghost btn-xs px-0 min-h-0 h-auto"
+                    onClick={async () => {
+                      await deleteFontFromDB(f.name)
+                      setCustomFonts((prev) => prev.filter((cf) => cf.name !== f.name))
+                    }}
+                    title={`ลบฟอนต์ ${f.name}`}
+                  >
+                    ✕
+                  </button>
                 </span>
               ))}
             </div>

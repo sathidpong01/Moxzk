@@ -1,10 +1,9 @@
-import type { TextRegion, MoodType, FontMoodMap } from '../../types'
+import type { TextRegion, MoodType } from '../../types'
 import { MOOD_LABELS } from '../../config/fonts'
 import FontSelector from './FontSelector'
 
 interface PropertiesPanelProps {
   region: TextRegion | null
-  moodMap: FontMoodMap
   onUpdate: (id: string, updates: Partial<TextRegion>) => void
 }
 
@@ -12,7 +11,6 @@ const MOODS: MoodType[] = ['normal', 'shouting', 'whisper', 'comedy', 'narration
 
 export default function PropertiesPanel({
   region,
-  moodMap,
   onUpdate,
 }: PropertiesPanelProps) {
   if (!region) {
@@ -28,37 +26,64 @@ export default function PropertiesPanel({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Original text */}
+    <div className="space-y-2">
+      {/* Font — top priority */}
       <div className="card bg-base-200 card-compact">
-        <div className="card-body">
+        <div className="card-body py-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
-            Original
+            Font
           </h3>
-          <p className="text-sm bg-base-300 rounded-lg p-2 font-mono">
-            {region.originalText}
-          </p>
+          <FontSelector
+            currentFont={region.suggestedFont}
+            mood={region.mood}
+            onSelect={(fontId) => onUpdate(region.id, { suggestedFont: fontId })}
+          />
         </div>
       </div>
 
-      {/* Translation */}
+      {/* Size + Color — compact row */}
       <div className="card bg-base-200 card-compact">
-        <div className="card-body">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
-            Translation
-          </h3>
-          <textarea
-            className="textarea textarea-bordered textarea-sm w-full"
-            rows={3}
-            value={region.translatedText}
-            onChange={(e) => onUpdate(region.id, { translatedText: e.target.value })}
-          />
+        <div className="card-body py-2">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50 mb-1">
+                Size: {region.fontSize}px
+              </h3>
+              <input
+                type="range"
+                className="range range-primary range-xs w-full"
+                min={8}
+                max={72}
+                value={region.fontSize}
+                onChange={(e) => onUpdate(region.id, { fontSize: Number(e.target.value) })}
+              />
+            </div>
+            <div className="shrink-0">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50 mb-1">
+                Color
+              </h3>
+              <div className="flex items-center gap-1">
+                <input
+                  type="color"
+                  className="w-7 h-7 rounded cursor-pointer"
+                  value={region.fontColor}
+                  onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
+                />
+                <input
+                  type="text"
+                  className="input input-bordered input-xs w-20 font-mono"
+                  value={region.fontColor}
+                  onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Mood */}
       <div className="card bg-base-200 card-compact">
-        <div className="card-body">
+        <div className="card-body py-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
             Mood
           </h3>
@@ -73,66 +98,33 @@ export default function PropertiesPanel({
               </option>
             ))}
           </select>
-          {region.suggestedFont && (
-            <div className="badge badge-sm badge-info mt-1">
-              🤖 AI: {region.suggestedFont}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Font */}
+      {/* Translation */}
       <div className="card bg-base-200 card-compact">
-        <div className="card-body">
+        <div className="card-body py-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
-            Font
+            Translation
           </h3>
-          <FontSelector
-            currentFont={region.suggestedFont}
-            moodMap={moodMap}
-            mood={region.mood}
-            onSelect={(fontName) => onUpdate(region.id, { suggestedFont: fontName })}
+          <textarea
+            className="textarea textarea-bordered textarea-sm w-full"
+            rows={2}
+            value={region.translatedText}
+            onChange={(e) => onUpdate(region.id, { translatedText: e.target.value })}
           />
         </div>
       </div>
 
-      {/* Font size */}
+      {/* Original text — read only, compact */}
       <div className="card bg-base-200 card-compact">
-        <div className="card-body">
+        <div className="card-body py-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
-            Size: {region.fontSize}px
+            Original
           </h3>
-          <input
-            type="range"
-            className="range range-primary range-xs"
-            min={8}
-            max={72}
-            value={region.fontSize}
-            onChange={(e) => onUpdate(region.id, { fontSize: Number(e.target.value) })}
-          />
-        </div>
-      </div>
-
-      {/* Color */}
-      <div className="card bg-base-200 card-compact">
-        <div className="card-body">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
-            Color
-          </h3>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              className="w-8 h-8 rounded cursor-pointer"
-              value={region.fontColor}
-              onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
-            />
-            <input
-              type="text"
-              className="input input-bordered input-xs flex-1 font-mono"
-              value={region.fontColor}
-              onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
-            />
-          </div>
+          <p className="text-xs bg-base-300 rounded p-1.5 font-mono text-base-content/60">
+            {region.originalText}
+          </p>
         </div>
       </div>
     </div>

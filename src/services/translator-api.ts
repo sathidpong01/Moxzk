@@ -1,7 +1,7 @@
 import type { TranslatorConfig, BoundingBox } from '../types'
 
 const DEFAULT_CONFIG: TranslatorConfig = {
-  translator: { translator: 'none' },
+  translator: { translator: 'none', target_lang: 'THA', no_text_lang_skip: true },
   detector: { detector: 'ctd', detection_size: 2048 },
   inpainter: { inpainter: 'lama_large', inpainting_size: 2048 },
   ocr: { ocr: '48px' },
@@ -49,7 +49,7 @@ export async function translateImageJson(
   onProgress?: (progress: StreamProgress) => void,
 ): Promise<OcrRegion[]> {
   const formData = new FormData()
-  formData.append('file', file)
+  formData.append('image', file)
   formData.append('config', JSON.stringify(config))
 
   const res = await fetch(`${getApiUrl()}/translate/with-form/json/stream`, {
@@ -61,7 +61,7 @@ export async function translateImageJson(
   if (!res.body) throw new Error('No response body')
 
   const reader = res.body.getReader()
-  let buffer = new Uint8Array(0)
+  let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
   let regions: OcrRegion[] = []
 
   while (true) {
@@ -85,9 +85,13 @@ export async function translateImageJson(
       if (status === 'result') {
         try {
           const parsed = JSON.parse(text)
+          console.log('[translator-api] Raw JSON result:', JSON.stringify(parsed).slice(0, 500))
+          console.log('[translator-api] translations count:', Array.isArray(parsed?.translations) ? parsed.translations.length : 'N/A')
           regions = parseRegions(parsed)
-        } catch {
-          onProgress?.({ status: 'error', message: `Failed to parse result: ${text}` })
+          console.log('[translator-api] Parsed regions:', regions.length, regions.slice(0, 2))
+        } catch (e) {
+          console.error('[translator-api] JSON parse error:', e, 'raw length:', text.length)
+          onProgress?.({ status: 'error', message: `Failed to parse result: ${text.slice(0, 200)}` })
         }
       } else if (status === 'error') {
         throw new Error(`Translation error: ${text}`)
@@ -106,7 +110,7 @@ export async function translateImageStream(
   onProgress?: (progress: StreamProgress) => void,
 ): Promise<Blob> {
   const formData = new FormData()
-  formData.append('file', file)
+  formData.append('image', file)
   formData.append('config', JSON.stringify(config))
 
   const res = await fetch(`${getApiUrl()}/translate/with-form/image/stream`, {
@@ -118,7 +122,7 @@ export async function translateImageStream(
   if (!res.body) throw new Error('No response body')
 
   const reader = res.body.getReader()
-  let buffer = new Uint8Array(0)
+  let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0)
   let imageBlob: Blob | null = null
 
   while (true) {
@@ -167,7 +171,7 @@ export async function processImage(
   return { regions, cleanedImageBlob }
 }
 
-function concatBuffers(a: Uint8Array, b: Uint8Array): Uint8Array {
+function concatBuffers(a: Uint8Array<ArrayBufferLike>, b: Uint8Array<ArrayBufferLike>): Uint8Array {
   const result = new Uint8Array(a.length + b.length)
   result.set(a, 0)
   result.set(b, a.length)
@@ -175,12 +179,26 @@ function concatBuffers(a: Uint8Array, b: Uint8Array): Uint8Array {
 }
 
 function parseRegions(data: unknown): OcrRegion[] {
-  if (!Array.isArray(data)) return []
+  let items: Record<string, unknown>[]
+  if (Array.isArray(data)) {
+    items = data
+  } else if (
+    data &&
+    typeof data === 'object' &&
+    'translations' in (data as Record<string, unknown>) &&
+    Array.isArray((data as Record<string, unknown>).translations)
+  ) {
+    items = (data as Record<string, unknown>).translations as Record<string, unknown>[]
+  } else {
+    return []
+  }
 
-  return data.map((item: Record<string, unknown>, index: number) => {
+  return items.map((item) => {
     const xyxy = item.xyxy as number[] | undefined
-    const text = (item.text as string) ?? ''
-    const confidence = (item.prob as number) ?? 0
+    const minX = item.minX as number | undefined
+    const minY = item.minY as number | undefined
+    const maxX = item.maxX as number | undefined
+    const maxY = item.maxY as number | undefined
 
     let bbox: BoundingBox
     if (xyxy && xyxy.length === 4) {
@@ -190,10 +208,27 @@ function parseRegions(data: unknown): OcrRegion[] {
         width: xyxy[2] - xyxy[0],
         height: xyxy[3] - xyxy[1],
       }
+    } else if (minX != null && minY != null && maxX != null && maxY != null) {
+      bbox = {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      }
     } else {
       bbox = { x: 0, y: 0, width: 100, height: 30 }
     }
 
-    return { bbox, text, confidence, id: `region-${index}` } as OcrRegion & { id: string }
+    let text = ''
+    if (typeof item.text === 'string') {
+      text = item.text
+    } else if (item.text && typeof item.text === 'object') {
+      const textDict = item.text as Record<string, string>
+      const values = Object.values(textDict)
+      text = values[0] ?? ''
+    }
+
+    const confidence = (item.prob as number) ?? 0
+    return { bbox, text, confidence }
   })
 }

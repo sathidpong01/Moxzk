@@ -1,20 +1,46 @@
-import { BUILT_IN_FONTS, getMoodFont } from '../../config/fonts'
-import type { FontMoodMap, MoodType } from '../../types'
+import { useEffect, useState } from 'react'
+import { restoreCustomFont, FONT_ID_MAP } from '../../config/fonts'
+import type { FontDefinition, MoodType } from '../../types'
+import { getAllFonts } from '../../services/fontStorage'
 
 interface FontSelectorProps {
   currentFont: string
-  moodMap: FontMoodMap
   mood: MoodType
-  onSelect: (fontName: string) => void
+  onSelect: (fontId: string) => void
 }
 
 export default function FontSelector({
   currentFont,
-  moodMap,
   mood,
   onSelect,
 }: FontSelectorProps) {
-  const aiSuggested = getMoodFont(mood, moodMap)
+  const [customFonts, setCustomFonts] = useState<FontDefinition[]>([])
+
+  useEffect(() => {
+    getAllFonts().then(async (storedFonts) => {
+      const restored: FontDefinition[] = []
+      for (const sf of storedFonts) {
+        try {
+          const fd = await restoreCustomFont(sf)
+          restored.push(fd)
+        } catch {
+          // font already registered or invalid — skip
+        }
+      }
+      setCustomFonts(restored)
+    }).catch(() => {})
+  }, [])
+
+  const fontOptions = Object.entries(FONT_ID_MAP).map(([id, font]) => ({
+    id,
+    name: font.name,
+    family: font.family,
+  }))
+
+  // The mood-based default font ID
+  const moodFontId = mood
+  const moodFont = FONT_ID_MAP[moodFontId]
+  const resolvedFamily = FONT_ID_MAP[currentFont]?.family ?? currentFont
 
   return (
     <div className="space-y-2">
@@ -23,31 +49,37 @@ export default function FontSelector({
         value={currentFont}
         onChange={(e) => onSelect(e.target.value)}
       >
-        {BUILT_IN_FONTS.map((f) => (
-          <option key={f.name} value={f.name}>
-            {f.name}
-            {f.name === aiSuggested.name ? ' ★ AI' : ''}
+        {fontOptions.map((opt) => (
+          <option key={opt.id} value={opt.id}>
+            {opt.name}
           </option>
         ))}
+        {customFonts.length > 0 && (
+          <optgroup label="Custom">
+            {customFonts.map((f) => (
+              <option key={f.name} value={f.name}>
+                {f.name}
+              </option>
+            ))}
+          </optgroup>
+        )}
       </select>
 
-      {/* AI suggestion badge */}
-      {currentFont !== aiSuggested.name && (
+      {/* Mood-based font suggestion */}
+      {currentFont !== moodFontId && moodFont && (
         <button
           className="btn btn-xs btn-outline btn-info w-full"
-          onClick={() => onSelect(aiSuggested.name)}
+          onClick={() => onSelect(moodFontId)}
         >
-          🤖 ใช้ฟอนต์ที่ AI แนะนำ: {aiSuggested.name}
+          🤖 ใช้ฟอนต์ตาม mood: {moodFont.name}
         </button>
       )}
 
       {/* Live preview */}
-      <div className="bg-base-300 rounded-lg p-3 text-center">
+      <div className="bg-base-300 rounded-lg p-2 text-center">
         <span
-          className="text-lg"
-          style={{
-            fontFamily: `"${currentFont}", sans-serif`,
-          }}
+          className="text-base"
+          style={{ fontFamily: `"${resolvedFamily}", sans-serif` }}
         >
           ตัวอย่างฟอนต์ — สวัสดีครับ!
         </span>

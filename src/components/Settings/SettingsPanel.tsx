@@ -82,9 +82,10 @@ export default function SettingsPanel({
               className="select select-bordered w-full"
               value={draft.sourceLang}
               onChange={(e) =>
-                setDraft({ ...draft, sourceLang: e.target.value as 'ja' | 'zh' | 'en' })
+                setDraft({ ...draft, sourceLang: e.target.value as AppSettings['sourceLang'] })
               }
             >
+              <option value="auto">🔍 Auto Detect</option>
               <option value="ja">🇯🇵 Japanese</option>
               <option value="zh">🇨🇳 Chinese</option>
               <option value="en">🇺🇸 English</option>

@@ -11,7 +11,7 @@ body {
   font-family: 'Sarabun', sans-serif;
 }
 
-.canvas-container {
+.editor-canvas-area {
   background-color: var(--canvas-bg);
   background-image:
     linear-gradient(var(--canvas-grid) 1px, transparent 1px),

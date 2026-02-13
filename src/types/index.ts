@@ -20,7 +20,11 @@ export interface TextRegion {
 }
 
 export interface TranslatorConfig {
-  translator: { translator: 'none' }
+  translator: {
+    translator: 'none'
+    target_lang: string
+    no_text_lang_skip: boolean
+  }
   detector: { detector: 'ctd'; detection_size: number }
   inpainter: { inpainter: 'lama_large'; inpainting_size: number }
   ocr: { ocr: '48px' }
@@ -71,6 +75,6 @@ export interface AppState {
 export interface AppSettings {
   geminiApiKey: string
   translatorApiUrl: string
-  sourceLang: 'ja' | 'zh' | 'en'
+  sourceLang: 'auto' | 'ja' | 'zh' | 'en'
   fontMoodMap: FontMoodMap
 }

@@ -1,4 +1,6 @@
 <<<<<<< D:/MG_Translater/.gitignore
+<<<<<<< D:/MG_Translater/.gitignore
+<<<<<<< D:/MG_Translater/.gitignore
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
@@ -41,6 +43,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 =======
+=======
+>>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
+=======
+>>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
 # dependencies
 /node_modules
 
@@ -70,4 +76,10 @@ yarn-error.log*
 .vscode
 *.swp
 *.swo
+<<<<<<< D:/MG_Translater/.gitignore
+<<<<<<< D:/MG_Translater/.gitignore
+>>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
+=======
+>>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
+=======
 >>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
