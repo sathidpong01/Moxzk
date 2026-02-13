@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: dark, light;
+}
+
+@theme {
+  --font-sans: 'Sarabun', sans-serif;
+}

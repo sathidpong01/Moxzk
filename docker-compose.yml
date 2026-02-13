@@ -1,0 +1,20 @@
+services:
+  manga-translator:
+    image: zyddnys/manga-image-translator:main
+    container_name: manga-translator
+    ports:
+      - "5003:5003"
+    volumes:
+      - manga-models:/app/models
+    # GPU support: uncomment the deploy section below
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  manga-models:
