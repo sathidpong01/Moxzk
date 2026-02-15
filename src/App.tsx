@@ -1,31 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppStep, TextRegion, AppSettings, ExportFormat } from './types'
-import { DEFAULT_MOOD_MAP, restoreCustomFont } from './config/fonts'
+import Konva from 'konva'
+import { useAppStore, type PanelId } from './store/appStore'
+import type { ExportFormat, TextRegion } from './types'
+import { useFloatingPanel } from './hooks/useFloatingPanel'
 import ImageUploader from './components/Upload/ImageUploader'
 import ProcessingView from './components/Processing/ProcessingView'
-import CanvasEditor from './components/Editor/CanvasEditor'
+import CanvasEditor, { type CanvasEditorHandle } from './components/Editor/CanvasEditor'
 import PropertiesPanel from './components/Editor/PropertiesPanel'
+import BrushToolbar from './components/Editor/BrushToolbar'
+import ImageStrip from './components/Editor/ImageStrip'
+import ResourceMonitor from './components/Processing/ResourceMonitor'
+import FloatingQuotaBar from './components/Layout/FloatingQuotaBar'
 import SplitView from './components/Comparison/SplitView'
 import SettingsPanel from './components/Settings/SettingsPanel'
 import FontConfigPage from './components/Settings/FontConfigPage'
-import { exportAndDownload } from './services/exporter'
-import { loadSettings, saveSettings } from './services/settingsStorage'
-import { getAllFonts } from './services/fontStorage'
+import { renderStageToDataUrl, exportFromDataUrl } from './services/exporter'
 import { Toaster, toast } from 'sonner'
+import {
+  BookOpen,
+  Settings,
+  Type,
+  ArrowLeft,
+  ArrowRight,
+  Download,
+  Paintbrush,
+  Wand2,
+  ScrollText,
+  Cpu,
+  Sparkles,
+  PanelRightOpen,
+  RotateCcw,
+  Loader2,
+  ImageIcon,
+  GripVertical,
+  X,
+} from 'lucide-react'
 
-const STEPS: { id: AppStep; label: string; icon: string }[] = [
-  { id: 'upload', label: 'Upload', icon: '📤' },
-  { id: 'process', label: 'Process', icon: '⚙️' },
-  { id: 'edit', label: 'Edit', icon: '✏️' },
-  { id: 'export', label: 'Export', icon: '💾' },
-]
-
-const DEFAULT_SETTINGS: AppSettings = {
-  geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY ?? '',
-  translatorApiUrl: import.meta.env.VITE_TRANSLATOR_API_URL ?? 'http://localhost:5003',
-  sourceLang: 'auto',
-  fontMoodMap: DEFAULT_MOOD_MAP,
-}
+// ── Helpers ──────────────────────────────────────────────────────────
 
 function getLogStyle(log: string): string {
   const lower = log.toLowerCase()
@@ -43,14 +54,14 @@ function getLogStyle(log: string): string {
 function LogPanel({ logs }: { logs: string[] }) {
   const endRef = useRef<HTMLDivElement>(null)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs])
-
-  if (logs.length === 0) return null
-
   return (
-    <div className="bg-base-300/50 rounded-lg p-2 h-full flex flex-col min-h-0">
+    <div className="floating-panel-sm p-2 h-full flex flex-col min-h-0">
       <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50 mb-1 shrink-0">
         Logs ({logs.length})
       </h3>
+      {logs.length === 0 && (
+        <p className="text-xs text-base-content/30 text-center py-4">ยังไม่มี log — กด AI Process เพื่อเริ่ม</p>
+      )}
       <div className="overflow-y-auto flex-1 min-h-0 text-xs font-mono space-y-0.5">
         {logs.map((log, i) => (
           <div key={i} className={`leading-tight rounded px-1.5 py-0.5 ${getLogStyle(log)}`}>
@@ -64,371 +75,421 @@ function LogPanel({ logs }: { logs: string[] }) {
   )
 }
 
-function App() {
-  const [currentStep, setCurrentStep] = useState<AppStep>('upload')
-  const [images, setImages] = useState<File[]>([])
-  const [regions, setRegions] = useState<TextRegion[]>([])
-  const [cleanedImageUrl, setCleanedImageUrl] = useState<string | null>(null)
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null)
-  const [settings, setSettings] = useState<AppSettings>(() => loadSettings(DEFAULT_SETTINGS))
-  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showFontConfig, setShowFontConfig] = useState(false)
-  const [logs, setLogs] = useState<string[]>([])
+// ── Panel toggle bar — bottom-right floating bar to reopen closed panels ──
 
-  // Restore custom fonts from IndexedDB on app startup
-  useEffect(() => {
-    getAllFonts().then(async (storedFonts) => {
-      for (const sf of storedFonts) {
-        try {
-          await restoreCustomFont(sf)
-        } catch {
-          // font already registered or invalid
-        }
-      }
-    }).catch((err) => {
-      console.error('Failed to restore cached fonts on startup:', err)
-    })
-  }, [])
+const PANEL_ICONS: { id: PanelId; icon: typeof Paintbrush; label: string }[] = [
+  { id: 'brush', icon: Paintbrush, label: 'Brush Tools' },
+  { id: 'properties', icon: PanelRightOpen, label: 'Properties' },
+  { id: 'resource', icon: Cpu, label: 'Resource Monitor' },
+  { id: 'quota', icon: Sparkles, label: 'AI Quota' },
+  { id: 'logs', icon: ScrollText, label: 'Logs' },
+]
 
-  useEffect(() => {
-    saveSettings(settings)
-  }, [settings])
+function PanelToggleBar() {
+  const panels = useAppStore((s) => s.panels)
+  const togglePanel = useAppStore((s) => s.togglePanel)
+  const step = useAppStore((s) => s.currentStep)
+  if (step !== 'edit') return null
 
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
-  const [exportQuality, setExportQuality] = useState(95)
-  const [processError, setProcessError] = useState<string | null>(null)
-
-  const stepIndex = STEPS.findIndex((s) => s.id === currentStep)
-  const selectedRegion = regions.find((r) => r.id === selectedRegionId) ?? null
-
-  const handleRegionUpdate = useCallback((id: string, updates: Partial<TextRegion>) => {
-    setRegions((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, ...updates } : r)),
-    )
-  }, [])
-
-  const handleAddLog = useCallback((msg: string) => {
-    setLogs((prev) => [...prev.slice(-100), msg])
-  }, [])
-
-  const handleProcessComplete = useCallback(
-    (translatedRegions: TextRegion[], cleanedUrl: string) => {
-      setRegions(translatedRegions)
-      setCleanedImageUrl(cleanedUrl)
-      if (images[0]) {
-        setOriginalImageUrl(URL.createObjectURL(images[0]))
-      }
-      setCurrentStep('edit')
-      toast.success(`แปลเสร็จ! พบ ${translatedRegions.length} regions`)
-    },
-    [images],
+  return (
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 floating-panel-sm px-3 py-2 flex items-center gap-1.5 panel-enter">
+      {PANEL_ICONS.map(({ id, icon: Icon, label }) => (
+        <button
+          key={id}
+          className={`btn btn-sm btn-square transition-all ${
+            panels[id] ? 'btn-primary' : 'btn-ghost opacity-50 hover:opacity-100'
+          }`}
+          onClick={() => togglePanel(id)}
+          title={label}
+        >
+          <Icon size={16} />
+        </button>
+      ))}
+    </div>
   )
+}
 
-  const handleProcessError = useCallback((error: string) => {
-    setProcessError(error)
-    toast.error(`เกิดข้อผิดพลาด: ${error}`)
-  }, [])
+// ── Main App ─────────────────────────────────────────────────────────
 
-  const handleExport = useCallback(() => {
-    const canvasEl = document.querySelector('.upper-canvas') as HTMLCanvasElement | null
-    if (!canvasEl) {
+function App() {
+  const store = useAppStore()
+  const stageRef = useRef<Konva.Stage>(null)
+  const editorRef = useRef<CanvasEditorHandle>(null)
+  const [canvasScale, setCanvasScale] = useState(1)
+  const [retryCount, setRetryCount] = useState(0)
+
+  const selectedRegion = store.regions.find((r) => r.id === store.selectedRegionId) ?? null
+  const editImageUrl = store.cleanedImageUrl || store.originalImageUrl
+  const originalFileName = store.images[0]?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
+
+  // Init: restore custom fonts
+  useEffect(() => { store.init() }, [])
+
+  const handleGoToEdit = useCallback(() => {
+    if (store.images.length === 0) return
+    if (store.imageEntries.length === 0) {
+      store.addImageEntries(store.images)
+    }
+    store.goToEdit()
+  }, [store])
+
+  const handleContinueToExport = useCallback(() => {
+    const stage = stageRef.current
+    if (!stage) {
       toast.error('ไม่พบ canvas สำหรับ export')
       return
     }
-    exportAndDownload(canvasEl, 'manga-translated', {
-      format: exportFormat,
-      quality: exportQuality / 100,
-      scale: 1,
+    // Deselect all to hide transformer handles before capture
+    editorRef.current?.deselectAll()
+    // Small delay to let the deselect render
+    setTimeout(() => {
+      const dataUrl = renderStageToDataUrl(stage, canvasScale)
+      store.setTranslatedImageUrl(dataUrl)
+      store.setStep('export')
+    }, 50)
+  }, [canvasScale, store])
+
+  const handleExport = useCallback(() => {
+    const url = store.translatedImageUrl
+    if (!url) {
+      toast.error('ไม่มีรูปที่แปลแล้ว')
+      return
+    }
+    exportFromDataUrl(url, originalFileName, {
+      format: store.exportFormat,
+      quality: store.exportQuality / 100,
     })
     toast.success('ดาวน์โหลดสำเร็จ!')
-  }, [exportFormat, exportQuality])
+  }, [store, originalFileName])
 
-  const handleStartProcess = useCallback(() => {
-    setProcessError(null)
-    setLogs([])
-    setCurrentStep('process')
-    toast.info('เริ่มประมวลผล...')
-  }, [])
+  const handleStartAI = useCallback(() => {
+    if (!store.images[0]) return
+    setRetryCount(0)
+    store.startProcess()
+  }, [store])
+
+  const handleRetryAI = useCallback(() => {
+    store.setProcessError(null)
+    setRetryCount((c) => c + 1)
+    store.startProcess()
+  }, [store])
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-base-200">
-      {/* Header — logo + steps (inline) + settings */}
-      <div className="navbar bg-base-100 shadow-lg border-b border-base-300 min-h-0 py-1 px-4 shrink-0">
-        <div className="flex-none">
-          <span className="text-lg font-bold tracking-tight">
-            📖 MG_Translater
-          </span>
-          <span className="badge badge-sm badge-ghost ml-2">v0.1</span>
+    <div className="h-screen flex flex-col overflow-hidden dot-canvas">
+      {/* ── Seamless Navbar ── */}
+      <div className="flex items-center justify-between px-4 py-1.5 shrink-0 z-30 bg-linear-to-b from-base-300/60 to-transparent backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <BookOpen size={18} className="text-primary" />
+          <span className="text-sm font-bold tracking-tight">MG_Translater</span>
+          <span className="badge badge-xs badge-ghost">v0.5</span>
         </div>
 
-        {/* Steps — center, only show when not on upload */}
-        {currentStep !== 'upload' && (
-          <div className="flex-1 flex justify-center">
-            <ul className="steps steps-horizontal text-xs">
-              {STEPS.map((step, i) => (
-                <li
-                  key={step.id}
-                  className={`step ${i <= stepIndex ? 'step-primary' : ''}`}
-                >
-                  {step.label}
-                </li>
-              ))}
-            </ul>
+        {/* Step indicator — minimal */}
+        {store.currentStep !== 'upload' && (
+          <div className="flex items-center gap-1 text-xs">
+            {['Upload', 'Edit', 'Export'].map((label, i) => {
+              const stepMap = ['upload', 'edit', 'export']
+              const idx = stepMap.indexOf(store.currentStep)
+              return (
+                <span key={label} className={`px-2 py-0.5 rounded-full transition-all ${
+                  i <= idx ? 'bg-primary/20 text-primary font-bold' : 'text-base-content/30'
+                }`}>
+                  {i + 1}. {label}
+                </span>
+              )
+            })}
           </div>
         )}
-        {currentStep === 'upload' && <div className="flex-1" />}
 
-        <div className="flex-none gap-1">
+        <div className="flex items-center gap-1">
           <button
-            className="btn btn-ghost btn-sm btn-square"
-            onClick={() => setShowFontConfig(true)}
+            className="btn btn-ghost btn-xs btn-square"
+            onClick={() => store.toggleFontConfig(true)}
             title="Fonts"
           >
-            🔤
+            <Type size={14} />
           </button>
           <button
-            className="btn btn-ghost btn-sm btn-square"
-            onClick={() => setShowSettings(true)}
+            className="btn btn-ghost btn-xs btn-square"
+            onClick={() => store.toggleSettings(true)}
             title="Settings"
           >
-            ⚙️
+            <Settings size={14} />
           </button>
         </div>
       </div>
 
-      {/* Main content — fills remaining viewport */}
-      <div className="flex-1 overflow-hidden p-3">
-        {/* Upload Step */}
-        {currentStep === 'upload' && (
-          <div className="h-full flex items-center justify-center">
-            <div className="card bg-base-100 shadow-xl max-w-xl w-full">
-              <div className="card-body items-center text-center">
-                <h2 className="card-title text-2xl mb-2">Upload Manga Images</h2>
-                <p className="text-base-content/60 mb-4 text-sm">
+      {/* ── Main content ── */}
+      <div className="flex-1 overflow-hidden relative">
+
+        {/* ============ Upload Step ============ */}
+        {store.currentStep === 'upload' && (
+          <div className="h-full flex items-center justify-center p-6">
+            <div className="max-w-lg w-full text-center space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">Upload Manga Images</h2>
+                <p className="text-base-content/50 text-sm">
                   ลากรูปมังงะมาวาง หรือเลือกไฟล์เพื่อเริ่มแปล
                 </p>
+              </div>
 
-                <ImageUploader
-                  onImagesSelected={setImages}
-                  selectedImages={images}
+              <ImageUploader
+                onImagesSelected={store.setImages}
+                selectedImages={store.images}
+              />
+
+              <button
+                className="btn btn-primary btn-lg gap-2 shadow-lg w-full max-w-xs mx-auto"
+                disabled={store.images.length === 0}
+                onClick={handleGoToEdit}
+              >
+                <ImageIcon size={18} />
+                Open in Editor
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ============ Edit Step — full canvas + floating panels ============ */}
+        {store.currentStep === 'edit' && (
+          <>
+            {/* Full-bleed Canvas */}
+            <div className="absolute inset-0">
+              {editImageUrl ? (
+                <CanvasEditor
+                  imageUrl={editImageUrl}
+                  regions={store.regions}
+                  onRegionUpdate={store.updateRegion}
+                  onRegionDelete={store.deleteRegion}
+                  onSelectedRegion={store.selectRegion}
+                  stageRef={stageRef}
+                  onScaleChange={setCanvasScale}
+                  editorRef={editorRef}
                 />
+              ) : (
+                <div className="h-full flex items-center justify-center dot-canvas">
+                  <p className="text-base-content/30 text-lg">ไม่มีรูปภาพ</p>
+                </div>
+              )}
+            </div>
 
-                <div className="card-actions mt-4">
+            {/* Top overlay toolbar — right-aligned only, no overlap */}
+            <div className="absolute top-2 right-3 z-20 pointer-events-none">
+              <div className="pointer-events-auto flex items-center gap-2">
+                <span className="text-xs text-base-content/50 bg-base-300/70 backdrop-blur-sm rounded-full px-3 py-1">
+                  {store.regions.length} regions · {store.brushStrokes.length} strokes
+                </span>
+                <button
+                  className="btn btn-ghost btn-sm gap-1 bg-base-300/70 backdrop-blur-sm"
+                  onClick={store.resetToUpload}
+                >
+                  <ArrowLeft size={14} /> เริ่มใหม่
+                </button>
+                {!store.isProcessing && (
                   <button
-                    className="btn btn-primary"
-                    disabled={images.length === 0}
-                    onClick={handleStartProcess}
+                    className="btn btn-secondary btn-sm gap-1 shadow-md"
+                    onClick={handleStartAI}
+                    disabled={!store.images[0]}
                   >
-                    Start Processing →
+                    <Wand2 size={14} /> AI Process
+                  </button>
+                )}
+                {store.isProcessing && (
+                  <span className="btn btn-sm btn-disabled gap-1">
+                    <Loader2 size={14} className="animate-spin" /> Processing...
+                  </span>
+                )}
+                <button
+                  className="btn btn-primary btn-sm gap-1 shadow-md"
+                  onClick={handleContinueToExport}
+                >
+                  Export <ArrowRight size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Inline Processing overlay */}
+            {store.isProcessing && store.images[0] && (
+              <div className="absolute inset-0 z-10 bg-base-100/50 backdrop-blur-sm flex items-center justify-center">
+                <div className="w-full max-w-xl">
+                  <ProcessingView
+                    imageFile={store.images[0]}
+                    sourceLang={store.settings.sourceLang}
+                    apiKey={store.settings.geminiApiKey}
+                    onComplete={store.completeProcess}
+                    onError={(e) => store.setProcessError(e)}
+                    onLog={store.addLog}
+                    retryCount={retryCount}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error retry overlay */}
+            {!store.isProcessing && store.processError && (
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 floating-panel px-4 py-3 max-w-sm text-center panel-enter">
+                <p className="text-sm text-error font-medium mb-2">{store.processError}</p>
+                <div className="flex items-center justify-center gap-2">
+                  <button className="btn btn-sm btn-primary gap-1" onClick={handleRetryAI}>
+                    <RotateCcw size={12} /> Retry
+                  </button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => store.setProcessError(null)}>
+                    Dismiss
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
+            )}
+
+            {/* Multi-image thumbnail strip */}
+            <ImageStrip />
+
+            {/* Floating Brush Toolbar */}
+            {store.panels.brush && (
+              <BrushToolbar onClose={() => store.togglePanel('brush', false)} />
+            )}
+
+            {/* Floating Properties Panel */}
+            {store.panels.properties && selectedRegion && (
+              <FloatingProperties
+                region={selectedRegion}
+                onUpdate={store.updateRegion}
+                onDelete={store.deleteRegion}
+              />
+            )}
+
+            {/* Floating Resource Monitor */}
+            {store.panels.resource && (
+              <ResourceMonitor isProcessing={store.isProcessing} />
+            )}
+
+            {/* Floating Logs — always show when panel toggled on */}
+            {store.panels.logs && (
+              <div className="fixed bottom-14 left-3 z-40 w-96 h-52">
+                <LogPanel logs={store.logs} />
+              </div>
+            )}
+          </>
         )}
 
-        {/* Process Step — two-column: progress left, logs right */}
-        {currentStep === 'process' && (
-          <div className="h-full flex gap-3">
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="card bg-base-100 shadow-xl w-full max-w-md">
-                <div className="card-body items-center text-center">
-                  <h2 className="card-title text-xl mb-3">Processing</h2>
-
-                  {images[0] ? (
-                    <ProcessingView
-                      imageFile={images[0]}
-                      sourceLang={settings.sourceLang}
-                      onComplete={handleProcessComplete}
-                      onError={handleProcessError}
-                      onLog={handleAddLog}
-                    />
-                  ) : (
-                    <div className="alert alert-warning">
-                      <span>ไม่มีรูปภาพ — กรุณากลับไปอัพโหลดก่อน</span>
-                    </div>
-                  )}
-
-                  {processError && (
-                    <div className="alert alert-error mt-3 text-sm">
-                      <span>{processError}</span>
-                    </div>
-                  )}
-
-                  <div className="card-actions mt-4">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setCurrentStep('upload')}
-                    >
-                      ← Back
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: logs panel */}
-            <div className="w-80 shrink-0 h-full">
-              <LogPanel logs={logs} />
-            </div>
-          </div>
-        )}
-
-        {/* Edit Step — toolbar + canvas + sidebar */}
-        {currentStep === 'edit' && (
-          <div className="h-full flex flex-col gap-2">
-            {/* Toolbar — zoom left, actions right */}
-            <div className="flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-base-content/40">
-                  {regions.length} regions
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setCurrentStep('upload')}
-                >
-                  ← Start Over
-                </button>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => setCurrentStep('export')}
-                >
-                  Continue to Export →
-                </button>
-              </div>
-            </div>
-
-            {/* Main area — canvas + sidebar */}
-            <div className="flex-1 flex gap-3 min-h-0">
-              {/* Canvas */}
-              <div className="flex-1 min-w-0 min-h-0">
-                {cleanedImageUrl ? (
-                  <CanvasEditor
-                    cleanedImageUrl={cleanedImageUrl}
-                    regions={regions}
-                    onRegionUpdate={handleRegionUpdate}
-                    onSelectedRegion={setSelectedRegionId}
-                  />
-                ) : (
-                  <div className="editor-canvas-area rounded-xl h-full flex items-center justify-center">
-                    <p className="text-base-content/30 text-lg">
-                      ไม่มีรูปที่ประมวลผลแล้ว
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Right sidebar: properties (top) + logs (bottom) */}
-              <div className="w-72 shrink-0 flex flex-col gap-2 min-h-0">
-                <div className="overflow-y-auto flex-1 min-h-0">
-                  <PropertiesPanel
-                    region={selectedRegion}
-                    onUpdate={handleRegionUpdate}
-                  />
-                </div>
-
-                {logs.length > 0 && (
-                  <div className="max-h-48 min-h-0 shrink-0">
-                    <LogPanel logs={logs} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Export Step */}
-        {currentStep === 'export' && (
-          <div className="h-full overflow-y-auto">
-            <div className="max-w-3xl mx-auto space-y-4">
-              {originalImageUrl && cleanedImageUrl && (
-                <div className="card bg-base-100 shadow-xl">
-                  <div className="card-body py-4">
-                    <h2 className="card-title text-xl mb-2">Before / After</h2>
-                    <SplitView
-                      originalImageUrl={originalImageUrl}
-                      translatedImageUrl={cleanedImageUrl}
-                    />
-                  </div>
-                </div>
+        {/* ============ Export Step ============ */}
+        {store.currentStep === 'export' && (
+          <div className="h-full flex gap-3 p-3">
+            <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+              {store.originalImageUrl && store.translatedImageUrl && (
+                <SplitView
+                  originalImageUrl={store.originalImageUrl}
+                  translatedImageUrl={store.translatedImageUrl}
+                />
               )}
-
-              <div className="card bg-base-100 shadow-xl">
-                <div className="card-body items-center text-center py-4">
-                  <h2 className="card-title text-xl mb-3">Export</h2>
-
-                  <div className="w-full max-w-md space-y-3">
+            </div>
+            <div className="w-72 shrink-0 flex flex-col gap-3">
+              <div className="card floating-panel">
+                <div className="card-body py-4 gap-3">
+                  <h2 className="card-title text-lg">Export</h2>
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text text-sm">Format</span>
+                    </label>
+                    <select
+                      className="select select-bordered select-sm w-full"
+                      value={store.exportFormat}
+                      onChange={(e) => store.setExportFormat(e.target.value as ExportFormat)}
+                    >
+                      <option value="png">PNG (lossless)</option>
+                      <option value="jpg">JPG (smaller file)</option>
+                      <option value="webp">WebP (best balance)</option>
+                    </select>
+                  </div>
+                  {store.exportFormat !== 'png' && (
                     <div className="form-control">
                       <label className="label py-1">
-                        <span className="label-text">Format</span>
+                        <span className="label-text text-sm">Quality: {store.exportQuality}%</span>
                       </label>
-                      <select
-                        className="select select-bordered select-sm w-full"
-                        value={exportFormat}
-                        onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
-                      >
-                        <option value="png">PNG (lossless)</option>
-                        <option value="jpg">JPG (smaller file)</option>
-                        <option value="webp">WebP (best balance)</option>
-                      </select>
+                      <input
+                        type="range"
+                        className="range range-primary range-sm"
+                        min={10}
+                        max={100}
+                        value={store.exportQuality}
+                        onChange={(e) => store.setExportQuality(Number(e.target.value))}
+                      />
                     </div>
-
-                    {exportFormat !== 'png' && (
-                      <div className="form-control">
-                        <label className="label py-1">
-                          <span className="label-text">Quality: {exportQuality}%</span>
-                        </label>
-                        <input
-                          type="range"
-                          className="range range-primary range-sm"
-                          min={10}
-                          max={100}
-                          value={exportQuality}
-                          onChange={(e) => setExportQuality(Number(e.target.value))}
-                        />
-                      </div>
-                    )}
-
-                    <button
-                      className="btn btn-primary w-full"
-                      onClick={handleExport}
-                    >
-                      💾 Download
-                    </button>
-                  </div>
-
-                  <div className="card-actions mt-3">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setCurrentStep('edit')}
-                    >
-                      ← Back to Editor
-                    </button>
-                  </div>
+                  )}
+                  <button className="btn btn-primary w-full gap-2" onClick={handleExport}>
+                    <Download size={16} /> Download
+                  </button>
                 </div>
               </div>
+              <button
+                className="btn btn-ghost btn-sm gap-1"
+                onClick={() => store.setStep('edit')}
+              >
+                <ArrowLeft size={14} /> Back to Editor
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Modals */}
+      {/* ── Panel toggle bar ── */}
+      <PanelToggleBar />
+
+      {/* ── Floating quota bar ── */}
+      {store.panels.quota && <FloatingQuotaBar />}
+
+      {/* ── Modals ── */}
       <SettingsPanel
-        settings={settings}
-        onSave={setSettings}
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
+        settings={store.settings}
+        onSave={store.setSettings}
+        isOpen={store.showSettings}
+        onClose={() => store.toggleSettings(false)}
       />
       <FontConfigPage
-        moodMap={settings.fontMoodMap}
-        onSave={(moodMap) => setSettings((s) => ({ ...s, fontMoodMap: moodMap }))}
-        isOpen={showFontConfig}
-        onClose={() => setShowFontConfig(false)}
+        moodMap={store.settings.fontMoodMap}
+        onSave={(moodMap) => store.setSettings({ ...store.settings, fontMoodMap: moodMap })}
+        isOpen={store.showFontConfig}
+        onClose={() => store.toggleFontConfig(false)}
       />
-      <Toaster position="bottom-right" theme="dark" richColors closeButton />
+      <Toaster position="top-right" theme="dark" richColors closeButton />
+    </div>
+  )
+}
+
+// ── Floating Properties wrapper ──────────────────────────────────────
+
+function FloatingProperties({
+  region,
+  onUpdate,
+  onDelete,
+}: {
+  region: TextRegion
+  onUpdate: (id: string, u: Partial<TextRegion>) => void
+  onDelete: (id: string) => void
+}) {
+  const { panelStyle, dragHandleProps } = useFloatingPanel({
+    id: 'properties-panel',
+    defaultPosition: { x: window.innerWidth - 300, y: 60 },
+    defaultVisible: true,
+  })
+  const togglePanel = useAppStore((s) => s.togglePanel)
+
+  return (
+    <div style={panelStyle} className="floating-panel p-3 w-72 max-h-[80vh] overflow-y-auto panel-enter">
+      <div className="flex items-center justify-between mb-2">
+        <div {...dragHandleProps} className="flex items-center gap-1 drag-handle flex-1">
+          <GripVertical size={14} className="text-base-content/30" />
+          <span className="text-xs font-bold uppercase tracking-wider text-base-content/50">
+            Properties
+          </span>
+        </div>
+        <button
+          className="btn btn-ghost btn-xs btn-square"
+          onClick={() => togglePanel('properties', false)}
+        >
+          <X size={12} />
+        </button>
+      </div>
+      <PropertiesPanel region={region} onUpdate={onUpdate} onDelete={onDelete} />
     </div>
   )
 }

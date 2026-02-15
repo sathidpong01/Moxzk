@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FontDefinition, FontMoodMap, MoodType } from '../../types'
 import { BUILT_IN_FONTS, MOOD_LABELS, registerCustomFont, restoreCustomFont, fontToCss } from '../../config/fonts'
 import { getAllFonts, deleteFont as deleteFontFromDB } from '../../services/fontStorage'
+import { Type, RotateCcw, X as XIcon, Save } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface FontConfigPageProps {
   moodMap: FontMoodMap
@@ -74,6 +76,7 @@ export default function FontConfigPage({
   const handleSave = () => {
     onSave(draft)
     onClose()
+    toast.success('บันทึกการตั้งค่าฟอนต์เรียบร้อย')
   }
 
   if (!isOpen) return null
@@ -81,7 +84,9 @@ export default function FontConfigPage({
   return (
     <dialog className="modal modal-open">
       <div className="modal-box max-w-2xl">
-        <h3 className="text-lg font-bold mb-4">🔤 Font Configuration</h3>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <Type size={18} /> Font Configuration
+        </h3>
 
         {/* Mood → Font mapping table */}
         <div className="overflow-x-auto">
@@ -185,14 +190,14 @@ export default function FontConfigPage({
         )}
 
         <div className="modal-action">
-          <button className="btn btn-ghost" onClick={() => setDraft({ ...moodMap })}>
-            Reset
+          <button className="btn btn-ghost gap-1" onClick={() => setDraft({ ...moodMap })}>
+            <RotateCcw size={14} /> Reset
           </button>
-          <button className="btn btn-ghost" onClick={onClose}>
-            Cancel
+          <button className="btn btn-ghost gap-1" onClick={onClose}>
+            <XIcon size={14} /> Cancel
           </button>
-          <button className="btn btn-primary" onClick={handleSave}>
-            Save
+          <button className="btn btn-primary gap-1" onClick={handleSave}>
+            <Save size={14} /> Save
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 {
   "name": "mg-translater",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,13 +10,20 @@
   },
   "dependencies": {
     "@google/genai": "^1.41.0",
-    "fabric": "^7.1.0",
+    "file-saver": "^2.0.5",
+    "konva": "^10.2.0",
+    "lucide-react": "^0.564.0",
     "react": "^19.2.4",
+    "react-compare-slider": "^3.1.0",
     "react-dom": "^19.2.4",
-    "sonner": "^2.0.7"
+    "react-dropzone": "^15.0.0",
+    "react-konva": "^19.2.2",
+    "sonner": "^2.0.7",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
+    "@types/file-saver": "^2.0.7",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",

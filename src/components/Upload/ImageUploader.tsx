@@ -1,4 +1,6 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useDropzone } from 'react-dropzone'
+import { Upload, X, Trash2, ImageIcon } from 'lucide-react'
 
 interface ImageUploaderProps {
   onImagesSelected: (files: File[]) => void
@@ -6,59 +8,37 @@ interface ImageUploaderProps {
 }
 
 export default function ImageUploader({ onImagesSelected, selectedImages }: ImageUploaderProps) {
-  const [isDragging, setIsDragging] = useState(false)
   const [previews, setPreviews] = useState<string[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFiles = useCallback(
-    (files: FileList | File[]) => {
-      const imageFiles = Array.from(files).filter((f) =>
-        f.type.startsWith('image/'),
-      )
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      const imageFiles = acceptedFiles.filter((f) => f.type.startsWith('image/'))
       if (imageFiles.length === 0) return
-
       onImagesSelected([...selectedImages, ...imageFiles])
-
       const newPreviews = imageFiles.map((f) => URL.createObjectURL(f))
       setPreviews((prev) => [...prev, ...newPreviews])
     },
     [onImagesSelected, selectedImages],
   )
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-  }, [])
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      setIsDragging(false)
-      if (e.dataTransfer.files.length > 0) {
-        handleFiles(e.dataTransfer.files)
-      }
-    },
-    [handleFiles],
-  )
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
+    multiple: true,
+  })
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
-      const items = e.clipboardData.items
       const files: File[] = []
-      for (const item of items) {
+      for (const item of e.clipboardData.items) {
         if (item.type.startsWith('image/')) {
           const file = item.getAsFile()
           if (file) files.push(file)
         }
       }
-      if (files.length > 0) handleFiles(files)
+      if (files.length > 0) onDrop(files)
     },
-    [handleFiles],
+    [onDrop],
   )
 
   const handleRemove = useCallback(
@@ -80,32 +60,25 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
     <div className="w-full space-y-4" onPaste={handlePaste} tabIndex={0}>
       {/* Drop zone */}
       <div
+        {...getRootProps()}
         className={`border-2 border-dashed rounded-2xl p-12 w-full transition-all cursor-pointer
-          ${isDragging ? 'border-primary bg-primary/5 scale-[1.01]' : 'border-base-300 hover:border-primary/50'}`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
+          ${isDragActive ? 'border-primary bg-primary/5 scale-[1.01]' : 'border-base-300 hover:border-primary/50'}`}
       >
+        <input {...getInputProps()} />
         <div className="flex flex-col items-center gap-3">
-          <span className="text-5xl">{isDragging ? '📥' : '🖼️'}</span>
+          {isDragActive ? (
+            <Upload className="w-12 h-12 text-primary animate-bounce" />
+          ) : (
+            <ImageIcon className="w-12 h-12 text-base-content/30" />
+          )}
           <p className="text-base-content/60 text-lg">
-            {isDragging ? 'วางรูปที่นี่!' : 'ลากรูปมาวาง, วาง (Ctrl+V), หรือคลิกเลือก'}
+            {isDragActive ? 'วางรูปที่นี่!' : 'ลากรูปมาวาง, วาง (Ctrl+V), หรือคลิกเลือก'}
           </p>
           <p className="text-base-content/30 text-sm">
             รองรับ: JPG, PNG, WebP — เลือกได้หลายรูป
           </p>
         </div>
       </div>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        accept="image/*"
-        multiple
-        onChange={(e) => e.target.files && handleFiles(e.target.files)}
-      />
 
       {/* Preview thumbnails */}
       {previews.length > 0 && (
@@ -115,9 +88,10 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
               {previews.length} รูปที่เลือก
             </span>
             <button
-              className="btn btn-ghost btn-xs text-error"
+              className="btn btn-ghost btn-xs text-error gap-1"
               onClick={handleClearAll}
             >
+              <Trash2 size={12} />
               ลบทั้งหมด
             </button>
           </div>
@@ -136,7 +110,7 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
                     handleRemove(i)
                   }}
                 >
-                  ✕
+                  <X size={10} />
                 </button>
                 <span className="absolute bottom-1 left-1 badge badge-sm badge-neutral">
                   {i + 1}

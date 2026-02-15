@@ -163,9 +163,11 @@ export async function processImage(
   config: TranslatorConfig = DEFAULT_CONFIG,
   onProgress?: (progress: StreamProgress) => void,
 ): Promise<TranslatorResponse> {
+  // Only pass onProgress to JSON stream to avoid duplicate logs
+  // (both endpoints trigger the same Docker pipeline)
   const [regions, cleanedImageBlob] = await Promise.all([
     translateImageJson(file, config, onProgress),
-    translateImageStream(file, config, onProgress),
+    translateImageStream(file, config),
   ])
 
   return { regions, cleanedImageBlob }

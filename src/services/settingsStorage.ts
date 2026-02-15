@@ -7,6 +7,7 @@ interface SerializedSettings {
   translatorApiUrl: string
   sourceLang: string
   fontMoodMap: FontMoodMap
+  theme?: string
 }
 
 export function saveSettings(settings: AppSettings): void {
@@ -16,6 +17,7 @@ export function saveSettings(settings: AppSettings): void {
       translatorApiUrl: settings.translatorApiUrl,
       sourceLang: settings.sourceLang,
       fontMoodMap: settings.fontMoodMap,
+      theme: settings.theme,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(serialized))
   } catch (err) {
@@ -34,6 +36,7 @@ export function loadSettings(defaults: AppSettings): AppSettings {
       translatorApiUrl: parsed.translatorApiUrl || defaults.translatorApiUrl,
       sourceLang: (parsed.sourceLang as AppSettings['sourceLang']) || defaults.sourceLang,
       fontMoodMap: parsed.fontMoodMap || defaults.fontMoodMap,
+      theme: parsed.theme || defaults.theme,
     }
   } catch (err) {
     console.error('Failed to load settings:', err)

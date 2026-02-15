@@ -17,6 +17,8 @@ export interface TextRegion {
   fontSize: number
   fontColor: string
   rotation: number
+  strokeWidth: number
+  strokeColor: string
 }
 
 export interface TranslatorConfig {
@@ -62,7 +64,38 @@ export interface ExportOptions {
   scale: number
 }
 
-export type AppStep = 'upload' | 'process' | 'edit' | 'export'
+export type AppStep = 'upload' | 'edit' | 'export'
+
+export type ActiveTool = 'select' | 'pan' | 'brush' | 'eraser' | 'eyedropper'
+
+export interface BrushStroke {
+  id: string
+  points: number[]
+  color: string
+  width: number
+  opacity: number
+  shadowBlur: number
+  tool: 'brush' | 'eraser'
+}
+
+export type ImageEntryStatus = 'pending' | 'processing' | 'done' | 'error'
+
+export interface ImageEntry {
+  id: string
+  file: File
+  originalUrl: string
+  cleanedImageUrl: string | null
+  regions: TextRegion[]
+  brushStrokes: BrushStroke[]
+  status: ImageEntryStatus
+  error?: string
+}
+
+export interface FloatingPanelPosition {
+  x: number
+  y: number
+  visible: boolean
+}
 
 export interface AppState {
   currentStep: AppStep
@@ -77,4 +110,5 @@ export interface AppSettings {
   translatorApiUrl: string
   sourceLang: 'auto' | 'ja' | 'zh' | 'en'
   fontMoodMap: FontMoodMap
+  theme: string
 }

@@ -1,10 +1,12 @@
 import type { TextRegion, MoodType } from '../../types'
 import { MOOD_LABELS } from '../../config/fonts'
 import FontSelector from './FontSelector'
+import { Trash2, RotateCcw } from 'lucide-react'
 
 interface PropertiesPanelProps {
   region: TextRegion | null
   onUpdate: (id: string, updates: Partial<TextRegion>) => void
+  onDelete?: (id: string) => void
 }
 
 const MOODS: MoodType[] = ['normal', 'shouting', 'whisper', 'comedy', 'narration', 'sfx']
@@ -12,6 +14,7 @@ const MOODS: MoodType[] = ['normal', 'shouting', 'whisper', 'comedy', 'narration
 export default function PropertiesPanel({
   region,
   onUpdate,
+  onDelete,
 }: PropertiesPanelProps) {
   if (!region) {
     return (
@@ -47,7 +50,7 @@ export default function PropertiesPanel({
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50 mb-1">
-                Size: {region.fontSize}px
+                Size: {Math.round(region.fontSize)}px
               </h3>
               <input
                 type="range"
@@ -78,6 +81,67 @@ export default function PropertiesPanel({
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Text Stroke/Outline */}
+      <div className="card bg-base-200 card-compact">
+        <div className="card-body py-2">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50 mb-1">
+                Stroke: {region.strokeWidth}px
+              </h3>
+              <input
+                type="range"
+                className="range range-secondary range-xs w-full"
+                min={0}
+                max={8}
+                step={0.5}
+                value={region.strokeWidth}
+                onChange={(e) => onUpdate(region.id, { strokeWidth: Number(e.target.value) })}
+              />
+            </div>
+            <div className="shrink-0">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50 mb-1">
+                Stroke Color
+              </h3>
+              <input
+                type="color"
+                className="w-7 h-7 rounded cursor-pointer"
+                value={region.strokeColor}
+                onChange={(e) => onUpdate(region.id, { strokeColor: e.target.value })}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Rotation */}
+      <div className="card bg-base-200 card-compact">
+        <div className="card-body py-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
+              Rotation: {Math.round(region.rotation)}°
+            </h3>
+            {region.rotation !== 0 && (
+              <button
+                className="btn btn-ghost btn-xs gap-1"
+                onClick={() => onUpdate(region.id, { rotation: 0 })}
+                title="Reset rotation"
+              >
+                <RotateCcw size={10} /> 0°
+              </button>
+            )}
+          </div>
+          <input
+            type="range"
+            className="range range-secondary range-xs w-full"
+            min={-180}
+            max={180}
+            value={region.rotation}
+            onChange={(e) => onUpdate(region.id, { rotation: Number(e.target.value) })}
+          />
         </div>
       </div>
 
@@ -127,6 +191,17 @@ export default function PropertiesPanel({
           </p>
         </div>
       </div>
+
+      {/* Delete button */}
+      {onDelete && (
+        <button
+          className="btn btn-error btn-sm w-full gap-2"
+          onClick={() => onDelete(region.id)}
+        >
+          <Trash2 size={14} />
+          Delete Region
+        </button>
+      )}
     </div>
   )
 }

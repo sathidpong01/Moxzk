@@ -1,215 +1,385 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import * as fabric from 'fabric'
-import type { TextRegion } from '../../types'
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { Stage, Layer, Image as KonvaImage, Text, Transformer, Line } from 'react-konva'
+import Konva from 'konva'
+import type { TextRegion, BrushStroke } from '../../types'
 import { resolveFont } from '../../config/fonts'
+import { useAppStore } from '../../store/appStore'
+import { Hand, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
+import { toast } from 'sonner'
 
-interface CanvasEditorProps {
-  cleanedImageUrl: string
-  regions: TextRegion[]
-  onRegionUpdate: (id: string, updates: Partial<TextRegion>) => void
-  onSelectedRegion: (id: string | null) => void
+export interface CanvasEditorHandle {
+  deselectAll: () => void
 }
 
-type FabricObj = fabric.FabricObject & { data?: Record<string, unknown> }
+interface CanvasEditorProps {
+  imageUrl: string
+  regions: TextRegion[]
+  onRegionUpdate: (id: string, updates: Partial<TextRegion>) => void
+  onRegionDelete: (id: string) => void
+  onSelectedRegion: (id: string | null) => void
+  stageRef?: React.RefObject<Konva.Stage | null>
+  onScaleChange?: (scale: number) => void
+  editorRef?: React.RefObject<CanvasEditorHandle | null>
+}
 
 export default function CanvasEditor({
-  cleanedImageUrl,
+  imageUrl,
   regions,
   onRegionUpdate,
+  onRegionDelete,
   onSelectedRegion,
+  stageRef: externalStageRef,
+  onScaleChange,
+  editorRef,
 }: CanvasEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const fabricRef = useRef<fabric.Canvas | null>(null)
-  const [imgScale, setImgScale] = useState(1)
-  const scaleRef = useRef(1)
+  const internalStageRef = useRef<Konva.Stage>(null)
+  const stageRef = externalStageRef ?? internalStageRef
+  const transformerRef = useRef<Konva.Transformer>(null)
+
+  const [image, setImage] = useState<HTMLImageElement | null>(null)
+  const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
+  const [scale, setScale] = useState(1)
   const [zoom, setZoom] = useState(1)
   const [zoomInput, setZoomInput] = useState('100')
-  const [isPanning, setIsPanning] = useState(false)
-  const isPanningRef = useRef(false)
-  const panState = useRef({ active: false, lastX: 0, lastY: 0 })
+  const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  // Sync panning ref for use in event handlers
-  useEffect(() => {
-    isPanningRef.current = isPanning
-    const canvas = fabricRef.current
-    if (!canvas) return
-    canvas.defaultCursor = isPanning ? 'grab' : 'default'
-    canvas.selection = !isPanning
-  }, [isPanning])
+  // Paint state
+  const isDrawing = useRef(false)
+  const currentStrokePoints = useRef<number[]>([])
+  const [drawingLine, setDrawingLine] = useState<number[] | null>(null)
 
-  // Initialize fabric canvas once
-  useEffect(() => {
-    if (!canvasRef.current) return
+  // Eyedropper preview state
+  const [eyedropPreview, setEyedropPreview] = useState<{x: number; y: number; color: string} | null>(null)
+  const eyedropCacheRef = useRef<ImageData | null>(null)
 
-    const canvas = new fabric.Canvas(canvasRef.current, {
-      backgroundColor: '#1a1a2e',
-      selection: true,
-    })
-    fabricRef.current = canvas
+  // Store
+  const activeTool = useAppStore((s) => s.activeTool)
+  const brushColor = useAppStore((s) => s.brushColor)
+  const brushSize = useAppStore((s) => s.brushSize)
+  const brushOpacity = useAppStore((s) => s.brushOpacity)
+  const brushShadowBlur = useAppStore((s) => s.brushShadowBlur)
+  const brushStrokes = useAppStore((s) => s.brushStrokes)
+  const addBrushStroke = useAppStore((s) => s.addBrushStroke)
+  const setBrushColor = useAppStore((s) => s.setBrushColor)
 
-    canvas.on('selection:created', (e) => {
-      const target = e.selected?.[0] as FabricObj | undefined
-      if (target?.data?.regionId) {
-        onSelectedRegion(target.data.regionId as string)
-      }
-    })
+  const isPanning = activeTool === 'pan'
+  const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
+  const isEyedropper = activeTool === 'eyedropper'
 
-    canvas.on('selection:updated', (e) => {
-      const target = e.selected?.[0] as FabricObj | undefined
-      if (target?.data?.regionId) {
-        onSelectedRegion(target.data.regionId as string)
-      }
-    })
-
-    canvas.on('selection:cleared', () => {
+  // Expose deselect for export
+  useImperativeHandle(editorRef, () => ({
+    deselectAll: () => {
+      setSelectedId(null)
       onSelectedRegion(null)
-    })
+      transformerRef.current?.nodes([])
+      transformerRef.current?.getLayer()?.batchDraw()
+    },
+  }), [onSelectedRegion])
 
-    canvas.on('object:modified', (e) => {
-      const target = e.target as FabricObj | undefined
-      if (!target?.data?.regionId) return
-      const s = scaleRef.current
-      const regionId = target.data.regionId as string
-      onRegionUpdate(regionId, {
-        bbox: {
-          x: (target.left ?? 0) / s,
-          y: (target.top ?? 0) / s,
-          width: ((target.width ?? 100) * (target.scaleX ?? 1)) / s,
-          height: ((target.height ?? 30) * (target.scaleY ?? 1)) / s,
-        },
-        rotation: target.angle ?? 0,
-      })
-    })
-
-    // Scroll wheel zoom
-    canvas.on('mouse:wheel', (opt) => {
-      const e = opt.e as WheelEvent
-      const delta = e.deltaY
-      let newZoom = canvas.getZoom() * (delta > 0 ? 0.9 : 1.1)
-      newZoom = Math.max(0.1, Math.min(5, newZoom))
-      canvas.zoomToPoint(new fabric.Point(e.offsetX, e.offsetY), newZoom)
-      setZoom(newZoom)
-      setZoomInput(Math.round(newZoom * 100).toString())
-      e.preventDefault()
-      e.stopPropagation()
-    })
-
-    // Pan: Alt+drag, middle-click drag, or pan mode
-    canvas.on('mouse:down', (opt) => {
-      const e = opt.e as MouseEvent
-      if (isPanningRef.current || e.altKey || e.button === 1) {
-        panState.current = { active: true, lastX: e.clientX, lastY: e.clientY }
-        canvas.defaultCursor = 'grabbing'
-        canvas.selection = false
-      }
-    })
-    canvas.on('mouse:move', (opt) => {
-      if (!panState.current.active) return
-      const e = opt.e as MouseEvent
-      const vpt = canvas.viewportTransform!
-      vpt[4] += e.clientX - panState.current.lastX
-      vpt[5] += e.clientY - panState.current.lastY
-      panState.current.lastX = e.clientX
-      panState.current.lastY = e.clientY
-      canvas.requestRenderAll()
-    })
-    canvas.on('mouse:up', () => {
-      panState.current.active = false
-      if (fabricRef.current) {
-        fabricRef.current.defaultCursor = isPanningRef.current ? 'grab' : 'default'
-        if (!isPanningRef.current) fabricRef.current.selection = true
-      }
-    })
-
-    return () => {
-      canvas.dispose()
-      fabricRef.current = null
+  // Load image
+  useEffect(() => {
+    if (!imageUrl) return
+    const img = new window.Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      setImage(img)
+      fitImageToContainer(img)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    img.src = imageUrl
+  }, [imageUrl])
+
+  const fitImageToContainer = useCallback((img: HTMLImageElement) => {
+    const cw = containerRef.current?.clientWidth ?? 800
+    const ch = containerRef.current?.clientHeight ?? 600
+    const s = Math.min(cw / img.width, ch / img.height, 1)
+    setScale(s)
+    onScaleChange?.(s)
+    // Stage fills entire container — image centered via stagePos
+    setStageSize({ width: cw, height: ch })
+    setStagePos({
+      x: (cw - img.width * s) / 2,
+      y: (ch - img.height * s) / 2,
+    })
+    setZoom(1)
+    setZoomInput('100')
+  }, [onScaleChange])
+
+  // Resize observer — update stage size to match container
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const ro = new ResizeObserver(() => {
+      const cw = container.clientWidth
+      const ch = container.clientHeight
+      if (cw > 0 && ch > 0) {
+        setStageSize({ width: cw, height: ch })
+      }
+    })
+    ro.observe(container)
+    return () => ro.disconnect()
   }, [])
 
-  // Load background image
+  // Update transformer when selection changes
   useEffect(() => {
-    const canvas = fabricRef.current
-    if (!canvas || !cleanedImageUrl) return
+    const tr = transformerRef.current
+    const stage = stageRef.current
+    if (!tr || !stage) return
 
-    let cancelled = false
+    if (selectedId) {
+      const node = stage.findOne('#' + selectedId)
+      if (node) {
+        tr.nodes([node])
+        tr.getLayer()?.batchDraw()
+        return
+      }
+    }
+    tr.nodes([])
+    tr.getLayer()?.batchDraw()
+  }, [selectedId, regions, stageRef])
 
-    fabric.FabricImage.fromURL(cleanedImageUrl).then((img) => {
-      if (cancelled || !fabricRef.current) return
+  // Keyboard shortcuts: Delete key, Ctrl+Z/Y, Space for pan
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Don't delete if user is typing in an input
+        if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+        if (selectedId) {
+          onRegionDelete(selectedId)
+          setSelectedId(null)
+          onSelectedRegion(null)
+        }
+      }
+      if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault()
+        useAppStore.getState().undoBrushStroke()
+      }
+      if (e.ctrlKey && e.key === 'y') {
+        e.preventDefault()
+        useAppStore.getState().redoBrushStroke()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedId, onRegionDelete, onSelectedRegion])
 
-      const containerW = containerRef.current?.clientWidth ?? 800
-      const containerH = containerRef.current?.clientHeight ?? 600
-      const scale = Math.min(
-        containerW / (img.width ?? 800),
-        containerH / (img.height ?? 600),
-        1,
+  // Selection
+  const handleSelect = useCallback(
+    (regionId: string | null) => {
+      setSelectedId(regionId)
+      onSelectedRegion(regionId)
+    },
+    [onSelectedRegion],
+  )
+
+  const handleStageClick = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.target === e.target.getStage()) {
+        if (!isBrushActive && !isEyedropper) {
+          handleSelect(null)
+        }
+      }
+    },
+    [handleSelect, isBrushActive, isEyedropper],
+  )
+
+  // Eyedropper — build cache for fast sampling
+  const buildEyedropCache = useCallback(() => {
+    const stage = stageRef.current
+    if (!stage) return null
+    try {
+      const canvas = stage.toCanvas({ pixelRatio: 1 })
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      eyedropCacheRef.current = data
+      return data
+    } catch {
+      return null
+    }
+  }, [stageRef])
+
+  // Clear cache when leaving eyedropper
+  useEffect(() => {
+    if (!isEyedropper) {
+      eyedropCacheRef.current = null
+      setEyedropPreview(null)
+    }
+  }, [isEyedropper])
+
+  // Eyedropper click — confirm color and switch back
+  const handleEyedrop = useCallback(
+    (_e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!isEyedropper) return
+      if (eyedropPreview) {
+        setBrushColor(eyedropPreview.color)
+        toast.success(`Picked: ${eyedropPreview.color}`, { duration: 1500 })
+      }
+      useAppStore.getState().setActiveTool('brush')
+      setEyedropPreview(null)
+      eyedropCacheRef.current = null
+    },
+    [isEyedropper, eyedropPreview, setBrushColor],
+  )
+
+  // Eyedropper mousemove — real-time preview
+  const handleEyedropMove = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!isEyedropper) return
+      const stage = stageRef.current
+      if (!stage) return
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+
+      let cache = eyedropCacheRef.current
+      if (!cache) cache = buildEyedropCache()
+      if (!cache) return
+
+      const px = Math.round(pointer.x)
+      const py = Math.round(pointer.y)
+      if (px < 0 || py < 0 || px >= cache.width || py >= cache.height) return
+
+      const i = (py * cache.width + px) * 4
+      const hex = '#' + [cache.data[i], cache.data[i + 1], cache.data[i + 2]]
+        .map((v) => v.toString(16).padStart(2, '0'))
+        .join('')
+
+      setEyedropPreview({ x: e.evt.clientX, y: e.evt.clientY, color: hex })
+    },
+    [isEyedropper, stageRef, buildEyedropCache],
+  )
+
+  // Paint: mouse down — store points in IMAGE-SPACE (divide by scale)
+  const handlePaintStart = useCallback(
+    (_e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!isBrushActive) return
+      const stage = stageRef.current
+      if (!stage) return
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+
+      isDrawing.current = true
+      const x = (pointer.x - stagePos.x) / zoom / scale
+      const y = (pointer.y - stagePos.y) / zoom / scale
+      currentStrokePoints.current = [x, y]
+      setDrawingLine([x, y])
+    },
+    [isBrushActive, stageRef, stagePos, zoom, scale],
+  )
+
+  // Paint: mouse move
+  const handlePaintMove = useCallback(
+    (_e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!isDrawing.current || !isBrushActive) return
+      const stage = stageRef.current
+      if (!stage) return
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+
+      const x = (pointer.x - stagePos.x) / zoom / scale
+      const y = (pointer.y - stagePos.y) / zoom / scale
+      currentStrokePoints.current = [...currentStrokePoints.current, x, y]
+      setDrawingLine([...currentStrokePoints.current])
+    },
+    [isBrushActive, stageRef, stagePos, zoom, scale],
+  )
+
+  // Paint: mouse up
+  const handlePaintEnd = useCallback(() => {
+    if (!isDrawing.current) return
+    isDrawing.current = false
+
+    if (currentStrokePoints.current.length >= 2) {
+      const stroke: BrushStroke = {
+        id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        points: currentStrokePoints.current,
+        color: activeTool === 'eraser' ? '#000000' : brushColor,
+        width: brushSize,
+        opacity: brushOpacity,
+        shadowBlur: brushShadowBlur,
+        tool: activeTool as 'brush' | 'eraser',
+      }
+      addBrushStroke(stroke)
+    }
+    currentStrokePoints.current = []
+    setDrawingLine(null)
+  }, [activeTool, brushColor, brushSize, brushOpacity, brushShadowBlur, addBrushStroke])
+
+  // Drag end — update region bbox
+  const handleDragEnd = useCallback(
+    (regionId: string, e: Konva.KonvaEventObject<DragEvent>) => {
+      const node = e.target
+      onRegionUpdate(regionId, {
+        bbox: {
+          ...regions.find((r) => r.id === regionId)!.bbox,
+          x: node.x() / scale,
+          y: node.y() / scale,
+        },
+      })
+    },
+    [regions, scale, onRegionUpdate],
+  )
+
+  // Transform end — update bbox + fontSize + rotation
+  const handleTransformEnd = useCallback(
+    (regionId: string, e: Konva.KonvaEventObject<Event>) => {
+      const node = e.target as Konva.Text
+      const sx = node.scaleX()
+      const sy = node.scaleY()
+      node.scaleX(1)
+      node.scaleY(1)
+
+      onRegionUpdate(regionId, {
+        bbox: {
+          x: node.x() / scale,
+          y: node.y() / scale,
+          width: (node.width() * sx) / scale,
+          height: (node.height() * sy) / scale,
+        },
+        fontSize: node.fontSize() * sy,
+        rotation: node.rotation(),
+      })
+    },
+    [scale, onRegionUpdate],
+  )
+
+  // Scroll wheel zoom to pointer
+  const handleWheel = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
+      e.evt.preventDefault()
+      const stage = stageRef.current
+      if (!stage) return
+
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+
+      const oldZoom = zoom
+      const newZoom = Math.max(
+        0.1,
+        Math.min(5, e.evt.deltaY > 0 ? oldZoom * 0.9 : oldZoom * 1.1),
       )
-      scaleRef.current = scale
-      setImgScale(scale)
 
-      canvas.setDimensions({
-        width: (img.width ?? 800) * scale,
-        height: (img.height ?? 600) * scale,
+      const mousePointTo = {
+        x: (pointer.x - stagePos.x) / oldZoom,
+        y: (pointer.y - stagePos.y) / oldZoom,
+      }
+
+      setZoom(newZoom)
+      setZoomInput(Math.round(newZoom * 100).toString())
+      setStagePos({
+        x: pointer.x - mousePointTo.x * newZoom,
+        y: pointer.y - mousePointTo.y * newZoom,
       })
-
-      img.set({ scaleX: scale, scaleY: scale, selectable: false, evented: false })
-      canvas.backgroundImage = img
-      canvas.renderAll()
-    })
-
-    return () => { cancelled = true }
-  }, [cleanedImageUrl])
-
-  // Render text regions on canvas (re-runs when scale changes after image loads)
-  useEffect(() => {
-    const canvas = fabricRef.current
-    if (!canvas) return
-
-    const s = imgScale
-    const existingTexts = canvas.getObjects().filter((o) => (o as FabricObj).data?.regionId)
-    existingTexts.forEach((o) => canvas.remove(o))
-
-    regions.forEach((region) => {
-      const font = resolveFont(region.suggestedFont, region.mood)
-
-      const textbox = new fabric.Textbox(region.translatedText || ' ', {
-        left: region.bbox.x * s,
-        top: region.bbox.y * s,
-        width: Math.max(20, region.bbox.width * s),
-        fontSize: Math.max(10, region.fontSize * s),
-        fontFamily: font.family,
-        fontWeight: font.weight,
-        fontStyle: font.style,
-        fill: region.fontColor,
-        textAlign: 'center',
-        editable: true,
-        cornerColor: '#6366f1',
-        cornerStyle: 'circle',
-        transparentCorners: false,
-        borderColor: '#6366f1',
-        data: { regionId: region.id },
-      })
-
-      canvas.add(textbox)
-    })
-
-    // Re-render after custom fonts are loaded
-    document.fonts.ready.then(() => {
-      canvas.requestRenderAll()
-    })
-  }, [regions, imgScale])
+    },
+    [zoom, stagePos, stageRef],
+  )
 
   // Zoom helpers
   const applyZoom = useCallback((newZoom: number) => {
-    const canvas = fabricRef.current
-    if (!canvas) return
     const clamped = Math.max(0.1, Math.min(5, newZoom))
     setZoom(clamped)
     setZoomInput(Math.round(clamped * 100).toString())
-    canvas.setZoom(clamped)
-    canvas.renderAll()
   }, [])
 
   const handleZoomInputCommit = useCallback(() => {
@@ -222,12 +392,50 @@ export default function CanvasEditor({
   }, [zoomInput, zoom, applyZoom])
 
   const handleResetView = useCallback(() => {
-    const canvas = fabricRef.current
-    if (!canvas) return
-    applyZoom(1)
-    canvas.setViewportTransform([1, 0, 0, 1, 0, 0])
-    canvas.renderAll()
-  }, [applyZoom])
+    setZoom(1)
+    setZoomInput('100')
+    // Re-center image in container
+    if (image) {
+      const cw = containerRef.current?.clientWidth ?? 800
+      const ch = containerRef.current?.clientHeight ?? 600
+      setStagePos({
+        x: (cw - image.width * scale) / 2,
+        y: (ch - image.height * scale) / 2,
+      })
+    } else {
+      setStagePos({ x: 0, y: 0 })
+    }
+  }, [image, scale])
+
+  const handleStageDragEnd = useCallback(
+    (e: Konva.KonvaEventObject<DragEvent>) => {
+      setStagePos({ x: e.target.x(), y: e.target.y() })
+    },
+    [],
+  )
+
+  // Feather compensation: reduce strokeWidth, use shadowBlur to fill gap
+  const computeFeather = (size: number, feather: number) => ({
+    strokeWidth: Math.max(1, size - 2 * feather),
+    shadowBlur: feather,
+  })
+
+  // Custom cursor based on active tool
+  const getCursor = (): string => {
+    if (isPanning) return 'grab'
+    if (isEyedropper) {
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m2 22 1-1h3l9-9'/><path d='M3 21v-3l9-9'/><path d='m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4'/></svg>`
+      return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 2 22, crosshair`
+    }
+    if (isBrushActive) {
+      const sz = Math.max(4, Math.round(brushSize * scale * zoom))
+      const half = sz / 2
+      const color = activeTool === 'eraser' ? 'rgba(255,0,0,0.5)' : brushColor
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${sz + 2}' height='${sz + 2}'><circle cx='${half + 1}' cy='${half + 1}' r='${half}' fill='none' stroke='${color}' stroke-width='1'/><line x1='${half + 1}' y1='0' x2='${half + 1}' y2='${sz + 2}' stroke='${color}' stroke-width='0.5'/><line x1='0' y1='${half + 1}' x2='${sz + 2}' y2='${half + 1}' stroke='${color}' stroke-width='0.5'/></svg>`
+      return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${half + 1} ${half + 1}, crosshair`
+    }
+    return 'default'
+  }
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -239,7 +447,7 @@ export default function CanvasEditor({
             onClick={() => applyZoom(zoom - 0.1)}
             title="Zoom out"
           >
-            −
+            <ZoomOut size={14} />
           </button>
           <div className="join-item flex items-center bg-base-100">
             <input
@@ -256,16 +464,16 @@ export default function CanvasEditor({
             onClick={() => applyZoom(zoom + 0.1)}
             title="Zoom in"
           >
-            +
+            <ZoomIn size={14} />
           </button>
         </div>
 
         <button
           className={`btn btn-xs ${isPanning ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setIsPanning(!isPanning)}
-          title="Pan mode (or hold Alt / middle-click to pan)"
+          onClick={() => useAppStore.getState().setActiveTool(isPanning ? 'select' : 'pan')}
+          title="Pan mode (or hold Alt)"
         >
-          🖐
+          <Hand size={14} />
         </button>
 
         <button
@@ -273,16 +481,167 @@ export default function CanvasEditor({
           onClick={handleResetView}
           title="Reset view"
         >
-          ↺
+          <RotateCcw size={14} />
         </button>
+
+        <span className="text-[10px] text-base-content/30 ml-auto">
+          {Math.round(zoom * 100)}% · {activeTool}
+        </span>
       </div>
 
-      {/* Canvas */}
+      {/* Canvas — fills entire space */}
       <div
         ref={containerRef}
-        className="editor-canvas-area rounded-xl overflow-hidden border border-base-300 flex-1 min-h-0"
+        className="flex-1 min-h-0 relative"
       >
-        <canvas ref={canvasRef} />
+        <Stage
+          ref={stageRef}
+          width={stageSize.width}
+          height={stageSize.height}
+          scaleX={zoom}
+          scaleY={zoom}
+          x={stagePos.x}
+          y={stagePos.y}
+          draggable={isPanning}
+          onWheel={handleWheel}
+          onClick={(e) => {
+            handleStageClick(e)
+            handleEyedrop(e)
+          }}
+          onMouseDown={handlePaintStart}
+          onMouseMove={(e) => {
+            handlePaintMove(e)
+            handleEyedropMove(e)
+          }}
+          onMouseUp={handlePaintEnd}
+          onMouseLeave={handlePaintEnd}
+          onDragEnd={handleStageDragEnd}
+          style={{ cursor: getCursor() }}
+        >
+          {/* Layer 1: Background image */}
+          <Layer>
+            {image && (
+              <KonvaImage
+                image={image}
+                width={image.width * scale}
+                height={image.height * scale}
+              />
+            )}
+          </Layer>
+
+          {/* Layer 2: Paint strokes */}
+          <Layer>
+            {brushStrokes.map((stroke) => {
+              const f = computeFeather(stroke.width, stroke.shadowBlur)
+              return (
+                <Line
+                  key={stroke.id}
+                  points={stroke.points.map((p) => p * scale)}
+                  stroke={stroke.color}
+                  strokeWidth={f.strokeWidth * scale}
+                  opacity={stroke.opacity}
+                  tension={0.5}
+                  lineCap="round"
+                  lineJoin="round"
+                  shadowBlur={f.shadowBlur * scale}
+                  shadowColor={stroke.tool === 'eraser' ? undefined : stroke.color}
+                  globalCompositeOperation={
+                    stroke.tool === 'eraser' ? 'destination-out' : 'source-over'
+                  }
+                />
+              )
+            })}
+            {/* Currently drawing line */}
+            {drawingLine && drawingLine.length >= 2 && (() => {
+              const f = computeFeather(brushSize, brushShadowBlur)
+              return (
+                <Line
+                  points={drawingLine.map((p) => p * scale)}
+                  stroke={activeTool === 'eraser' ? '#ff000080' : brushColor}
+                  strokeWidth={f.strokeWidth * scale}
+                  opacity={activeTool === 'eraser' ? 0.5 : brushOpacity}
+                  tension={0.5}
+                  lineCap="round"
+                  lineJoin="round"
+                  shadowBlur={f.shadowBlur * scale}
+                  shadowColor={brushColor}
+                  dash={activeTool === 'eraser' ? [5, 5] : undefined}
+                />
+              )
+            })()}
+          </Layer>
+
+          {/* Layer 3: Text regions + Transformer */}
+          <Layer>
+            {regions.map((region) => {
+              const font = resolveFont(region.suggestedFont, region.mood)
+              return (
+                <Text
+                  key={region.id}
+                  id={region.id}
+                  x={region.bbox.x * scale}
+                  y={region.bbox.y * scale}
+                  width={region.bbox.width * scale}
+                  text={region.translatedText || ' '}
+                  fontSize={Math.max(10, region.fontSize * scale)}
+                  fontFamily={font.family}
+                  fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
+                  fill={region.fontColor}
+                  stroke={region.strokeWidth > 0 ? region.strokeColor : undefined}
+                  strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
+                  align="center"
+                  wrap="char"
+                  draggable={!isPanning && !isBrushActive && !isEyedropper}
+                  rotation={region.rotation}
+                  onClick={() => {
+                    if (!isBrushActive && !isEyedropper) handleSelect(region.id)
+                  }}
+                  onDragEnd={(e) => handleDragEnd(region.id, e)}
+                  onTransform={(e) => {
+                    // Live preview during transform
+                    const node = e.target as Konva.Text
+                    node.getLayer()?.batchDraw()
+                  }}
+                  onTransformEnd={(e) => handleTransformEnd(region.id, e)}
+                />
+              )
+            })}
+
+            {/* Transformer for selected text */}
+            <Transformer
+              ref={transformerRef}
+              borderStroke="#6366f1"
+              anchorStroke="#6366f1"
+              anchorFill="#ffffff"
+              anchorSize={8}
+              anchorCornerRadius={4}
+              padding={4}
+              rotateEnabled={true}
+              enabledAnchors={[
+                'top-left',
+                'top-right',
+                'bottom-left',
+                'bottom-right',
+                'middle-left',
+                'middle-right',
+              ]}
+            />
+          </Layer>
+        </Stage>
+
+        {/* Eyedropper preview tooltip */}
+        {eyedropPreview && (
+          <div
+            className="fixed z-100 pointer-events-none flex items-center gap-2 bg-base-300/90 backdrop-blur-sm rounded-lg px-2.5 py-1.5 shadow-lg border border-base-content/10"
+            style={{ left: eyedropPreview.x + 20, top: eyedropPreview.y - 10 }}
+          >
+            <div
+              className="w-6 h-6 rounded border-2 border-base-content/30"
+              style={{ backgroundColor: eyedropPreview.color }}
+            />
+            <span className="text-xs font-mono text-base-content">{eyedropPreview.color}</span>
+          </div>
+        )}
       </div>
     </div>
   )
