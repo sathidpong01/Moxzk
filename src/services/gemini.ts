@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai'
-import type { MoodType, TextRegion, BoundingBox } from '../types'
+import type { MoodType, TextRegion, BoundingBox, GeminiModelId } from '../types'
 import { incrementQuota, updateQuotaFromError } from './geminiQuota'
+import { saveMemory } from './translationMemory'
 // Font resolution now handled by resolveFont in config/fonts.ts
 
 interface GeminiTranslationItem {
@@ -185,17 +186,19 @@ export async function translateWithImage(
   bboxes: BoundingBox[],
   sourceLang: string = 'ja',
   apiKey?: string,
+  modelId?: GeminiModelId,
 ): Promise<TextRegion[]> {
   const client = getClient(apiKey)
   const base64 = await fileToBase64(imageFile)
   const prompt = buildPrompt(ocrTexts, bboxes, sourceLang)
+  const model = modelId || 'gemini-2.5-flash'
 
-  console.log('[gemini] Calling Gemini with', ocrTexts.length, 'OCR texts, model: gemini-2.5-flash')
+  console.log('[gemini] Calling Gemini with', ocrTexts.length, 'OCR texts, model:', model)
 
   let text: string
   try {
     const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model,
       contents: [
         {
           role: 'user',
@@ -236,7 +239,7 @@ export async function translateWithImage(
     parsed = repairAndParseJson(text)
   }
 
-  return parsed.translations.map((item) => {
+  const regions = parsed.translations.map((item) => {
     const mood = parseMood(item.mood)
     const bbox = bboxes[item.index] ?? { x: 0, y: 0, width: 100, height: 30 }
     const fontSize = calcAutoFontSize(item.translated, bbox)
@@ -255,4 +258,13 @@ export async function translateWithImage(
       strokeColor: '#ffffff',
     }
   })
+
+  // Save translations to memory cache
+  for (const r of regions) {
+    if (r.originalText && r.translatedText) {
+      saveMemory(r.originalText, sourceLang, r.translatedText).catch(() => {})
+    }
+  }
+
+  return regions
 }

@@ -22,6 +22,7 @@ export interface Database {
           plan?: 'free' | 'pro' | 'team'
           updated_at?: string
         }
+        Relationships: []
       }
       albums: {
         Row: {
@@ -49,6 +50,15 @@ export interface Database {
           source_lang?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'albums_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
       }
       album_pages: {
         Row: {
@@ -91,11 +101,29 @@ export interface Database {
           error_message?: string | null
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'album_pages_album_id_fkey'
+            columns: ['album_id']
+            isOneToOne: false
+            referencedRelation: 'albums'
+            referencedColumns: ['id']
+          }
+        ]
       }
     }
-    Views: Record<string, never>
-    Functions: Record<string, never>
-    Enums: Record<string, never>
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
 

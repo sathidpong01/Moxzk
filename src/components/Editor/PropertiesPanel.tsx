@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import type { TextRegion, MoodType } from '../../types'
 import { MOOD_LABELS } from '../../config/fonts'
+import { useAppStore } from '../../store/appStore'
+import { translateSingleRegion } from '../../services/localLLM'
 import FontSelector from './FontSelector'
-import { Trash2, RotateCcw } from 'lucide-react'
+import { Trash2, RotateCcw, Languages, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface PropertiesPanelProps {
   region: TextRegion | null
@@ -16,6 +20,7 @@ export default function PropertiesPanel({
   onUpdate,
   onDelete,
 }: PropertiesPanelProps) {
+  const [translating, setTranslating] = useState(false)
   if (!region) {
     return (
       <div className="card bg-base-200 card-compact">
@@ -180,12 +185,47 @@ export default function PropertiesPanel({
         </div>
       </div>
 
-      {/* Original text — read only, compact */}
+      {/* Original text + per-region translate */}
       <div className="card bg-base-200 card-compact">
         <div className="card-body py-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
-            Original
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-base-content/50">
+              Original
+            </h3>
+            {region.originalText && (
+              <button
+                className="btn btn-ghost btn-xs gap-1"
+                disabled={translating}
+                onClick={async () => {
+                  const settings = useAppStore.getState().settings
+                  setTranslating(true)
+                  try {
+                    const result = await translateSingleRegion(
+                      region.originalText,
+                      settings.sourceLang,
+                      settings.translationEngine,
+                      {
+                        apiKey: settings.geminiApiKey,
+                        modelId: settings.geminiModel,
+                        libreTranslateUrl: settings.libreTranslateUrl,
+                        ollamaUrl: settings.ollamaUrl,
+                        ollamaModel: settings.ollamaModel,
+                      },
+                    )
+                    onUpdate(region.id, { translatedText: result })
+                    toast.success('แปลเสร็จ!')
+                  } catch (err) {
+                    toast.error('แปลไม่สำเร็จ: ' + (err instanceof Error ? err.message : String(err)))
+                  } finally {
+                    setTranslating(false)
+                  }
+                }}
+              >
+                {translating ? <Loader2 size={10} className="animate-spin" /> : <Languages size={10} />}
+                แปล
+              </button>
+            )}
+          </div>
           <p className="text-xs bg-base-300 rounded p-1.5 font-mono text-base-content/60">
             {region.originalText}
           </p>

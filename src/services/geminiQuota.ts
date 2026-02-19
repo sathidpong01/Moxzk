@@ -1,11 +1,81 @@
 /**
  * Gemini API quota tracker — counts calls per day, detects tier from 429 errors.
  * Stored in localStorage, resets at midnight Pacific Time.
+ * Model data sourced from: https://ai.google.dev/gemini-api/docs
  */
+
+import type { GeminiModelId } from '../types'
 
 const STORAGE_KEY = 'mg-gemini-quota'
 
-export type GeminiTier = 'free' | 'tier1' | 'tier2' | 'unknown'
+export type GeminiTier = 'free' | 'tier1' | 'tier2' | 'tier3' | 'unknown'
+
+export interface GeminiModelInfo {
+  id: GeminiModelId
+  label: string
+  tier: 'budget' | 'balanced' | 'premium'
+  freeAvailable: boolean
+  inputPrice: string   // per 1M tokens
+  outputPrice: string  // per 1M tokens
+  description: string
+}
+
+export const GEMINI_MODELS: GeminiModelInfo[] = [
+  {
+    id: 'gemini-2.5-flash-lite',
+    label: 'Gemini 2.5 Flash-Lite',
+    tier: 'budget',
+    freeAvailable: true,
+    inputPrice: '$0.10',
+    outputPrice: '$0.40',
+    description: 'เร็วที่สุด ถูกที่สุด เหมาะกับงาน batch',
+  },
+  {
+    id: 'gemini-2.5-flash',
+    label: 'Gemini 2.5 Flash',
+    tier: 'balanced',
+    freeAvailable: true,
+    inputPrice: '$0.30',
+    outputPrice: '$2.50',
+    description: 'สมดุลราคา-คุณภาพ มี thinking budget',
+  },
+  {
+    id: 'gemini-2.0-flash',
+    label: 'Gemini 2.0 Flash',
+    tier: 'budget',
+    freeAvailable: true,
+    inputPrice: '$0.10',
+    outputPrice: '$0.40',
+    description: 'รุ่นเก่า เสถียร รองรับ 1M context',
+  },
+  {
+    id: 'gemini-2.5-pro',
+    label: 'Gemini 2.5 Pro',
+    tier: 'premium',
+    freeAvailable: true,
+    inputPrice: '$1.25',
+    outputPrice: '$10.00',
+    description: 'คุณภาพสูงสุด แปลแม่นยำ เหมาะงานยาก',
+  },
+  {
+    id: 'gemini-3-flash-preview',
+    label: 'Gemini 3 Flash (Preview)',
+    tier: 'balanced',
+    freeAvailable: true,
+    inputPrice: '$0.50',
+    outputPrice: '$3.00',
+    description: 'เจนใหม่ล่าสุด ฉลาดกว่า Flash เดิม',
+  },
+  {
+    id: 'gemini-3-pro-preview',
+    label: 'Gemini 3 Pro (Preview)',
+    tier: 'premium',
+    freeAvailable: false,
+    inputPrice: '$2.00',
+    outputPrice: '$12.00',
+    description: 'ฉลาดที่สุด Paid only',
+  },
+]
 
 interface QuotaState {
   date: string          // YYYY-MM-DD in Pacific Time
@@ -15,11 +85,11 @@ interface QuotaState {
   model: string
 }
 
-// Default free-tier limits (from Google docs + observed 429 errors)
 const DEFAULT_LIMITS: Record<GeminiTier, number> = {
   free: 20,
   tier1: 1000,
   tier2: 4000,
+  tier3: 10000,
   unknown: 25,
 }
 

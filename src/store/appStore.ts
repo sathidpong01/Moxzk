@@ -12,6 +12,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   sourceLang: 'auto',
   fontMoodMap: DEFAULT_MOOD_MAP,
   theme: 'dark',
+  geminiModel: 'gemini-2.5-flash',
+  translationEngine: 'gemini',
+  ollamaUrl: 'http://localhost:11434',
+  ollamaModel: 'typhoon2:8b',
+  libreTranslateUrl: 'http://localhost:5004',
 }
 
 export type PanelId = 'brush' | 'properties' | 'resource' | 'quota' | 'logs'
@@ -65,6 +70,10 @@ interface AppStore {
   redoBrushStroke: () => void
   _brushRedoStack: BrushStroke[]
   clearBrushStrokes: () => void
+
+  // Text overlay visibility
+  showTextOverlay: boolean
+  toggleTextOverlay: (show?: boolean) => void
 
   // Panels
   panels: Record<PanelId, boolean>
@@ -223,6 +232,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       return { brushStrokes: [...state.brushStrokes, restored], _brushRedoStack: redo }
     }),
   clearBrushStrokes: () => set({ brushStrokes: [], _brushRedoStack: [] }),
+
+  // Text overlay visibility
+  showTextOverlay: true,
+  toggleTextOverlay: (show) => set((state) => ({ showTextOverlay: show ?? !state.showTextOverlay })),
 
   // Panels
   panels: { ...DEFAULT_PANELS },

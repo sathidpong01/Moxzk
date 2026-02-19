@@ -1,4 +1,5 @@
 import { useAuthStore } from '../../store/authStore'
+import { useAlbumStore } from '../../store/albumStore'
 import { LogIn, LogOut, User, FolderOpen } from 'lucide-react'
 
 export default function UserMenu() {
@@ -53,7 +54,7 @@ export default function UserMenu() {
           <span className="text-xs truncate">{user.email}</span>
         </li>
         <li>
-          <button className="gap-2">
+          <button className="gap-2" onClick={() => useAlbumStore.getState().openForBrowse()}>
             <FolderOpen size={14} /> อัลบั้มของฉัน
           </button>
         </li>

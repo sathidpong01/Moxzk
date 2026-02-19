@@ -108,41 +108,43 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
       set({ user: session.user, session })
-      // Fetch profile after setting user
       await get().fetchProfile()
     }
     set({ loading: false })
 
-    // Listen for auth changes
+    // Track last seen user ID to avoid duplicate SIGNED_IN toasts on token refresh
+    let lastSeenUserId = session?.user?.id ?? null
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event, newSession) => {
         set({
-          user: session?.user ?? null,
-          session,
+          user: newSession?.user ?? null,
+          session: newSession,
           loading: false,
         })
 
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Small delay to let trigger create profile
+        if (event === 'SIGNED_IN' && newSession?.user) {
+          const isNewLogin = newSession.user.id !== lastSeenUserId
+          lastSeenUserId = newSession.user.id
+
           setTimeout(() => get().fetchProfile(), 500)
-          const name = session.user.user_metadata?.name
-            || session.user.user_metadata?.full_name
-            || session.user.email?.split('@')[0]
-          toast.success(`ยินดีต้อนรับ, ${name}!`)
-          set({ showAuthModal: false })
+
+          if (isNewLogin) {
+            const name = newSession.user.user_metadata?.name
+              || newSession.user.user_metadata?.full_name
+              || newSession.user.email?.split('@')[0]
+            toast.success(`ยินดีต้อนรับ, ${name}!`)
+            set({ showAuthModal: false })
+          }
         }
 
         if (event === 'SIGNED_OUT') {
+          lastSeenUserId = null
           set({ profile: null })
-        }
-
-        if (event === 'TOKEN_REFRESHED') {
-          console.log('[auth] Token refreshed')
         }
       },
     )
 
-    // Return cleanup function
     return () => subscription.unsubscribe()
   },
 }))

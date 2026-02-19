@@ -10,9 +10,13 @@ interface AlbumStore {
   currentPages: AlbumPage[]
   loading: boolean
   showAlbumModal: boolean
+  saveMode: boolean
 
   // Actions
   setShowAlbumModal: (show: boolean) => void
+  setSaveMode: (save: boolean) => void
+  openForSave: () => void
+  openForBrowse: () => void
   setCurrentAlbum: (album: Album | null) => void
 
   // CRUD Albums
@@ -43,8 +47,12 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
   currentPages: [],
   loading: false,
   showAlbumModal: false,
+  saveMode: false,
 
   setShowAlbumModal: (show) => set({ showAlbumModal: show }),
+  setSaveMode: (save) => set({ saveMode: save }),
+  openForSave: () => set({ showAlbumModal: true, saveMode: true }),
+  openForBrowse: () => set({ showAlbumModal: true, saveMode: false }),
   setCurrentAlbum: (album) => set({ currentAlbum: album }),
 
   // ── Fetch all albums for current user ──
@@ -197,7 +205,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     }))
   },
 
-  // ── Delete page ──
+  // ── Delete page + renumber remaining ──
   deletePage: async (pageId) => {
     const { error } = await supabase
       .from('album_pages')
@@ -209,9 +217,31 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       return
     }
 
-    set((state) => ({
-      currentPages: state.currentPages.filter((p) => p.id !== pageId),
+    // Remove from state and renumber sequentially
+    const remaining = get().currentPages
+      .filter((p) => p.id !== pageId)
+      .sort((a, b) => a.page_number - b.page_number)
+
+    const renumbered = remaining.map((p, i) => ({
+      ...p,
+      page_number: i + 1,
     }))
+
+    set({ currentPages: renumbered })
+
+    // Update DB in background
+    for (const p of renumbered) {
+      if (p.page_number !== remaining.find((r) => r.id === p.id)?.page_number) {
+        supabase
+          .from('album_pages')
+          .update({ page_number: p.page_number })
+          .eq('id', p.id)
+          .then(({ error: e }) => {
+            if (e) console.warn('[album] renumber error:', e.message)
+          })
+      }
+    }
+
     toast.success('ลบหน้าแล้ว')
   },
 

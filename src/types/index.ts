@@ -56,6 +56,18 @@ export interface TranslationResult {
   originalImageUrl: string
 }
 
+export type ProcessingMode = 'full' | 'clean_only' | 'ocr_only'
+
+export type TranslationEngine = 'gemini' | 'libretranslate' | 'ollama'
+
+export type GeminiModelId =
+  | 'gemini-2.5-flash-lite'
+  | 'gemini-2.5-flash'
+  | 'gemini-2.5-pro'
+  | 'gemini-2.0-flash'
+  | 'gemini-3-flash-preview'
+  | 'gemini-3-pro-preview'
+
 export type ExportFormat = 'png' | 'jpg' | 'webp'
 
 export interface ExportOptions {
@@ -111,4 +123,9 @@ export interface AppSettings {
   sourceLang: 'auto' | 'ja' | 'zh' | 'en'
   fontMoodMap: FontMoodMap
   theme: string
+  geminiModel: GeminiModelId
+  translationEngine: TranslationEngine
+  ollamaUrl: string
+  ollamaModel: string
+  libreTranslateUrl: string
 }

@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, X, Trash2, ImageIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { validateImageFiles } from '../../utils/fileValidation'
 
 interface ImageUploaderProps {
   onImagesSelected: (files: File[]) => void
@@ -11,9 +13,14 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
   const [previews, setPreviews] = useState<string[]>([])
 
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[]) => {
       const imageFiles = acceptedFiles.filter((f) => f.type.startsWith('image/'))
       if (imageFiles.length === 0) return
+      const validation = await validateImageFiles(imageFiles)
+      if (!validation.valid) {
+        toast.error(validation.error)
+        return
+      }
       onImagesSelected([...selectedImages, ...imageFiles])
       const newPreviews = imageFiles.map((f) => URL.createObjectURL(f))
       setPreviews((prev) => [...prev, ...newPreviews])

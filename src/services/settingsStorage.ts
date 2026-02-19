@@ -8,6 +8,11 @@ interface SerializedSettings {
   sourceLang: string
   fontMoodMap: FontMoodMap
   theme?: string
+  geminiModel?: string
+  translationEngine?: string
+  ollamaUrl?: string
+  ollamaModel?: string
+  libreTranslateUrl?: string
 }
 
 export function saveSettings(settings: AppSettings): void {
@@ -18,6 +23,11 @@ export function saveSettings(settings: AppSettings): void {
       sourceLang: settings.sourceLang,
       fontMoodMap: settings.fontMoodMap,
       theme: settings.theme,
+      geminiModel: settings.geminiModel,
+      translationEngine: settings.translationEngine,
+      ollamaUrl: settings.ollamaUrl,
+      ollamaModel: settings.ollamaModel,
+      libreTranslateUrl: settings.libreTranslateUrl,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(serialized))
   } catch (err) {
@@ -37,6 +47,11 @@ export function loadSettings(defaults: AppSettings): AppSettings {
       sourceLang: (parsed.sourceLang as AppSettings['sourceLang']) || defaults.sourceLang,
       fontMoodMap: parsed.fontMoodMap || defaults.fontMoodMap,
       theme: parsed.theme || defaults.theme,
+      geminiModel: (parsed.geminiModel as AppSettings['geminiModel']) || defaults.geminiModel,
+      translationEngine: (parsed.translationEngine as AppSettings['translationEngine']) || defaults.translationEngine,
+      ollamaUrl: parsed.ollamaUrl || defaults.ollamaUrl,
+      ollamaModel: parsed.ollamaModel || defaults.ollamaModel,
+      libreTranslateUrl: parsed.libreTranslateUrl || defaults.libreTranslateUrl,
     }
   } catch (err) {
     console.error('Failed to load settings:', err)

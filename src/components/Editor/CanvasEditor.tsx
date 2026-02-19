@@ -63,6 +63,7 @@ export default function CanvasEditor({
   const brushStrokes = useAppStore((s) => s.brushStrokes)
   const addBrushStroke = useAppStore((s) => s.addBrushStroke)
   const setBrushColor = useAppStore((s) => s.setBrushColor)
+  const showTextOverlay = useAppStore((s) => s.showTextOverlay)
 
   const isPanning = activeTool === 'pan'
   const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
@@ -572,7 +573,7 @@ export default function CanvasEditor({
           </Layer>
 
           {/* Layer 3: Text regions + Transformer */}
-          <Layer>
+          <Layer visible={showTextOverlay}>
             {regions.map((region) => {
               const font = resolveFont(region.suggestedFont, region.mood)
               return (

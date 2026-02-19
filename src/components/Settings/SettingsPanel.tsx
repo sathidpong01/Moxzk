@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { AppSettings } from '../../types'
-import { Settings, X, Save, Key, Server, Globe, Palette } from 'lucide-react'
+import type { AppSettings, GeminiModelId, TranslationEngine } from '../../types'
+import { GEMINI_MODELS } from '../../services/geminiQuota'
+import { Settings, X, Save, Key, Server, Globe, Palette, Cpu, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface SettingsPanelProps {
@@ -10,13 +11,20 @@ interface SettingsPanelProps {
   onClose: () => void
 }
 
-type SettingsTab = 'general' | 'appearance' | 'api'
+type SettingsTab = 'general' | 'appearance' | 'api' | 'ai'
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
   { id: 'general', label: 'General', icon: Settings },
+  { id: 'ai', label: 'AI / Translation', icon: Sparkles },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'api', label: 'API Keys', icon: Key },
 ]
+
+const TIER_BADGE: Record<string, string> = {
+  budget: 'badge-success',
+  balanced: 'badge-info',
+  premium: 'badge-warning',
+}
 
 const DAISY_THEMES = [
   'light', 'dark', 'cupcake', 'bumblebee', 'emerald', 'corporate',
@@ -180,6 +188,106 @@ export default function SettingsPanel({
                   />
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* AI tab */}
+          {tab === 'ai' && (
+            <div className="space-y-5">
+              <h4 className="text-lg font-bold">AI / Translation</h4>
+
+              {/* Translation Engine */}
+              <div className="form-control">
+                <label className="label"><span className="label-text flex items-center gap-1"><Cpu size={12} /> Translation Engine</span></label>
+                <select
+                  className="select select-bordered w-full"
+                  value={draft.translationEngine}
+                  onChange={(e) => setDraft({ ...draft, translationEngine: e.target.value as TranslationEngine })}
+                >
+                  <option value="gemini">Gemini API (แนะนำ)</option>
+                  <option value="libretranslate">LibreTranslate (Docker)</option>
+                  <option value="ollama">Ollama (Local LLM)</option>
+                </select>
+              </div>
+
+              {/* Gemini Model Selector */}
+              {draft.translationEngine === 'gemini' && (
+                <div className="form-control">
+                  <label className="label"><span className="label-text flex items-center gap-1"><Sparkles size={12} /> Gemini Model</span></label>
+                  <div className="space-y-1.5">
+                    {GEMINI_MODELS.map((m) => (
+                      <label
+                        key={m.id}
+                        className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                          draft.geminiModel === m.id
+                            ? 'border-primary bg-primary/10'
+                            : 'border-base-300/50 hover:border-base-300'
+                        } ${!m.freeAvailable ? 'opacity-60' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="geminiModel"
+                          className="radio radio-primary radio-xs"
+                          checked={draft.geminiModel === m.id}
+                          onChange={() => setDraft({ ...draft, geminiModel: m.id as GeminiModelId })}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium">{m.label}</span>
+                            <span className={`badge badge-xs ${TIER_BADGE[m.tier]}`}>{m.tier}</span>
+                            {!m.freeAvailable && <span className="badge badge-xs badge-ghost">Paid</span>}
+                          </div>
+                          <p className="text-[10px] text-base-content/50 mt-0.5">
+                            {m.description} • In: {m.inputPrice} • Out: {m.outputPrice}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* LibreTranslate URL */}
+              {draft.translationEngine === 'libretranslate' && (
+                <div className="form-control">
+                  <label className="label"><span className="label-text flex items-center gap-1"><Server size={12} /> LibreTranslate URL</span></label>
+                  <input
+                    type="url"
+                    className="input input-bordered w-full"
+                    placeholder="http://localhost:5004"
+                    value={draft.libreTranslateUrl}
+                    onChange={(e) => setDraft({ ...draft, libreTranslateUrl: e.target.value })}
+                  />
+                  <label className="label"><span className="label-text-alt text-xs">ต้องรัน Docker: libretranslate/libretranslate</span></label>
+                </div>
+              )}
+
+              {/* Ollama URL + Model */}
+              {draft.translationEngine === 'ollama' && (
+                <>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text flex items-center gap-1"><Server size={12} /> Ollama URL</span></label>
+                    <input
+                      type="url"
+                      className="input input-bordered w-full"
+                      placeholder="http://localhost:11434"
+                      value={draft.ollamaUrl}
+                      onChange={(e) => setDraft({ ...draft, ollamaUrl: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text">Ollama Model</span></label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full"
+                      placeholder="typhoon2:8b"
+                      value={draft.ollamaModel}
+                      onChange={(e) => setDraft({ ...draft, ollamaModel: e.target.value })}
+                    />
+                    <label className="label"><span className="label-text-alt text-xs">เช่น typhoon2:8b, llama3.1:8b, gemma2:9b</span></label>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

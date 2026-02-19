@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Konva from 'konva'
 import { useAppStore, type PanelId } from './store/appStore'
-import type { ExportFormat, TextRegion } from './types'
+import type { ExportFormat, TextRegion, ProcessingMode } from './types'
 import { useFloatingPanel } from './hooks/useFloatingPanel'
+import { useAutoSave } from './hooks/useAutoSave'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useAuthStore } from './store/authStore'
+import { useAlbumStore } from './store/albumStore'
 import AuthModal from './components/Auth/AuthModal'
 import UserMenu from './components/Auth/UserMenu'
+import AlbumListModal from './components/Albums/AlbumListModal'
 import ImageUploader from './components/Upload/ImageUploader'
 import ProcessingView from './components/Processing/ProcessingView'
 import CanvasEditor, { type CanvasEditorHandle } from './components/Editor/CanvasEditor'
@@ -17,6 +21,7 @@ import FloatingQuotaBar from './components/Layout/FloatingQuotaBar'
 import SplitView from './components/Comparison/SplitView'
 import SettingsPanel from './components/Settings/SettingsPanel'
 import FontConfigPage from './components/Settings/FontConfigPage'
+import OcrCorrectionModal from './components/Editor/OcrCorrectionModal'
 import { renderStageToDataUrl, exportFromDataUrl } from './services/exporter'
 import { Toaster, toast } from 'sonner'
 import {
@@ -37,6 +42,10 @@ import {
   ImageIcon,
   GripVertical,
   X,
+  Save,
+  FileSearch,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -120,6 +129,8 @@ function App() {
   const editorRef = useRef<CanvasEditorHandle>(null)
   const [canvasScale, setCanvasScale] = useState(1)
   const [retryCount, setRetryCount] = useState(0)
+  const [processingMode, setProcessingMode] = useState<ProcessingMode>('full')
+  const [showOcrModal, setShowOcrModal] = useState(false)
 
   const selectedRegion = store.regions.find((r) => r.id === store.selectedRegionId) ?? null
   const editImageUrl = store.cleanedImageUrl || store.originalImageUrl
@@ -131,6 +142,11 @@ function App() {
     const cleanup = useAuthStore.getState().init()
     return () => { cleanup.then((unsub) => unsub()) }
   }, [])
+
+  // Auto-save draft every 30s while editing
+  useAutoSave(30_000)
+  // Global keyboard shortcuts (Ctrl+Z, B, E, etc.)
+  useKeyboardShortcuts()
 
   const handleGoToEdit = useCallback(() => {
     if (store.images.length === 0) return
@@ -180,6 +196,16 @@ function App() {
     setRetryCount((c) => c + 1)
     store.startProcess()
   }, [store])
+
+  const handleSaveToAlbum = useCallback(() => {
+    const user = useAuthStore.getState().user
+    if (!user) {
+      useAuthStore.getState().setShowAuthModal(true)
+      toast.info('กรุณาเข้าสู่ระบบก่อนบันทึก')
+      return
+    }
+    useAlbumStore.getState().openForSave()
+  }, [])
 
   return (
     <div className="h-screen flex flex-col overflow-hidden dot-canvas">
@@ -293,14 +319,50 @@ function App() {
                 >
                   <ArrowLeft size={14} /> เริ่มใหม่
                 </button>
+                <button
+                  className="btn btn-ghost btn-sm gap-1 bg-base-300/70 backdrop-blur-sm"
+                  onClick={handleSaveToAlbum}
+                  title="บันทึกลงอัลบั้ม"
+                >
+                  <Save size={14} /> บันทึก
+                </button>
+                {store.regions.length > 0 && !store.isProcessing && (
+                  <>
+                    <button
+                      className="btn btn-ghost btn-sm gap-1 bg-base-300/70 backdrop-blur-sm"
+                      onClick={() => setShowOcrModal(true)}
+                      title="ตรวจสอบ OCR"
+                    >
+                      <FileSearch size={14} /> OCR
+                    </button>
+                    <button
+                      className={`btn btn-ghost btn-sm btn-square bg-base-300/70 backdrop-blur-sm ${!store.showTextOverlay ? 'opacity-50' : ''}`}
+                      onClick={() => store.toggleTextOverlay()}
+                      title={store.showTextOverlay ? 'ซ่อนข้อความ' : 'แสดงข้อความ'}
+                    >
+                      {store.showTextOverlay ? <Eye size={14} /> : <EyeOff size={14} />}
+                    </button>
+                  </>
+                )}
                 {!store.isProcessing && (
-                  <button
-                    className="btn btn-secondary btn-sm gap-1 shadow-md"
-                    onClick={handleStartAI}
-                    disabled={!store.images[0]}
-                  >
-                    <Wand2 size={14} /> AI Process
-                  </button>
+                  <div className="flex items-center">
+                    <select
+                      className="select select-sm bg-base-300/70 backdrop-blur-sm border-r-0 rounded-r-none text-xs h-8 min-h-0"
+                      value={processingMode}
+                      onChange={(e) => setProcessingMode(e.target.value as ProcessingMode)}
+                    >
+                      <option value="full">แปลทั้งหมด</option>
+                      <option value="clean_only">คลีนอย่างเดียว</option>
+                      <option value="ocr_only">OCR อย่างเดียว</option>
+                    </select>
+                    <button
+                      className="btn btn-secondary btn-sm gap-1 shadow-md rounded-l-none"
+                      onClick={handleStartAI}
+                      disabled={!store.images[0]}
+                    >
+                      <Wand2 size={14} /> AI
+                    </button>
+                  </div>
                 )}
                 {store.isProcessing && (
                   <span className="btn btn-sm btn-disabled gap-1">
@@ -324,6 +386,14 @@ function App() {
                     imageFile={store.images[0]}
                     sourceLang={store.settings.sourceLang}
                     apiKey={store.settings.geminiApiKey}
+                    modelId={store.settings.geminiModel}
+                    mode={processingMode}
+                    translationEngine={store.settings.translationEngine}
+                    llmOptions={{
+                      libreTranslateUrl: store.settings.libreTranslateUrl,
+                      ollamaUrl: store.settings.ollamaUrl,
+                      ollamaModel: store.settings.ollamaModel,
+                    }}
                     onComplete={store.completeProcess}
                     onError={(e) => store.setProcessError(e)}
                     onLog={store.addLog}
@@ -459,6 +529,8 @@ function App() {
         onClose={() => store.toggleFontConfig(false)}
       />
       <AuthModal />
+      <AlbumListModal />
+      <OcrCorrectionModal isOpen={showOcrModal} onClose={() => setShowOcrModal(false)} />
       <Toaster position="top-right" theme="dark" richColors closeButton />
     </div>
   )
