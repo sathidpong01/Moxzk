@@ -3,6 +3,9 @@ import Konva from 'konva'
 import { useAppStore, type PanelId } from './store/appStore'
 import type { ExportFormat, TextRegion } from './types'
 import { useFloatingPanel } from './hooks/useFloatingPanel'
+import { useAuthStore } from './store/authStore'
+import AuthModal from './components/Auth/AuthModal'
+import UserMenu from './components/Auth/UserMenu'
 import ImageUploader from './components/Upload/ImageUploader'
 import ProcessingView from './components/Processing/ProcessingView'
 import CanvasEditor, { type CanvasEditorHandle } from './components/Editor/CanvasEditor'
@@ -122,8 +125,12 @@ function App() {
   const editImageUrl = store.cleanedImageUrl || store.originalImageUrl
   const originalFileName = store.images[0]?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
 
-  // Init: restore custom fonts
+  // Init: restore custom fonts + auth
   useEffect(() => { store.init() }, [])
+  useEffect(() => {
+    const cleanup = useAuthStore.getState().init()
+    return () => { cleanup.then((unsub) => unsub()) }
+  }, [])
 
   const handleGoToEdit = useCallback(() => {
     if (store.images.length === 0) return
@@ -216,6 +223,7 @@ function App() {
           >
             <Settings size={14} />
           </button>
+          <UserMenu />
         </div>
       </div>
 
@@ -450,6 +458,7 @@ function App() {
         isOpen={store.showFontConfig}
         onClose={() => store.toggleFontConfig(false)}
       />
+      <AuthModal />
       <Toaster position="top-right" theme="dark" richColors closeButton />
     </div>
   )
