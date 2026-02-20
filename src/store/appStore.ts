@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import type { AppStep, TextRegion, AppSettings, ExportFormat, ActiveTool, BrushStroke, ImageEntry } from '../types'
+import type { AlbumPage } from '../types/database'
 import { DEFAULT_MOOD_MAP, restoreCustomFont } from '../config/fonts'
 import { loadSettings, saveSettings } from '../services/settingsStorage'
 import { getAllFonts } from '../services/fontStorage'
+import { downloadImage } from '../services/storageService'
 import { parseApiError } from '../utils/parseApiError'
 import { toast } from 'sonner'
 
@@ -109,6 +111,7 @@ interface AppStore {
   resetToUpload: () => void
   startProcess: () => void
   completeProcess: (regions: TextRegion[], cleanedUrl: string) => void
+  loadAlbumPages: (pages: AlbumPage[], activePageId: string) => Promise<void>
 
   // Init
   init: () => Promise<void>
@@ -301,40 +304,69 @@ export const useAppStore = create<AppStore>((set, get) => ({
   switchImage: (id: string) => {
     const { activeImageId, regions, brushStrokes, imageEntries } = get()
     // Save current image state
+    const updated = [...imageEntries]
     if (activeImageId) {
-      const idx = imageEntries.findIndex((e) => e.id === activeImageId)
+      const idx = updated.findIndex((e) => e.id === activeImageId)
       if (idx >= 0) {
-        const updated = [...imageEntries]
         updated[idx] = { ...updated[idx], regions, brushStrokes }
-        // Apply updated entries before switching
-        const target = updated.find((e) => e.id === id)
-        if (target) {
-          set({
-            imageEntries: updated,
-            activeImageId: id,
-            originalImageUrl: target.cleanedImageUrl ?? target.originalUrl,
-            cleanedImageUrl: target.cleanedImageUrl,
-            regions: target.regions,
-            brushStrokes: target.brushStrokes,
-            selectedRegionId: null,
-            _brushRedoStack: [],
-          })
-          return
-        }
       }
     }
-    // Fallback: just switch
-    const target = imageEntries.find((e) => e.id === id)
-    if (target) {
-      set({
-        activeImageId: id,
-        originalImageUrl: target.cleanedImageUrl ?? target.originalUrl,
-        cleanedImageUrl: target.cleanedImageUrl,
-        regions: target.regions,
-        brushStrokes: target.brushStrokes,
-        selectedRegionId: null,
-        _brushRedoStack: [],
-      })
+
+    const target = updated.find((e) => e.id === id)
+    if (!target) return
+
+    // Apply switch immediately (show thumbnail/cached image)
+    set({
+      imageEntries: updated,
+      activeImageId: id,
+      originalImageUrl: target.cleanedImageUrl ?? target.originalUrl,
+      cleanedImageUrl: target.cleanedImageUrl,
+      regions: target.regions,
+      brushStrokes: target.brushStrokes,
+      selectedRegionId: null,
+      _brushRedoStack: [],
+    })
+
+    // Lazy load full image from R2 if not yet loaded
+    if (target.imageLoaded === false && target.originalR2Key) {
+      set({ isProcessing: true })
+      ;(async () => {
+        try {
+          const originalUrl = await downloadImage(target.originalR2Key!)
+          let cleanedUrl: string | null = null
+          if (target.cleanedR2Key) {
+            cleanedUrl = await downloadImage(target.cleanedR2Key)
+          }
+          // Update entry with full image
+          set((state) => {
+            const entries = state.imageEntries.map((e) =>
+              e.id === id
+                ? {
+                    ...e,
+                    originalUrl: cleanedUrl ?? originalUrl,
+                    cleanedImageUrl: cleanedUrl,
+                    imageLoaded: true,
+                  }
+                : e,
+            )
+            const isStillActive = state.activeImageId === id
+            return {
+              imageEntries: entries,
+              isProcessing: false,
+              ...(isStillActive
+                ? {
+                    originalImageUrl: cleanedUrl ?? originalUrl,
+                    cleanedImageUrl: cleanedUrl,
+                  }
+                : {}),
+            }
+          })
+        } catch (err) {
+          console.error('[switchImage] lazy download failed:', err)
+          set({ isProcessing: false })
+          toast.error('โหลดรูปจาก R2 ล้มเหลว')
+        }
+      })()
     }
   },
 
@@ -384,6 +416,92 @@ export const useAppStore = create<AppStore>((set, get) => ({
       })
     }
     toast.success(`แปลเสร็จ! พบ ${regions.length} regions`)
+  },
+
+  // ── Load album pages into editor with lazy loading ──
+  loadAlbumPages: async (pages, activePageId) => {
+    if (pages.length === 0) return
+
+    // Reset state
+    const { imageEntries: oldEntries, originalImageUrl: oldUrl } = get()
+    oldEntries.forEach((e) => { if (e.originalUrl) URL.revokeObjectURL(e.originalUrl) })
+    if (oldUrl) URL.revokeObjectURL(oldUrl)
+
+    // Build entries from album pages
+    const activePage = pages.find((p) => p.id === activePageId) ?? pages[0]
+    let nextId = 1
+
+    const entries: ImageEntry[] = pages.map((page) => {
+      // Use thumbnail as placeholder (data URL or empty)
+      const thumbUrl =
+        page.thumbnail_key && (page.thumbnail_key as string).startsWith('data:')
+          ? (page.thumbnail_key as string)
+          : ''
+
+      return {
+        id: `album-${Date.now()}-${nextId++}`,
+        file: null,
+        originalUrl: thumbUrl,
+        cleanedImageUrl: null,
+        regions: Array.isArray(page.regions) ? (page.regions as TextRegion[]) : [],
+        brushStrokes: Array.isArray(page.brush_strokes) ? (page.brush_strokes as BrushStroke[]) : [],
+        status: page.status === 'translated' ? 'done' : 'pending',
+        albumPageId: page.id,
+        originalR2Key: (page.original_key as string) ?? undefined,
+        cleanedR2Key: (page.cleaned_key as string) ?? undefined,
+        imageLoaded: false,
+      }
+    })
+
+    // Find active entry
+    const activeEntry = entries.find((e) => e.albumPageId === activePage.id) ?? entries[0]
+
+    // Set initial state with thumbnails
+    set({
+      currentStep: 'edit',
+      images: [],
+      imageEntries: entries,
+      activeImageId: activeEntry.id,
+      originalImageUrl: activeEntry.originalUrl,
+      cleanedImageUrl: null,
+      regions: activeEntry.regions,
+      brushStrokes: activeEntry.brushStrokes,
+      selectedRegionId: null,
+      _brushRedoStack: [],
+      logs: [],
+      processError: null,
+      isProcessing: true,
+      activeTool: 'select',
+    })
+
+    // Download full image for active page
+    try {
+      let originalUrl = activeEntry.originalUrl
+      let cleanedUrl: string | null = null
+
+      if (activeEntry.originalR2Key) {
+        originalUrl = await downloadImage(activeEntry.originalR2Key)
+      }
+      if (activeEntry.cleanedR2Key) {
+        cleanedUrl = await downloadImage(activeEntry.cleanedR2Key)
+      }
+
+      // Update active entry
+      set((state) => ({
+        imageEntries: state.imageEntries.map((e) =>
+          e.id === activeEntry.id
+            ? { ...e, originalUrl: cleanedUrl ?? originalUrl, cleanedImageUrl: cleanedUrl, imageLoaded: true }
+            : e,
+        ),
+        originalImageUrl: cleanedUrl ?? originalUrl,
+        cleanedImageUrl: cleanedUrl,
+        isProcessing: false,
+      }))
+    } catch (err) {
+      console.error('[loadAlbumPages] download failed:', err)
+      set({ isProcessing: false })
+      toast.error('โหลดรูปจาก R2 ล้มเหลว')
+    }
   },
 
   // Init — restore custom fonts from IndexedDB + apply saved theme

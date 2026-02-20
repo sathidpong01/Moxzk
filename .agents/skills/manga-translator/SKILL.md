@@ -1,11 +1,11 @@
 ---
 name: manga-translator
-description: Manga Translation Web App — ใช้ manga-image-translator (Docker) เป็น engine หลัก + Gemini 2.5 สำหรับแปลภาษา + React 19.2 custom frontend
+description: Manga Translation Web App — ใช้ manga-image-translator (Docker) เป็น engine หลัก + Gemini 2.5 / Ollama / LibreTranslate สำหรับแปลภาษา + React 19.2 + Konva frontend
 ---
 
 # Manga Translator Skill
 
-**Project**: MG_Translater (`d:\MG_Translater`)
+**Project**: MG_Translater
 
 ## Architecture
 
@@ -13,49 +13,56 @@ description: Manga Translation Web App — ใช้ manga-image-translator (Doc
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Frontend (React 19.2 + Vite + TypeScript)              │
-│  port 5173                                              │
-│  ┌──────────┐ ┌──────────┐ ┌────────┐ ┌──────────────┐ │
-│  │ Upload   │→│Processing│→│ Editor │→│ Export       │ │
-│  │          │ │          │ │(Fabric)│ │ PNG/JPG/WebP │ │
-│  └──────────┘ └──────────┘ └────────┘ └──────────────┘ │
-└──────────┬───────────────────┬──────────────────────────┘
+│  Frontend (React 19.2 + Vite 7 + TypeScript 5.9)        │
+│  port 5173                                               │
+│  ┌──────────┐ ┌──────────┐ ┌────────┐ ┌──────────────┐  │
+│  │ Upload   │→│Processing│→│ Editor │→│ Export       │  │
+│  │          │ │          │ │(Konva) │ │ PNG/JPG/WebP │  │
+│  └──────────┘ └──────────┘ └────────┘ └──────────────┘  │
+│       ┌──── Auth (Supabase) ────┐                        │
+│       │  Albums │ Multi-image   │                        │
+│       └─────────────────────────┘                        │
+└──────────┬───────────────────┬───────────────────────────┘
            │                   │
            ▼                   ▼
 ┌──────────────────┐  ┌──────────────────────┐
-│ manga-image-     │  │ Gemini 2.5 API       │
-│ translator       │  │ (Multimodal)         │
-│ Docker :5003     │  │                      │
-│ detect+OCR+inpnt │  │ รูปต้นฉบับ + OCR text │
-│ translator: none │  │ → แปล + mood + font  │
-└──────────────────┘  └──────────────────────┘
+│ manga-image-     │  │ Translation Engines   │
+│ translator       │  │                      │
+│ Docker :5003     │  │ 1. Gemini 2.5 API    │
+│ detect+OCR+inpnt │  │    (Multimodal)      │
+│ translator: none │  │ 2. Ollama (local)    │
+└──────────────────┘  │ 3. LibreTranslate    │
+                      └──────────────────────┘
 ```
 
 ## Tech Stack
 
-| Layer          | Technology                      |
-| -------------- | ------------------------------- |
-| Frontend       | React 19.2, Vite, TypeScript    |
-| Canvas Editor  | Fabric.js                       |
-| Backend Engine | manga-image-translator (Docker) |
-| Translation AI | Gemini 2.5 (`@google/genai`)    |
-| Styling        | Tailwind CSS 4 + daisyUI 5      |
+| Layer            | Technology                           |
+| ---------------- | ------------------------------------ |
+| Frontend         | React 19.2, Vite 7, TypeScript 5.9   |
+| Canvas Editor    | Konva + react-konva                  |
+| State Management | Zustand                              |
+| Auth             | Supabase                             |
+| Backend Engine   | manga-image-translator (Docker)      |
+| Translation AI   | Gemini 2.5 / Ollama / LibreTranslate |
+| Styling          | Tailwind CSS 4 + daisyUI 5           |
+| Toast            | sonner                               |
+| Export           | file-saver + jszip                   |
 
 ### daisyUI Components ที่ใช้
 
-| Component                  | ใช้ใน                         |
-| -------------------------- | ----------------------------- |
-| `steps`                    | Workflow 4 ขั้นตอน            |
-| `card`                     | Upload area, image preview    |
-| `file-input`               | เลือกไฟล์, อัพโหลด font       |
-| `btn`                      | ปุ่มทั้งหมด                   |
-| `progress`, `loading`      | Processing view               |
-| `input`, `select`, `range` | Properties panel              |
-| `dropdown`, `badge`        | Font selector + AI suggestion |
-| `table`                    | Font mood mapping             |
-| `modal`                    | Settings, confirmations       |
-| `tabs`                     | Before/After toggle           |
-| `toast`, `alert`           | Notifications, errors         |
+| Component                  | ใช้ใน                                         |
+| -------------------------- | --------------------------------------------- |
+| `card`                     | Upload area, image preview                    |
+| `file-input`               | เลือกไฟล์, อัพโหลด font                       |
+| `btn`                      | ปุ่มทั้งหมด                                   |
+| `progress`, `loading`      | Processing view                               |
+| `input`, `select`, `range` | Properties panel, Settings                    |
+| `dropdown`, `badge`        | Font selector + AI suggestion                 |
+| `table`                    | Font mood mapping                             |
+| `modal`                    | Settings, Auth, OCR correction, confirmations |
+| `tabs`                     | Before/After toggle                           |
+| `drawer`                   | Albums sidebar                                |
 
 ## Split Pipeline
 
@@ -66,12 +73,12 @@ description: Manga Translation Web App — ใช้ manga-image-translator (Doc
    - Output: bounding boxes, OCR text, cleaned/inpainted image
    - API: `POST /translate/with-form/json/stream`
 
-2. **Gemini 2.5** (Multimodal)
-   - Input: **รูปต้นฉบับ** + OCR text + bounding boxes
-   - Output: คำแปลไทย, mood (normal/shouting/whisper/comedy/narration/sfx), suggestedFont
-   - AI เห็นภาพจริง → อ่านอารมณ์ตัวละคร, bubble style, context ได้แม่นยำ
+2. **Translation Engine** (เลือกได้ 3 ตัว)
+   - **Gemini 2.5** (Multimodal) — ส่ง รูปต้นฉบับ + OCR text → แปล + mood + font
+   - **Ollama** (Local LLM) — ใช้ model เช่น typhoon2:8b
+   - **LibreTranslate** — self-hosted translation API
 
-3. **Frontend** รวม cleaned image + translated text → Canvas Editor
+3. **Frontend** รวม cleaned image + translated text → Konva Canvas Editor
 
 ## Key API Endpoints (manga-image-translator)
 
@@ -116,35 +123,82 @@ Binary stream: `1B status + 4B size + nB data`
 
 - ผู้ใช้ปรับ mapping ได้ผ่าน Font Config Page
 - อัพโหลด custom font (.ttf/.otf/.woff2) ได้
+- Font เก็บใน IndexedDB ผ่าน `fontStorage.ts`
 
 ## File Structure
 
 ```
-d:\MG_Translater\
+MG_Translater/
 ├── docker-compose.yml              # manga-image-translator service
-├── package.json                     # React 19.2 + Vite + daisyUI
-├── vite.config.ts                   # API proxy to :5003
-├── .env.local                       # GEMINI_API_KEY
-├── app.css                          # Tailwind CSS 4 + daisyUI 5
+├── package.json                     # React 19.2 + Vite 7 + deps
+├── vite.config.ts                   # API proxy to :5003, envPrefix, manualChunks
 ├── src/
-│   ├── App.tsx                      # 4-step workflow (daisyUI steps)
-│   ├── types/index.ts               # TextRegion, Config types
-│   ├── config/fonts.ts              # Mood → Font mapping
+│   ├── App.tsx                      # Shell: Navbar + Step routing + Modals
+│   ├── main.tsx                     # Entry point
+│   ├── index.css                    # Tailwind CSS 4 + daisyUI 5
+│   ├── vite-env.d.ts                # Env type declarations
+│   ├── types/index.ts               # TextRegion, AppSettings, ImageEntry, etc.
+│   ├── config/fonts.ts              # Mood → Font mapping, FONT_ID_MAP
+│   ├── store/
+│   │   ├── appStore.ts              # Zustand store (panels, regions, brush, multi-image)
+│   │   ├── authStore.ts             # Supabase auth state
+│   │   └── albumStore.ts            # Album management state
+│   ├── hooks/
+│   │   ├── useAutoSave.ts           # Auto-save to Supabase
+│   │   ├── useEditorActions.ts      # Editor callbacks (export, AI, save)
+│   │   ├── useFloatingPanel.ts      # Draggable floating panels
+│   │   └── useKeyboardShortcuts.ts  # Keyboard shortcuts
+│   ├── lib/
+│   │   └── supabase.ts              # Supabase client
+│   ├── utils/
+│   │   ├── fileValidation.ts        # File type/size validation
+│   │   └── parseApiError.ts         # API error parsing
 │   ├── services/
 │   │   ├── translator-api.ts        # manga-image-translator client
 │   │   ├── gemini.ts                # Gemini multimodal translation
-│   │   └── exporter.ts              # PNG/JPG/WebP export
+│   │   ├── localLLM.ts              # Ollama / LibreTranslate client
+│   │   ├── exporter.ts              # PNG/JPG/WebP export via Konva
+│   │   ├── fontStorage.ts           # IndexedDB font persistence
+│   │   ├── imageCache.ts            # Image caching
+│   │   ├── translationMemory.ts     # Translation memory/cache
+│   │   ├── geminiQuota.ts           # Gemini API quota tracking
+│   │   ├── settingsStorage.ts       # Settings persistence (localStorage)
+│   │   └── storageService.ts        # Supabase storage service
 │   └── components/
-│       ├── Upload/ImageUploader.tsx
-│       ├── Processing/ProcessingView.tsx
+│       ├── Steps/                    # ★ Step views (refactored from App.tsx)
+│       │   ├── UploadStep.tsx        # Upload step — drag & drop images
+│       │   ├── EditStep.tsx          # Edit step — canvas, toolbar, panels
+│       │   └── ExportStep.tsx        # Export step — format, quality, download
+│       ├── Upload/
+│       │   └── ImageUploader.tsx     # Drag & drop, paste, multi-image
+│       ├── Processing/
+│       │   ├── ProcessingView.tsx    # Real-time stream progress
+│       │   └── ResourceMonitor.tsx   # CPU/memory monitoring
 │       ├── Editor/
-│       │   ├── CanvasEditor.tsx      # Fabric.js canvas
-│       │   ├── PropertiesPanel.tsx
-│       │   └── FontSelector.tsx
-│       ├── Comparison/SplitView.tsx  # Before/After
-│       └── Settings/
-│           ├── SettingsPanel.tsx
-│           └── FontConfigPage.tsx    # Mood→Font config
+│       │   ├── CanvasEditor.tsx      # Konva canvas (zoom, pan, brush, text)
+│       │   ├── PropertiesPanel.tsx   # Text/font/size/color controls
+│       │   ├── FloatingProperties.tsx # ★ Draggable properties wrapper
+│       │   ├── FontSelector.tsx      # Font picker + AI badge
+│       │   ├── BrushToolbar.tsx      # Brush/eraser tools
+│       │   ├── ImageStrip.tsx        # Multi-image strip
+│       │   └── OcrCorrectionModal.tsx # OCR text correction before translate
+│       ├── Comparison/
+│       │   └── SplitView.tsx         # Before/After comparison slider
+│       ├── Settings/
+│       │   ├── SettingsPanel.tsx      # API keys, server URLs, engine select
+│       │   └── FontConfigPage.tsx     # Mood→Font config + custom upload
+│       ├── Auth/
+│       │   ├── AuthModal.tsx          # Login/Register modal (Supabase)
+│       │   └── UserMenu.tsx           # User avatar + menu
+│       ├── Albums/
+│       │   ├── AlbumCard.tsx          # Album card component
+│       │   ├── AlbumListModal.tsx     # Album list/management modal
+│       │   ├── AlbumPageGrid.tsx      # Album page grid view
+│       │   └── ConfirmModal.tsx       # Confirm dialog
+│       └── Layout/
+│           ├── FloatingQuotaBar.tsx   # Floating Gemini quota display
+│           ├── LogPanel.tsx           # ★ Log display panel
+│           └── PanelToggleBar.tsx     # ★ Bottom panel toggle bar
 ```
 
 ## Development Commands
@@ -158,6 +212,9 @@ npm run dev
 
 # Build production
 npm run build
+
+# Type check
+npx tsc --noEmit
 ```
 
 ## Key Rules
@@ -165,8 +222,12 @@ npm run build
 1. **ไม่ fork** manga-image-translator — ใช้เป็น Docker service เท่านั้น
 2. **ส่งรูปต้นฉบับ** ให้ Gemini เสมอ เพื่อ visual context
 3. **translator: "none"** ใน config เพื่อให้ manga-image-translator ไม่แปลเอง
-4. **Fabric.js** สำหรับ canvas editor — ลาก/resize/rotate text boxes
-5. **daisyUI 5** เป็น component library หลัก + Tailwind CSS 4 utilities
-6. **Dark theme** (daisyUI `dark` / `abyss` theme) เป็นค่าเริ่มต้น
-7. **Export** รองรับ PNG, JPG, WebP
-8. **Font config** ให้ผู้ใช้ตั้งค่า mood→font mapping + upload custom font
+4. **Konva + react-konva** สำหรับ canvas editor — ลาก/resize/rotate text boxes, brush/eraser
+5. **Zustand** สำหรับ state management — ใช้ `useAppStore` hook
+6. **Supabase** สำหรับ auth และ storage — ไม่เก็บ credentials ใน client
+7. **daisyUI 5** เป็น component library หลัก + Tailwind CSS 4 utilities
+8. **Dark theme** (daisyUI `dark` / `abyss` theme) เป็นค่าเริ่มต้น
+9. **Export** รองรับ PNG, JPG, WebP ผ่าน Konva stage rendering
+10. **Font config** ให้ผู้ใช้ตั้งค่า mood→font mapping + upload custom font
+11. **3 Translation Engines** — ผู้ใช้เลือกได้: Gemini (multimodal), Ollama (local), LibreTranslate
+12. **sonner** สำหรับ toast notifications

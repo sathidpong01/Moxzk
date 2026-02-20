@@ -16,20 +16,20 @@ description: วิธีเริ่มต้น development environment สำ
    // turbo
 
 ```bash
-cd d:\MG_Translater && docker compose up -d
+docker compose up -d
 ```
 
 2. Install frontend dependencies (ถ้ายังไม่ได้ install)
    // turbo
 
 ```bash
-cd d:\MG_Translater && npm install
+npm install
 ```
 
 3. Start frontend dev server
 
 ```bash
-cd d:\MG_Translater && npm run dev
+npm run dev
 ```
 
 4. Open browser at http://localhost:5173
@@ -39,3 +39,5 @@ cd d:\MG_Translater && npm run dev
 - Backend API อยู่ที่ `http://localhost:5003`
 - Vite proxy จะ forward `/api` → backend อัตโนมัติ
 - ครั้งแรกที่รัน Docker จะดาวน์โหลด models (~15GB)
+- ถ้าใช้ Ollama ต้องรัน `ollama serve` แยกที่ port 11434
+- ถ้าใช้ LibreTranslate ต้องรัน container แยกที่ port 5004

@@ -8,6 +8,7 @@ const TIER_LABELS: Record<GeminiTier, string> = {
   free: 'Free',
   tier1: 'Tier 1',
   tier2: 'Tier 2',
+  tier3: 'Tier 3',
   unknown: '—',
 }
 
@@ -15,6 +16,7 @@ const TIER_COLORS: Record<GeminiTier, string> = {
   free: 'badge-warning',
   tier1: 'badge-info',
   tier2: 'badge-success',
+  tier3: 'badge-primary',
   unknown: 'badge-ghost',
 }
 

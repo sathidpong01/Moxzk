@@ -17,6 +17,8 @@ import {
   ImagePlus,
   Image as ImageIcon,
   Download,
+  Pencil,
+  Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { uploadImage, buildStorageKey, fileToBlob, dataUrlToBlob, generateThumbnail } from '../../services/storageService'
@@ -48,6 +50,8 @@ export default function AlbumListModal() {
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [loadingPage, setLoadingPage] = useState(false)
 
   // Confirm modal state
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -225,11 +229,21 @@ export default function AlbumListModal() {
   }, [newTitle, newDesc, createAlbum, saveMode, handleSaveToAlbum])
 
   const handleOpenPage = useCallback(
-    (_page: AlbumPage) => {
-      // TODO: load page state into editor (Phase 4+)
-      closeModal()
+    async (page: AlbumPage) => {
+      if (editMode) return // In edit mode, clicking doesn't open
+      setLoadingPage(true)
+      try {
+        const appStore = useAppStore.getState()
+        await appStore.loadAlbumPages(currentPages, page.id)
+        closeModal()
+      } catch (err) {
+        console.error('[album] loadAlbumPages failed:', err)
+        toast.error('โหลดอัลบั้มล้มเหลว')
+      } finally {
+        setLoadingPage(false)
+      }
     },
-    [closeModal],
+    [currentPages, closeModal, editMode],
   )
 
   const handleDeletePage = useCallback(
@@ -260,7 +274,7 @@ export default function AlbumListModal() {
         />
 
         {/* Modal */}
-        <div className="relative floating-panel w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col panel-enter">
+        <div className="relative floating-panel w-full max-w-4xl mx-4 max-h-[85vh] flex flex-col panel-enter">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-base-300/30 shrink-0">
             <div className="flex items-center gap-2">
@@ -311,6 +325,18 @@ export default function AlbumListModal() {
                   <Download size={12} /> Export
                 </button>
               )}
+              {view === 'detail' && (
+                <button
+                  className={`btn btn-xs gap-1 ${editMode ? 'btn-warning' : 'btn-ghost'}`}
+                  onClick={() => setEditMode(!editMode)}
+                >
+                  {editMode ? (
+                    <><Check size={12} /> เสร็จ</>
+                  ) : (
+                    <><Pencil size={12} /> แก้ไข</>
+                  )}
+                </button>
+              )}
               {view === 'list' && (
                 <button
                   className="btn btn-primary btn-xs gap-1"
@@ -328,11 +354,11 @@ export default function AlbumListModal() {
             </div>
           </div>
 
-          {/* Saving overlay */}
-          {saving && (
+          {/* Saving / Loading overlay */}
+          {(saving || loadingPage) && (
             <div className="absolute inset-0 z-10 bg-base-100/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3 rounded-2xl">
               <Loader2 size={28} className="animate-spin text-primary" />
-              <p className="text-sm font-medium">กำลังบันทึก...</p>
+              <p className="text-sm font-medium">{loadingPage ? 'กำลังโหลดอัลบั้ม...' : 'กำลังบันทึก...'}</p>
             </div>
           )}
 
@@ -476,8 +502,14 @@ export default function AlbumListModal() {
 
                 <AlbumPageGrid
                   pages={currentPages}
+                  editMode={editMode}
                   onOpenPage={handleOpenPage}
                   onDeletePage={handleDeletePage}
+                  onReorder={async (pageIds) => {
+                    if (!currentAlbum) return
+                    const { reorderPages } = useAlbumStore.getState()
+                    await reorderPages(currentAlbum.id, pageIds)
+                  }}
                 />
               </>
             )}

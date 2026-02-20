@@ -1,5 +1,5 @@
 import { useAppStore } from '../../store/appStore'
-import { CheckCircle2, Loader2 } from 'lucide-react'
+import { CheckCircle2, Loader2, CloudOff } from 'lucide-react'
 
 export default function ImageStrip() {
   const imageEntries = useAppStore((s) => s.imageEntries)
@@ -14,6 +14,7 @@ export default function ImageStrip() {
         const isActive = entry.id === activeImageId
         const isDone = entry.status === 'done'
         const isProcessing = entry.status === 'processing'
+        const isUnloaded = entry.imageLoaded === false
 
         return (
           <button
@@ -21,18 +22,26 @@ export default function ImageStrip() {
             className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
               isActive
                 ? 'border-primary ring-2 ring-primary/30'
-                : 'border-base-content/10 hover:border-base-content/30'
+                : isUnloaded
+                  ? 'border-base-content/10 hover:border-base-content/30 opacity-70'
+                  : 'border-base-content/10 hover:border-base-content/30'
             }`}
             onClick={() => {
               if (!isActive) switchImage(entry.id)
             }}
-            title={`Image ${i + 1}`}
+            title={`Image ${i + 1}${isUnloaded ? ' (click to load)' : ''}`}
           >
-            <img
-              src={entry.originalUrl}
-              alt={`${i + 1}`}
-              className="w-full h-full object-cover"
-            />
+            {entry.originalUrl ? (
+              <img
+                src={entry.originalUrl}
+                alt={`${i + 1}`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-base-300/50 flex items-center justify-center">
+                <CloudOff size={12} className="text-base-content/20" />
+              </div>
+            )}
             {/* Index badge */}
             <span className="absolute bottom-0 left-0 text-[9px] font-bold bg-base-300/80 text-base-content px-1 rounded-tr">
               {i + 1}
@@ -46,6 +55,12 @@ export default function ImageStrip() {
             {isProcessing && (
               <div className="absolute inset-0 bg-base-100/50 flex items-center justify-center">
                 <Loader2 size={12} className="text-primary animate-spin" />
+              </div>
+            )}
+            {/* Unloaded indicator (album lazy load) */}
+            {isUnloaded && !isProcessing && (
+              <div className="absolute bottom-0 right-0">
+                <div className="badge badge-xs bg-base-100/80 text-[7px] px-0.5 rounded-tl">☁️</div>
               </div>
             )}
           </button>

@@ -1,6 +1,0 @@
-{
-  "artifactType": "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
-  "summary": "Final implementation plan: manga-image-translator (Docker) for detection/OCR/inpainting, Gemini 2.5 multimodal for translation+mood+font. React 19.2 + Vite + TypeScript frontend with Tailwind CSS 4 + daisyUI 5 for styling, Fabric.js canvas editor, font config page, WebP export.",
-  "updatedAt": "2026-02-12T17:46:42.883452500Z",
-  "version": "4"
-}

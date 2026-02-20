@@ -1,131 +1,149 @@
-export type MoodType = 'normal' | 'shouting' | 'whisper' | 'comedy' | 'narration' | 'sfx'
+export type MoodType =
+  | "normal"
+  | "shouting"
+  | "whisper"
+  | "comedy"
+  | "narration"
+  | "sfx";
 
 export interface BoundingBox {
-  x: number
-  y: number
-  width: number
-  height: number
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface TextRegion {
-  id: string
-  bbox: BoundingBox
-  originalText: string
-  translatedText: string
-  mood: MoodType
-  suggestedFont: string
-  fontSize: number
-  fontColor: string
-  rotation: number
-  strokeWidth: number
-  strokeColor: string
+  id: string;
+  bbox: BoundingBox;
+  originalText: string;
+  translatedText: string;
+  mood: MoodType;
+  suggestedFont: string;
+  fontSize: number;
+  fontColor: string;
+  rotation: number;
+  strokeWidth: number;
+  strokeColor: string;
 }
 
 export interface TranslatorConfig {
   translator: {
-    translator: 'none'
-    target_lang: string
-    no_text_lang_skip: boolean
-  }
-  detector: { detector: 'ctd'; detection_size: number }
-  inpainter: { inpainter: 'lama_large'; inpainting_size: number }
-  ocr: { ocr: '48px' }
+    translator: "none";
+    target_lang: string;
+    no_text_lang_skip: boolean;
+  };
+  detector: { detector: "ctd"; detection_size: number };
+  inpainter: { inpainter: "lama_large"; inpainting_size: number };
+  ocr: { ocr: "48px" };
 }
 
 export interface FontDefinition {
-  name: string
-  family: string
-  weight: number
-  style: 'normal' | 'italic'
-  isCustom: boolean
-  url?: string
+  name: string;
+  family: string;
+  weight: number;
+  style: "normal" | "italic";
+  isCustom: boolean;
+  url?: string;
 }
 
-export type FontMoodMap = Record<MoodType, FontDefinition>
+export type FontMoodMap = Record<MoodType, FontDefinition>;
 
 export interface ProcessingState {
-  status: 'idle' | 'detecting' | 'ocr' | 'inpainting' | 'translating' | 'done' | 'error'
-  progress: number
-  message: string
-  queuePosition?: number
+  status:
+    | "idle"
+    | "detecting"
+    | "ocr"
+    | "inpainting"
+    | "translating"
+    | "done"
+    | "error";
+  progress: number;
+  message: string;
+  queuePosition?: number;
 }
 
 export interface TranslationResult {
-  regions: TextRegion[]
-  cleanedImageUrl: string
-  originalImageUrl: string
+  regions: TextRegion[];
+  cleanedImageUrl: string;
+  originalImageUrl: string;
 }
 
-export type ProcessingMode = 'full' | 'clean_only' | 'ocr_only'
+export type ProcessingMode = "full" | "clean_only" | "ocr_only";
 
-export type TranslationEngine = 'gemini' | 'libretranslate' | 'ollama'
+export type TranslationEngine = "gemini" | "libretranslate" | "ollama";
 
 export type GeminiModelId =
-  | 'gemini-2.5-flash-lite'
-  | 'gemini-2.5-flash'
-  | 'gemini-2.5-pro'
-  | 'gemini-2.0-flash'
-  | 'gemini-3-flash-preview'
-  | 'gemini-3-pro-preview'
+  | "gemini-2.5-flash-lite"
+  | "gemini-2.5-flash"
+  | "gemini-2.5-pro"
+  | "gemini-2.0-flash"
+  | "gemini-3-flash-preview"
+  | "gemini-3-pro-preview";
 
-export type ExportFormat = 'png' | 'jpg' | 'webp'
+export type ExportFormat = "png" | "jpg" | "webp";
 
 export interface ExportOptions {
-  format: ExportFormat
-  quality: number
-  scale: number
+  format: ExportFormat;
+  quality: number;
+  scale: number;
 }
 
-export type AppStep = 'upload' | 'edit' | 'export'
+export type AppStep = "upload" | "edit" | "export";
 
-export type ActiveTool = 'select' | 'pan' | 'brush' | 'eraser' | 'eyedropper'
+export type ActiveTool = "select" | "pan" | "brush" | "eraser" | "eyedropper";
 
 export interface BrushStroke {
-  id: string
-  points: number[]
-  color: string
-  width: number
-  opacity: number
-  shadowBlur: number
-  tool: 'brush' | 'eraser'
+  id: string;
+  points: number[];
+  color: string;
+  width: number;
+  opacity: number;
+  shadowBlur: number;
+  tool: "brush" | "eraser";
 }
 
-export type ImageEntryStatus = 'pending' | 'processing' | 'done' | 'error'
+export type ImageEntryStatus = "pending" | "processing" | "done" | "error";
 
 export interface ImageEntry {
-  id: string
-  file: File
-  originalUrl: string
-  cleanedImageUrl: string | null
-  regions: TextRegion[]
-  brushStrokes: BrushStroke[]
-  status: ImageEntryStatus
-  error?: string
+  id: string;
+  file: File | null;
+  originalUrl: string;
+  cleanedImageUrl: string | null;
+  regions: TextRegion[];
+  brushStrokes: BrushStroke[];
+  status: ImageEntryStatus;
+  error?: string;
+  // Album metadata for lazy loading
+  albumPageId?: string;
+  originalR2Key?: string;
+  cleanedR2Key?: string;
+  imageLoaded?: boolean;
 }
 
 export interface FloatingPanelPosition {
-  x: number
-  y: number
-  visible: boolean
+  x: number;
+  y: number;
+  visible: boolean;
 }
 
 export interface AppState {
-  currentStep: AppStep
-  images: File[]
-  processingState: ProcessingState
-  translationResult: TranslationResult | null
-  settings: AppSettings
+  currentStep: AppStep;
+  images: File[];
+  processingState: ProcessingState;
+  translationResult: TranslationResult | null;
+  settings: AppSettings;
 }
 
 export interface AppSettings {
-  geminiApiKey: string
-  translatorApiUrl: string
-  sourceLang: 'auto' | 'ja' | 'zh' | 'en'
-  fontMoodMap: FontMoodMap
-  theme: string
-  geminiModel: GeminiModelId
-  translationEngine: TranslationEngine
-  ollamaUrl: string
-  ollamaModel: string
-  libreTranslateUrl: string
+  geminiApiKey: string;
+  translatorApiUrl: string;
+  sourceLang: "auto" | "ja" | "zh" | "en";
+  fontMoodMap: FontMoodMap;
+  theme: string;
+  geminiModel: GeminiModelId;
+  translationEngine: TranslationEngine;
+  ollamaUrl: string;
+  ollamaModel: string;
+  libreTranslateUrl: string;
 }

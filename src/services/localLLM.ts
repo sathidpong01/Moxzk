@@ -5,6 +5,7 @@
 
 import type { TextRegion, BoundingBox, MoodType } from '../types'
 import { lookupMemory, saveMemory } from './translationMemory'
+import { GoogleGenAI } from '@google/genai'
 
 // ── LibreTranslate ──────────────────────────────────────────────────
 
@@ -182,7 +183,6 @@ export async function translateSingleRegion(
     return result
   }
   // Gemini — use simple text-only prompt (no image needed for single region)
-  const { GoogleGenAI } = await import('@google/genai')
   const apiKey = options.apiKey || import.meta.env.VITE_GEMINI_API_KEY
   if (!apiKey) throw new Error('Gemini API Key ไม่ได้ตั้งค่า')
 

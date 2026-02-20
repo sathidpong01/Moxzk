@@ -6,24 +6,24 @@ description: วิธีใช้ skills ที่มีในโปรเจ�
 
 ## Available Skills
 
-| Skill                      | เมื่อไหร่ใช้                                              | คำสั่ง                                                       |
-| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
-| **manga-translator**       | อ่านก่อนเริ่มทำงานทุกครั้ง — architecture, pipeline, APIs | อ่าน SKILL.md                                                |
-| **ui-ux-pro-max**          | ออกแบบ UI, เลือกสี, font, style, accessibility            | `python .agent/skills/ui-ux-pro-max/scripts/search.py`       |
-| **prompt-engineering**     | ออกแบบ/ปรับ prompt สำหรับ Gemini (แปล, mood, font)        | อ่าน SKILL.md                                                |
-| **typescript-expert**      | ปัญหา TypeScript, types, build, module resolution         | อ่าน SKILL.md                                                |
-| **ai-engineer**            | Gemini integration, streaming, error handling, multimodal | อ่าน SKILL.md                                                |
-| **systematic-debugging**   | Debug ปัญหาทุกชนิด — ทำตาม 4 phases                       | อ่าน SKILL.md                                                |
-| **web-design-guidelines**  | ตรวจสอบ UI ตาม web standards                              | อ่าน SKILL.md                                                |
-| **webapp-testing**         | ทดสอบ web app ด้วย Playwright                             | `python .agent/skills/webapp-testing/scripts/with_server.py` |
-| **computer-vision-expert** | อ้างอิง CV best practices (YOLO, SAM)                     | อ่าน SKILL.md                                                |
+| Skill                      | เมื่อไหร่ใช้                                              | คำสั่ง                                                        |
+| -------------------------- | --------------------------------------------------------- | ------------------------------------------------------------- |
+| **manga-translator**       | อ่านก่อนเริ่มทำงานทุกครั้ง — architecture, pipeline, APIs | อ่าน SKILL.md                                                 |
+| **ui-ux-pro-max**          | ออกแบบ UI, เลือกสี, font, style, accessibility            | `python .agents/skills/ui-ux-pro-max/scripts/search.py`       |
+| **prompt-engineering**     | ออกแบบ/ปรับ prompt สำหรับ Gemini (แปล, mood, font)        | อ่าน SKILL.md                                                 |
+| **typescript-expert**      | ปัญหา TypeScript, types, build, module resolution         | อ่าน SKILL.md                                                 |
+| **ai-engineer**            | Gemini integration, streaming, error handling, multimodal | อ่าน SKILL.md                                                 |
+| **systematic-debugging**   | Debug ปัญหาทุกชนิด — ทำตาม 4 phases                       | อ่าน SKILL.md                                                 |
+| **web-design-guidelines**  | ตรวจสอบ UI ตาม web standards                              | อ่าน SKILL.md                                                 |
+| **webapp-testing**         | ทดสอบ web app ด้วย Playwright                             | `python .agents/skills/webapp-testing/scripts/with_server.py` |
+| **computer-vision-expert** | อ้างอิง CV best practices (YOLO, SAM)                     | อ่าน SKILL.md                                                 |
 
 ## Step 1: อ่าน Project Skill ก่อนเสมอ
 
 // turbo
 
 ```bash
-cat d:/MG_Translater/.agent/skills/manga-translator/SKILL.md
+cat .agents/skills/manga-translator/SKILL.md
 ```
 
 ## Step 2: เลือก Skill ตามงาน
@@ -31,12 +31,12 @@ cat d:/MG_Translater/.agent/skills/manga-translator/SKILL.md
 ### ออกแบบ UI
 
 ```bash
-cd d:/MG_Translater && python .agent/skills/ui-ux-pro-max/scripts/search.py "manga reader dark mode" --design-system -p "MG_Translater"
+python .agents/skills/ui-ux-pro-max/scripts/search.py "manga reader dark mode" --design-system -p "MG_Translater"
 ```
 
 ### ปรับ Prompt สำหรับ Gemini
 
-อ่าน `.agent/skills/prompt-engineering/SKILL.md` แล้วใช้ patterns:
+อ่าน `.agents/skills/prompt-engineering/SKILL.md` แล้วใช้ patterns:
 
 - Few-shot learning สำหรับ mood detection
 - Chain-of-thought สำหรับ translation quality
@@ -44,7 +44,7 @@ cd d:/MG_Translater && python .agent/skills/ui-ux-pro-max/scripts/search.py "man
 
 ### Debug ปัญหา
 
-อ่าน `.agent/skills/systematic-debugging/SKILL.md` แล้วทำตาม 4 phases:
+อ่าน `.agents/skills/systematic-debugging/SKILL.md` แล้วทำตาม 4 phases:
 
 1. Root Cause Investigation
 2. Pattern Analysis
@@ -54,7 +54,7 @@ cd d:/MG_Translater && python .agent/skills/ui-ux-pro-max/scripts/search.py "man
 ### ทดสอบ Web App
 
 ```bash
-cd d:/MG_Translater && python .agent/skills/webapp-testing/scripts/with_server.py --server "npm run dev" --port 5173 -- python test_script.py
+python .agents/skills/webapp-testing/scripts/with_server.py --server "npm run dev" --port 5173 -- python test_script.py
 ```
 
 ## Step 3: ตรวจสอบ TypeScript
@@ -62,5 +62,5 @@ cd d:/MG_Translater && python .agent/skills/webapp-testing/scripts/with_server.p
 // turbo
 
 ```bash
-cd d:/MG_Translater && npx tsc --noEmit
+npx tsc --noEmit
 ```
