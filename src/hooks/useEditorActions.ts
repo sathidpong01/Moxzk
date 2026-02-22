@@ -17,7 +17,10 @@ export function useEditorActions({ stageRef, editorRef, canvasScale }: UseEditor
   const store = useAppStore()
   const [retryCount, setRetryCount] = useState(0)
 
-  const originalFileName = store.images[0]?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
+  const activeEntry = store.imageEntries.find((e) => e.id === store.activeImageId)
+  const activeFile = activeEntry?.file
+
+  const originalFileName = activeFile?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
 
   const handleGoToEdit = useCallback(() => {
     if (store.images.length === 0) return
@@ -57,10 +60,10 @@ export function useEditorActions({ stageRef, editorRef, canvasScale }: UseEditor
   }, [store, originalFileName])
 
   const handleStartAI = useCallback(() => {
-    if (!store.images[0]) return
+    if (!activeFile) return
     setRetryCount(0)
     store.startProcess()
-  }, [store])
+  }, [store, activeFile])
 
   const handleRetryAI = useCallback(() => {
     store.setProcessError(null)

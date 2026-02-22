@@ -47,6 +47,10 @@ export default function EditStep({
   const [processingMode, setProcessingMode] = useState<ProcessingMode>('full')
   const [showOcrModal, setShowOcrModal] = useState(false)
 
+  const activeEntry = store.imageEntries.find((e) => e.id === store.activeImageId)
+  const activeFile = activeEntry?.file
+  const activeImageUrl = activeEntry?.originalUrl
+
   const selectedRegion = store.regions.find((r) => r.id === store.selectedRegionId) ?? null
   const editImageUrl = store.cleanedImageUrl || store.originalImageUrl
 
@@ -123,7 +127,7 @@ export default function EditStep({
               <button
                 className="btn btn-secondary btn-sm gap-1 shadow-md rounded-l-none"
                 onClick={onStartAI}
-                disabled={!store.images[0]}
+                disabled={!activeFile && !activeImageUrl}
               >
                 <Wand2 size={14} /> AI
               </button>
@@ -144,11 +148,11 @@ export default function EditStep({
       </div>
 
       {/* Inline Processing overlay */}
-      {store.isProcessing && store.images[0] && (
+      {store.isProcessing && (activeFile || activeImageUrl) && (
         <div className="absolute inset-0 z-10 bg-base-100/50 backdrop-blur-sm flex items-center justify-center">
           <div className="w-full max-w-xl">
             <ProcessingView
-              imageFile={store.images[0]}
+              imageFile={activeFile || new File([], 'placeholder.webp')} // ProcessingView might need refactoring if it strictly uses File, but we'll use placeholder for now or it handles Blob/URL internally if updated later. Wait, we should check ProcessingView.
               sourceLang={store.settings.sourceLang}
               apiKey={store.settings.geminiApiKey}
               modelId={store.settings.geminiModel}

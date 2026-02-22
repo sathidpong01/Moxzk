@@ -337,11 +337,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
           if (target.cleanedR2Key) {
             cleanedUrl = await downloadImage(target.cleanedR2Key)
           }
-
-          const res = await fetch(originalUrl)
-          const blob = await res.blob()
-          const file = new File([blob], 'album-image.webp', { type: blob.type })
-
           // Update entry with full image
           set((state) => {
             const entries = state.imageEntries.map((e) =>
@@ -351,7 +346,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
                     originalUrl: cleanedUrl ?? originalUrl,
                     cleanedImageUrl: cleanedUrl,
                     imageLoaded: true,
-                    file,
                   }
                 : e,
             )
@@ -379,10 +373,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   resetToUpload: () => {
     const { imageEntries, originalImageUrl } = get()
     // Revoke all object URLs
-    imageEntries.forEach((e) => {
-      if (e.originalUrl?.startsWith('blob:')) URL.revokeObjectURL(e.originalUrl)
-    })
-    if (originalImageUrl?.startsWith('blob:')) URL.revokeObjectURL(originalImageUrl)
+    imageEntries.forEach((e) => URL.revokeObjectURL(e.originalUrl))
+    if (originalImageUrl) URL.revokeObjectURL(originalImageUrl)
     set({
       currentStep: 'upload',
       images: [],
@@ -432,10 +424,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     // Reset state
     const { imageEntries: oldEntries, originalImageUrl: oldUrl } = get()
-    oldEntries.forEach((e) => {
-      if (e.originalUrl?.startsWith('blob:')) URL.revokeObjectURL(e.originalUrl)
-    })
-    if (oldUrl?.startsWith('blob:')) URL.revokeObjectURL(oldUrl)
+    oldEntries.forEach((e) => { if (e.originalUrl) URL.revokeObjectURL(e.originalUrl) })
+    if (oldUrl) URL.revokeObjectURL(oldUrl)
 
     // Build entries from album pages
     const activePage = pages.find((p) => p.id === activePageId) ?? pages[0]
@@ -488,13 +478,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       let originalUrl = activeEntry.originalUrl
       let cleanedUrl: string | null = null
-      let activeFile: File | null = null
 
       if (activeEntry.originalR2Key) {
         originalUrl = await downloadImage(activeEntry.originalR2Key)
-        const res = await fetch(originalUrl)
-        const blob = await res.blob()
-        activeFile = new File([blob], 'album-image.webp', { type: blob.type })
       }
       if (activeEntry.cleanedR2Key) {
         cleanedUrl = await downloadImage(activeEntry.cleanedR2Key)
@@ -504,7 +490,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set((state) => ({
         imageEntries: state.imageEntries.map((e) =>
           e.id === activeEntry.id
-            ? { ...e, originalUrl: cleanedUrl ?? originalUrl, cleanedImageUrl: cleanedUrl, imageLoaded: true, file: activeFile ?? e.file }
+            ? { ...e, originalUrl: cleanedUrl ?? originalUrl, cleanedImageUrl: cleanedUrl, imageLoaded: true }
             : e,
         ),
         originalImageUrl: cleanedUrl ?? originalUrl,
