@@ -1,0 +1,27 @@
+---
+description: Use MG_Translater project skills
+alwaysApply: true
+---
+
+# MG_Translater Skills
+
+Canonical project skills live in `.agents/skills`.
+
+When a task needs a specialized workflow, read the matching `SKILL.md` from
+`.agents/skills/<skill-name>/SKILL.md` instead of relying on generated copies
+for other AI tools.
+
+Prefer these project-relevant skills:
+
+- `ollama` for Ollama API, vision input, and structured output work.
+- `smart-ocr` for OCR-heavy image understanding work.
+- `electron-best-practices` for the desktop app phase.
+- `security-and-hardening` for local bridges, file inputs, CLI boundaries, and secrets.
+- `test-driven-development` for parser, migration, and behavior changes.
+- `planning-and-task-breakdown` for phase planning and vertical slices.
+- `debugging-and-error-recovery` for bugs, failing tests, and broken builds.
+- `typescript-advanced-types` or `typescript-expert` for TypeScript issues.
+
+Supported local AI targets are Google Antigravity/Codex via `.agents`,
+Claude Code via `.claude`, Cursor via `.cursor/rules`, and Windsurf via
+`.windsurf`.

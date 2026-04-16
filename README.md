@@ -192,7 +192,7 @@ Vite proxy จะส่ง `/api` ไปที่ Worker local `http://localhost
 
 ค่าใน `wrangler.jsonc`:
 
-- Worker: `mg-translater-api`
+- Worker: `mg-translater-worker`
 - D1: `mg-translater-db`
 - R2: `mg-translater-images`
 - D1 binding: `DB`

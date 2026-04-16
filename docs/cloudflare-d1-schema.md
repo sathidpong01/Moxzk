@@ -9,7 +9,7 @@ This project uses Drizzle as the source of truth for the Cloudflare D1 schema.
 
 ## Resources
 
-- Worker: `mg-translater-api`
+- Worker: `mg-translater-worker`
 - D1 database: `mg-translater-db`
 - R2 bucket: `mg-translater-images`
 
