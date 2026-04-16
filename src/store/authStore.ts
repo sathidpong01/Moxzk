@@ -1,17 +1,23 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
-import type { User, Session } from '@supabase/supabase-js'
-import type { Profile } from '../types/database'
 import { toast } from 'sonner'
+import {
+  getCurrentUser,
+  getGoogleRedirectUrl,
+  loginWithEmail,
+  logout,
+  registerWithEmail,
+  type AppSession,
+  type AppUser,
+} from '../services/cloudflareApi'
+import type { Profile } from '../types/database'
 
 interface AuthStore {
-  user: User | null
-  session: Session | null
+  user: AppUser | null
+  session: AppSession | null
   profile: Profile | null
   loading: boolean
   showAuthModal: boolean
 
-  // Actions
   setShowAuthModal: (show: boolean) => void
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (email: string, password: string, username?: string) => Promise<void>
@@ -32,119 +38,67 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   signInWithEmail: async (email, password) => {
     set({ loading: true })
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
+    try {
+      const auth = await loginWithEmail(email, password)
+      set({ ...auth, loading: false, showAuthModal: false })
+      toast.success('เข้าสู่ระบบสำเร็จ!')
+    } catch (error) {
       set({ loading: false })
-      toast.error(error.message)
+      toast.error(error instanceof Error ? error.message : 'เข้าสู่ระบบล้มเหลว')
       throw error
     }
-    // Session listener will handle the rest
-    toast.success('เข้าสู่ระบบสำเร็จ!')
-    set({ showAuthModal: false })
   },
 
   signUpWithEmail: async (email, password, username) => {
     set({ loading: true })
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name: username },
-      },
-    })
-    if (error) {
+    try {
+      const auth = await registerWithEmail(email, password, username)
+      set({ ...auth, loading: false, showAuthModal: false })
+      toast.success('สมัครสำเร็จ!')
+    } catch (error) {
       set({ loading: false })
-      toast.error(error.message)
+      toast.error(error instanceof Error ? error.message : 'สมัครสมาชิกล้มเหลว')
       throw error
     }
-    toast.success('สมัครสำเร็จ! ตรวจสอบอีเมลเพื่อยืนยัน')
-    set({ showAuthModal: false })
   },
 
   signInWithGoogle: async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    })
-    if (error) {
-      toast.error(`Google login ล้มเหลว: ${error.message}`)
+    try {
+      window.location.href = await getGoogleRedirectUrl()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Google login ล้มเหลว')
       throw error
     }
   },
 
   signOut: async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      toast.error(`ออกจากระบบล้มเหลว: ${error.message}`)
+    try {
+      await logout()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'ออกจากระบบล้มเหลว')
       return
     }
-    set({ user: null, session: null, profile: null })
+    set({ user: null, session: null, profile: null, loading: false })
     toast.success('ออกจากระบบแล้ว')
   },
 
   fetchProfile: async () => {
-    const { user } = get()
-    if (!user) return
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
-    if (error) {
-      console.warn('[auth] Failed to fetch profile:', error.message)
+    const auth = await getCurrentUser()
+    if (!auth) {
+      set({ user: null, session: null, profile: null, loading: false })
       return
     }
-    set({ profile: data })
+    set({ ...auth, loading: false })
   },
 
   init: async () => {
     set({ loading: true })
-
-    // Get initial session
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) {
-      set({ user: session.user, session })
+    try {
       await get().fetchProfile()
+    } catch (error) {
+      console.warn('[auth] Failed to initialize session:', error)
+      set({ user: null, session: null, profile: null, loading: false })
     }
-    set({ loading: false })
-
-    // Track last seen user ID to avoid duplicate SIGNED_IN toasts on token refresh
-    let lastSeenUserId = session?.user?.id ?? null
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        set({
-          user: newSession?.user ?? null,
-          session: newSession,
-          loading: false,
-        })
-
-        if (event === 'SIGNED_IN' && newSession?.user) {
-          const isNewLogin = newSession.user.id !== lastSeenUserId
-          lastSeenUserId = newSession.user.id
-
-          setTimeout(() => get().fetchProfile(), 500)
-
-          if (isNewLogin) {
-            const name = newSession.user.user_metadata?.name
-              || newSession.user.user_metadata?.full_name
-              || newSession.user.email?.split('@')[0]
-            toast.success(`ยินดีต้อนรับ, ${name}!`)
-            set({ showAuthModal: false })
-          }
-        }
-
-        if (event === 'SIGNED_OUT') {
-          lastSeenUserId = null
-          set({ profile: null })
-        }
-      },
-    )
-
-    return () => subscription.unsubscribe()
+    return () => {}
   },
 }))

@@ -1,8 +1,3 @@
-<<<<<<< D:/MG_Translater/.gitignore
-<<<<<<< D:/MG_Translater/.gitignore
-<<<<<<< D:/MG_Translater/.gitignore
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -13,50 +8,33 @@
 !.yarn/releases
 !.yarn/versions
 
+# builds
+/build
+/dist
+/.next
+/out
+
 # testing
 /coverage
+/test-results
 
-# next.js
-/.next/
-/out/
+# local state
+/.wrangler
+/.vercel
+/output
+/.venv-panelcleaner
 
-# production
-/build
+# local sample images
+/Wrong sauna 01.jpg
+/Wrong sauna 02.jpg
 
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-=======
-=======
->>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
-=======
->>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
-# dependencies
-/node_modules
-
-# production
-/dist
-
-# env files
+# env files and local secrets
 .env
+.env.*
 .env.local
 .env.*.local
+.dev.vars
+.dev.vars.*
 
 # misc
 .DS_Store
@@ -71,15 +49,38 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+next-env.d.ts
 
 # editor
 .vscode
 *.swp
 *.swo
-<<<<<<< D:/MG_Translater/.gitignore
-<<<<<<< D:/MG_Translater/.gitignore
->>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
-=======
->>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
-=======
->>>>>>> C:/Users/ZAY_HIII/.windsurf/worktrees/MG_Translater/MG_Translater-1b45b1cd/.gitignore
+
+.vercel
+
+# generated AI skill targets not used in this workspace
+/.adal
+/.augment
+/.codebuddy
+/.commandcode
+/.continue
+/.crush
+/.factory
+/.goose
+/.iflow
+/.junie
+/.kilocode
+/.kiro
+/.kode
+/.mcpjam
+/.mux
+/.neovate
+/.openhands
+/.pi
+/.pochi
+/.qoder
+/.qwen
+/.roo
+/.trae
+/.vibe
+/.zencoder

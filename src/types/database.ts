@@ -68,6 +68,8 @@ export interface Database {
           original_key: string | null
           cleaned_key: string | null
           thumbnail_key: string | null
+          artboard_x: number | null
+          artboard_y: number | null
           regions: unknown
           brush_strokes: unknown
           status: 'pending' | 'processing' | 'clean_done' | 'translated' | 'error'
@@ -83,6 +85,8 @@ export interface Database {
           original_key?: string | null
           cleaned_key?: string | null
           thumbnail_key?: string | null
+          artboard_x?: number | null
+          artboard_y?: number | null
           regions?: unknown
           brush_strokes?: unknown
           status?: 'pending' | 'processing' | 'clean_done' | 'translated' | 'error'
@@ -94,6 +98,8 @@ export interface Database {
           original_key?: string | null
           cleaned_key?: string | null
           thumbnail_key?: string | null
+          artboard_x?: number | null
+          artboard_y?: number | null
           regions?: unknown
           brush_strokes?: unknown
           status?: 'pending' | 'processing' | 'clean_done' | 'translated' | 'error'

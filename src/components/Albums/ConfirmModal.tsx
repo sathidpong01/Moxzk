@@ -1,4 +1,5 @@
 import { AlertTriangle } from 'lucide-react'
+import { Button, Modal } from '../ui/primitives'
 
 interface ConfirmModalProps {
   open: boolean
@@ -11,12 +12,6 @@ interface ConfirmModalProps {
   onCancel: () => void
 }
 
-const VARIANT_BTN: Record<string, string> = {
-  error: 'btn-error',
-  warning: 'btn-warning',
-  info: 'btn-info',
-}
-
 export default function ConfirmModal({
   open,
   title,
@@ -27,24 +22,18 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-110 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
-      <div className="relative floating-panel w-full max-w-xs mx-4 p-5 panel-enter text-center">
-        <AlertTriangle size={32} className={`mx-auto mb-3 ${variant === 'error' ? 'text-error' : variant === 'warning' ? 'text-warning' : 'text-info'}`} />
-        <h3 className="font-bold text-sm mb-1">{title}</h3>
-        <p className="text-xs text-base-content/60 mb-4">{message}</p>
+    <Modal isOpen={open} onClose={onCancel} title={title} className="max-w-xs text-center">
+        <AlertTriangle size={32} className={`mx-auto mb-3 ${variant === 'error' ? 'text-red-300' : variant === 'warning' ? 'text-yellow-300' : 'text-blue-300'}`} />
+        <p className="mb-4 text-xs text-[var(--mg-muted)]">{message}</p>
         <div className="flex gap-2">
-          <button className="btn btn-ghost btn-sm flex-1" onClick={onCancel}>
+          <Button variant="ghost" size="sm" className="flex-1" onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button className={`btn btn-sm flex-1 ${VARIANT_BTN[variant]}`} onClick={onConfirm}>
+          </Button>
+          <Button variant={variant === 'error' ? 'danger' : 'primary'} size="sm" className="flex-1" onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

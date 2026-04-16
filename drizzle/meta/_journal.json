@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1776253605333,
+      "tag": "0000_parallel_stranger",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776277181949,
+      "tag": "0001_artboard_layout",
+      "breakpoints": true
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import {
   ZoomOut,
   RotateCcw,
 } from 'lucide-react'
+import { Badge, Button } from '../ui/primitives'
 
 interface SplitViewProps {
   originalImageUrl: string
@@ -76,27 +77,27 @@ export default function SplitView({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Toolbar: mode tabs + zoom */}
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Toolbar: mode controls + zoom */}
       <div className="flex items-center justify-between mb-2 shrink-0">
-        <div role="tablist" className="tabs tabs-boxed tabs-sm w-fit">
+        <div role="tablist" className="inline-flex w-fit rounded-[8px] border border-[var(--mg-border)] bg-white/5 p-1">
           <button
             role="tab"
-            className={`tab gap-1 ${mode === 'slider' ? 'tab-active' : ''}`}
+            className={`mg-button mg-button-sm ${mode === 'slider' ? 'mg-button-soft' : 'mg-button-ghost'}`}
             onClick={() => setMode('slider')}
           >
             <SplitSquareHorizontal size={14} /> Slider
           </button>
           <button
             role="tab"
-            className={`tab gap-1 ${mode === 'side-by-side' ? 'tab-active' : ''}`}
+            className={`mg-button mg-button-sm ${mode === 'side-by-side' ? 'mg-button-soft' : 'mg-button-ghost'}`}
             onClick={() => setMode('side-by-side')}
           >
             <Columns2 size={14} /> Side by Side
           </button>
           <button
             role="tab"
-            className={`tab gap-1 ${mode === 'overlay' ? 'tab-active' : ''}`}
+            className={`mg-button mg-button-sm ${mode === 'overlay' ? 'mg-button-soft' : 'mg-button-ghost'}`}
             onClick={() => setMode('overlay')}
           >
             <Layers size={14} /> Overlay
@@ -104,23 +105,23 @@ export default function SplitView({
         </div>
 
         <div className="flex items-center gap-1">
-          <button className="btn btn-xs btn-ghost" onClick={() => applyZoom(zoom - 0.25)} title="Zoom out">
+          <Button variant="ghost" size="sm" onClick={() => applyZoom(zoom - 0.25)} title="Zoom out">
             <ZoomOut size={14} />
-          </button>
+          </Button>
           <span className="text-xs font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
-          <button className="btn btn-xs btn-ghost" onClick={() => applyZoom(zoom + 0.25)} title="Zoom in">
+          <Button variant="ghost" size="sm" onClick={() => applyZoom(zoom + 0.25)} title="Zoom in">
             <ZoomIn size={14} />
-          </button>
-          <button className="btn btn-xs btn-ghost" onClick={resetView} title="Reset zoom">
+          </Button>
+          <Button variant="ghost" size="sm" onClick={resetView} title="Reset zoom">
             <RotateCcw size={14} />
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Content area — scrollable, zoomable */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 overflow-hidden rounded-xl border border-base-300 editor-canvas-area"
+        className="studio-canvas min-h-0 flex-1 overflow-hidden rounded-[8px] border border-[var(--mg-border)]"
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -147,7 +148,7 @@ export default function SplitView({
             {mode === 'side-by-side' && (
               <div className="grid grid-cols-2 gap-2 p-2">
                 <div className="space-y-1">
-                  <span className="badge badge-sm badge-neutral">Original</span>
+                  <Badge>Original</Badge>
                   <img
                     src={originalImageUrl}
                     alt="Original"
@@ -156,7 +157,7 @@ export default function SplitView({
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="badge badge-sm badge-primary">Translated</span>
+                  <Badge>Translated</Badge>
                   <img
                     src={translatedImageUrl}
                     alt="Translated"
@@ -194,16 +195,16 @@ export default function SplitView({
       {/* Overlay opacity slider (only in overlay mode) */}
       {mode === 'overlay' && (
         <div className="flex items-center gap-3 mt-2 shrink-0">
-          <span className="text-xs text-base-content/50">Original</span>
+          <span className="text-xs text-[var(--mg-muted)]">Original</span>
           <input
             type="range"
-            className="range range-primary range-xs flex-1"
+            className="mg-slider flex-1"
             min={0}
             max={100}
             value={overlayOpacity}
             onChange={(e) => setOverlayOpacity(Number(e.target.value))}
           />
-          <span className="text-xs text-base-content/50">Translated</span>
+          <span className="text-xs text-[var(--mg-muted)]">Translated</span>
         </div>
       )}
     </div>

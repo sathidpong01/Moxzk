@@ -1,41 +1,38 @@
-/**
- * OCR Correction Modal — review/edit OCR text, see confidence scores,
- * batch translate selected regions.
- */
-
 import { useCallback, useEffect, useState } from 'react'
 import type { TextRegion } from '../../types'
 import { useAppStore } from '../../store/appStore'
-import { translateSingleRegion } from '../../services/localLLM'
-import { X, Languages, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { translateSingleRegion } from '../../services/ollama'
+import { Languages, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge, Button, Modal, TextInput } from '../ui/primitives'
 
 interface OcrCorrectionModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
-function confidenceBadge(c?: number) {
-  if (c == null) return <span className="badge badge-xs badge-ghost">?</span>
-  if (c >= 0.9) return <span className="badge badge-xs badge-success">{(c * 100).toFixed(0)}%</span>
-  if (c >= 0.7) return <span className="badge badge-xs badge-warning">{(c * 100).toFixed(0)}%</span>
-  return <span className="badge badge-xs badge-error">{(c * 100).toFixed(0)}%</span>
+function confidenceBadge(confidence?: number) {
+  if (confidence == null) return <Badge>?</Badge>
+  const className = confidence >= 0.9
+    ? 'text-green-300'
+    : confidence >= 0.7
+      ? 'text-yellow-300'
+      : 'text-red-300'
+  return <Badge className={className}>{(confidence * 100).toFixed(0)}%</Badge>
 }
 
 export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionModalProps) {
   const regions = useAppStore((s) => s.regions)
   const updateRegion = useAppStore((s) => s.updateRegion)
   const settings = useAppStore((s) => s.settings)
-
   const [editTexts, setEditTexts] = useState<Record<string, string>>({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [translating, setTranslating] = useState(false)
 
-  // Sync editTexts from regions on open
   useEffect(() => {
     if (isOpen) {
       const map: Record<string, string> = {}
-      regions.forEach((r) => { map[r.id] = r.originalText })
+      regions.forEach((region) => { map[region.id] = region.originalText })
       setEditTexts(map)
       setSelected(new Set())
     }
@@ -51,17 +48,13 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
   }, [])
 
   const selectAll = useCallback(() => {
-    if (selected.size === regions.length) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(regions.map((r) => r.id)))
-    }
-  }, [selected.size, regions])
+    setSelected((current) => current.size === regions.length ? new Set() : new Set(regions.map((region) => region.id)))
+  }, [regions])
 
   const handleApplyEdits = useCallback(() => {
     let count = 0
     for (const [id, text] of Object.entries(editTexts)) {
-      const region = regions.find((r) => r.id === id)
+      const region = regions.find((item) => item.id === id)
       if (region && region.originalText !== text) {
         updateRegion(id, { originalText: text })
         count++
@@ -72,27 +65,19 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
   }, [editTexts, regions, updateRegion, onClose])
 
   const handleBatchTranslate = useCallback(async () => {
-    const ids = selected.size > 0 ? [...selected] : regions.map((r) => r.id)
+    const ids = selected.size > 0 ? [...selected] : regions.map((region) => region.id)
     if (ids.length === 0) return
-
     setTranslating(true)
     let done = 0
     for (const id of ids) {
       const text = editTexts[id] ?? ''
       if (!text) continue
       try {
-        const result = await translateSingleRegion(
-          text,
-          settings.sourceLang,
-          settings.translationEngine,
-          {
-            apiKey: settings.geminiApiKey,
-            modelId: settings.geminiModel,
-            libreTranslateUrl: settings.libreTranslateUrl,
-            ollamaUrl: settings.ollamaUrl,
-            ollamaModel: settings.ollamaModel,
-          },
-        )
+        const result = await translateSingleRegion(text, settings.sourceLang, {
+          ollamaUrl: settings.ollamaUrl,
+          ollamaModel: settings.ollamaModel,
+          ollamaApiKey: settings.ollamaApiKey,
+        })
         updateRegion(id, { translatedText: result, originalText: text })
         done++
       } catch (err) {
@@ -103,78 +88,75 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
     toast.success(`แปลเสร็จ ${done}/${ids.length} regions`)
   }, [selected, regions, editTexts, settings, updateRegion])
 
-  if (!isOpen) return null
-
-  const lowConfCount = regions.filter((r) => (r as TextRegion & { confidence?: number }).confidence != null && ((r as TextRegion & { confidence?: number }).confidence ?? 1) < 0.7).length
+  const lowConfCount = regions.filter((region) => {
+    const confidence = (region as TextRegion & { confidence?: number }).confidence
+    return confidence != null && confidence < 0.7
+  }).length
 
   return (
-    <dialog className="modal modal-open">
-      <div className="modal-box max-w-3xl max-h-[80vh] p-0 flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-base-300">
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold">ตรวจสอบ OCR ({regions.length} regions)</h3>
-            {lowConfCount > 0 && (
-              <span className="badge badge-warning badge-sm gap-1">
-                <AlertTriangle size={10} /> {lowConfCount} confidence ต่ำ
-              </span>
-            )}
-          </div>
-          <button className="btn btn-ghost btn-xs btn-square" onClick={onClose}>
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-y-auto flex-1 min-h-0">
-          <table className="table table-xs w-full">
-            <thead className="sticky top-0 bg-base-200 z-10">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={(
+        <span className="flex items-center gap-2">
+          ตรวจสอบ OCR ({regions.length} regions)
+          {lowConfCount > 0 && (
+            <Badge className="text-yellow-300"><AlertTriangle size={10} /> {lowConfCount} confidence ต่ำ</Badge>
+          )}
+        </span>
+      )}
+      className="max-w-4xl p-0"
+    >
+      <div className="flex max-h-[72vh] min-h-0 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-[var(--mg-surface-2)] text-[var(--mg-muted)]">
               <tr>
-                <th className="w-8">
+                <th className="w-8 px-2 py-2">
                   <input
                     type="checkbox"
-                    className="checkbox checkbox-xs"
                     checked={selected.size === regions.length && regions.length > 0}
                     onChange={selectAll}
+                    aria-label="Select all OCR regions"
                   />
                 </th>
-                <th className="w-8">#</th>
-                <th>OCR Text (แก้ไขได้)</th>
-                <th className="w-16">Conf.</th>
-                <th className="w-24">แปลแล้ว</th>
+                <th className="w-8 px-2 py-2">#</th>
+                <th className="px-2 py-2">OCR Text</th>
+                <th className="w-20 px-2 py-2">Conf.</th>
+                <th className="w-24 px-2 py-2">แปลแล้ว</th>
               </tr>
             </thead>
-            <tbody>
-              {regions.map((r, i) => {
-                const conf = (r as TextRegion & { confidence?: number }).confidence
-                const isLow = conf != null && conf < 0.7
+            <tbody className="divide-y divide-[var(--mg-border)]">
+              {regions.map((region, index) => {
+                const confidence = (region as TextRegion & { confidence?: number }).confidence
+                const isLow = confidence != null && confidence < 0.7
                 return (
-                  <tr key={r.id} className={isLow ? 'bg-error/10' : ''}>
-                    <td>
+                  <tr key={region.id} className={isLow ? 'bg-red-500/10' : ''}>
+                    <td className="px-2 py-2">
                       <input
                         type="checkbox"
-                        className="checkbox checkbox-xs"
-                        checked={selected.has(r.id)}
-                        onChange={() => toggleSelect(r.id)}
+                        checked={selected.has(region.id)}
+                        onChange={() => toggleSelect(region.id)}
+                        aria-label={`Select OCR region ${index + 1}`}
                       />
                     </td>
-                    <td className="text-base-content/50">{i + 1}</td>
-                    <td>
-                      <input
+                    <td className="px-2 py-2 text-[var(--mg-dim)]">{index + 1}</td>
+                    <td className="px-2 py-2">
+                      <TextInput
                         type="text"
-                        className={`input input-xs input-bordered w-full font-mono ${isLow ? 'input-error' : ''}`}
-                        value={editTexts[r.id] ?? ''}
-                        onChange={(e) => setEditTexts((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                        className={isLow ? 'border-red-400/60 font-mono' : 'font-mono'}
+                        value={editTexts[region.id] ?? ''}
+                        onChange={(e) => setEditTexts((prev) => ({ ...prev, [region.id]: e.target.value }))}
                       />
                     </td>
-                    <td>{confidenceBadge(conf)}</td>
-                    <td>
-                      {r.translatedText ? (
-                        <span className="flex items-center gap-1 text-success">
+                    <td className="px-2 py-2">{confidenceBadge(confidence)}</td>
+                    <td className="px-2 py-2">
+                      {region.translatedText ? (
+                        <span className="flex items-center gap-1 text-green-300">
                           <CheckCircle2 size={10} /> แล้ว
                         </span>
                       ) : (
-                        <span className="text-base-content/30">—</span>
+                        <span className="text-[var(--mg-dim)]">-</span>
                       )}
                     </td>
                   </tr>
@@ -184,32 +166,21 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
           </table>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-base-300">
-          <span className="text-xs text-base-content/50">
+        <div className="flex items-center justify-between border-t border-[var(--mg-border)] px-4 py-3">
+          <span className="text-xs text-[var(--mg-muted)]">
             เลือก {selected.size}/{regions.length}
           </span>
           <div className="flex items-center gap-2">
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={handleApplyEdits}
-            >
+            <Button variant="ghost" size="sm" onClick={handleApplyEdits}>
               บันทึกแก้ไข OCR
-            </button>
-            <button
-              className="btn btn-primary btn-sm gap-1"
-              disabled={translating}
-              onClick={handleBatchTranslate}
-            >
+            </Button>
+            <Button variant="primary" size="sm" disabled={translating} onClick={handleBatchTranslate}>
               {translating ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
               {selected.size > 0 ? `แปลที่เลือก (${selected.size})` : 'แปลทั้งหมด'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
-      <form method="dialog" className="modal-backdrop">
-        <button onClick={onClose}>close</button>
-      </form>
-    </dialog>
+    </Modal>
   )
 }

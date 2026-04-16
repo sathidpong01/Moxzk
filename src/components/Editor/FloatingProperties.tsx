@@ -3,6 +3,7 @@ import { useFloatingPanel } from '../../hooks/useFloatingPanel'
 import { useAppStore } from '../../store/appStore'
 import { GripVertical, X } from 'lucide-react'
 import PropertiesPanel from './PropertiesPanel'
+import { IconButton } from '../ui/primitives'
 
 export default function FloatingProperties({
   region,
@@ -21,22 +22,21 @@ export default function FloatingProperties({
   const togglePanel = useAppStore((s) => s.togglePanel)
 
   return (
-    <div style={panelStyle} className="floating-panel p-3 w-72 max-h-[80vh] overflow-y-auto panel-enter">
-      <div className="flex items-center justify-between mb-2">
+    <div style={panelStyle} className="floating-panel panel-enter flex max-h-[82vh] w-80 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--mg-border)] px-3 py-2">
         <div {...dragHandleProps} className="flex items-center gap-1 drag-handle flex-1">
-          <GripVertical size={14} className="text-base-content/30" />
-          <span className="text-xs font-bold uppercase tracking-wider text-base-content/50">
+          <GripVertical size={14} className="text-[var(--mg-dim)]" />
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--mg-muted)]">
             Properties
           </span>
         </div>
-        <button
-          className="btn btn-ghost btn-xs btn-square"
-          onClick={() => togglePanel('properties', false)}
-        >
+        <IconButton label="Close properties" onClick={() => togglePanel('properties', false)}>
           <X size={12} />
-        </button>
+        </IconButton>
       </div>
-      <PropertiesPanel region={region} onUpdate={onUpdate} onDelete={onDelete} />
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <PropertiesPanel region={region} onUpdate={onUpdate} onDelete={onDelete} />
+      </div>
     </div>
   )
 }

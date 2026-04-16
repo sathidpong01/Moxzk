@@ -3,8 +3,9 @@
  * Only active when currentStep === 'edit'.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAppStore } from '../store/appStore'
+import type { ActiveTool } from '../types'
 
 export interface ShortcutDef {
   key: string
@@ -24,19 +25,43 @@ export const SHORTCUT_LIST: ShortcutDef[] = [
   { key: 'i', label: 'I', action: 'Eyedropper' },
   { key: '[', label: '[', action: 'ลด brush size' },
   { key: ']', label: ']', action: 'เพิ่ม brush size' },
-  { key: 'Escape', label: 'Esc', action: 'Deselect / ปิด modal' },
+  { key: 'Escape', label: 'Esc', action: 'Deselect / ปิด overlay' },
   { key: 'Delete', label: 'Del', action: 'ลบ region ที่เลือก' },
 ]
 
-export function useKeyboardShortcuts(): void {
+interface ShortcutHandlers {
+  onSave?: () => void
+  onExport?: () => void
+  onStartAI?: () => void
+}
+
+function shouldIgnoreShortcut(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el) return false
+  const tag = el.tagName
+  return (
+    tag === 'INPUT' ||
+    tag === 'TEXTAREA' ||
+    tag === 'SELECT' ||
+    el.isContentEditable ||
+    Boolean(el.closest('[role="textbox"]'))
+  )
+}
+
+export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}): void {
+  const handlersRef = useRef(handlers)
+  const heldToolRef = useRef<ActiveTool | null>(null)
+
+  useEffect(() => {
+    handlersRef.current = handlers
+  }, [handlers])
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const state = useAppStore.getState()
       if (state.currentStep !== 'edit') return
 
-      // Don't intercept when typing in inputs
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (shouldIgnoreShortcut(e.target)) return
 
       const ctrl = e.ctrlKey || e.metaKey
       const shift = e.shiftKey
@@ -52,9 +77,27 @@ export function useKeyboardShortcuts(): void {
         return
       }
 
-      // Ctrl+S — prevent browser save dialog
+      if (ctrl && e.key === 'y') {
+        e.preventDefault()
+        state.redoBrushStroke()
+        return
+      }
+
       if (ctrl && e.key === 's') {
         e.preventDefault()
+        handlersRef.current.onSave?.()
+        return
+      }
+
+      if (ctrl && e.key === 'Enter') {
+        e.preventDefault()
+        handlersRef.current.onExport?.()
+        return
+      }
+
+      if (ctrl && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        handlersRef.current.onStartAI?.()
         return
       }
 
@@ -62,6 +105,14 @@ export function useKeyboardShortcuts(): void {
       if (ctrl) return
 
       switch (e.key) {
+        case ' ': {
+          if (!e.repeat && state.activeTool !== 'pan') {
+            e.preventDefault()
+            heldToolRef.current = state.activeTool
+            state.setActiveTool('pan')
+          }
+          break
+        }
         case 'b':
         case 'B':
           state.setActiveTool('brush')
@@ -85,7 +136,7 @@ export function useKeyboardShortcuts(): void {
           break
         }
         case ']': {
-          const size = Math.min(100, (state.brushSize ?? 10) + 2)
+          const size = Math.min(50, (state.brushSize ?? 10) + 2)
           state.setBrushSize(size)
           break
         }
@@ -102,7 +153,21 @@ export function useKeyboardShortcuts(): void {
       }
     }
 
+    function handleKeyUp(e: KeyboardEvent) {
+      const state = useAppStore.getState()
+      if (state.currentStep !== 'edit') return
+      if (e.key === ' ' && heldToolRef.current) {
+        e.preventDefault()
+        state.setActiveTool(heldToolRef.current)
+        heldToolRef.current = null
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
   }, [])
 }

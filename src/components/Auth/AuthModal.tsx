@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
-import { X, Mail, Lock, User, Loader2 } from 'lucide-react'
+import { Mail, Lock, User, Loader2 } from 'lucide-react'
+import { Button, Modal, TextInput } from '../ui/primitives'
 
 type AuthMode = 'login' | 'signup'
 
@@ -11,8 +12,6 @@ export default function AuthModal() {
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  if (!showAuthModal) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,39 +42,25 @@ export default function AuthModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={() => setShowAuthModal(false)}
-      />
-
-      {/* Modal */}
-      <div className="relative floating-panel w-full max-w-sm mx-4 p-6 panel-enter">
-        {/* Close button */}
-        <button
-          className="btn btn-ghost btn-xs btn-square absolute top-3 right-3"
-          onClick={() => setShowAuthModal(false)}
-        >
-          <X size={14} />
-        </button>
-
-        {/* Header */}
+    <Modal
+      isOpen={showAuthModal}
+      onClose={() => setShowAuthModal(false)}
+      title={mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
+      className="max-w-sm"
+    >
         <div className="text-center mb-6">
-          <h2 className="text-xl font-bold">
-            {mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
-          </h2>
-          <p className="text-sm text-base-content/50 mt-1">
+          <p className="mt-1 text-sm text-[var(--mg-muted)]">
             {mode === 'login'
               ? 'เข้าสู่ระบบเพื่อบันทึกและจัดการอัลบั้ม'
-              : 'สร้างบัญชีเพื่อเริ่มใช้งาน'}
+              : 'สร้างบัญชีและเริ่มใช้งานได้ทันที'}
           </p>
         </div>
 
         {/* OAuth buttons */}
         <div className="space-y-2 mb-4">
-          <button
-            className="btn btn-outline w-full gap-2"
+          <Button
+            variant="soft"
+            className="w-full"
             onClick={handleGoogleLogin}
             disabled={submitting}
           >
@@ -86,31 +71,34 @@ export default function AuthModal() {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
             ดำเนินการด้วย Google
-          </button>
+          </Button>
         </div>
 
-        {/* Divider */}
-        <div className="divider text-xs text-base-content/30">หรือใช้อีเมล</div>
+        <div className="my-4 flex items-center gap-3 text-xs text-[var(--mg-dim)]">
+          <span className="h-px flex-1 bg-[var(--mg-border)]" />
+          หรือใช้อีเมล
+          <span className="h-px flex-1 bg-[var(--mg-border)]" />
+        </div>
 
         {/* Email form */}
         <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'signup' && (
-            <label className="input input-bordered flex items-center gap-2">
-              <User size={14} className="text-base-content/40" />
-              <input
+            <label className="flex items-center gap-2 rounded-[7px] border border-[var(--mg-border)] bg-white/[0.045] px-3">
+              <User size={14} className="text-[var(--mg-muted)]" />
+              <TextInput
                 type="text"
-                className="grow"
+                className="grow border-0 bg-transparent px-0"
                 placeholder="ชื่อผู้ใช้"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
             </label>
           )}
-          <label className="input input-bordered flex items-center gap-2">
-            <Mail size={14} className="text-base-content/40" />
-            <input
+          <label className="flex items-center gap-2 rounded-[7px] border border-[var(--mg-border)] bg-white/[0.045] px-3">
+            <Mail size={14} className="text-[var(--mg-muted)]" />
+            <TextInput
               type="email"
-              className="grow"
+              className="grow border-0 bg-transparent px-0"
               placeholder="อีเมล"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -118,22 +106,23 @@ export default function AuthModal() {
               autoComplete="email"
             />
           </label>
-          <label className="input input-bordered flex items-center gap-2">
-            <Lock size={14} className="text-base-content/40" />
-            <input
+          <label className="flex items-center gap-2 rounded-[7px] border border-[var(--mg-border)] bg-white/[0.045] px-3">
+            <Lock size={14} className="text-[var(--mg-muted)]" />
+            <TextInput
               type="password"
-              className="grow"
+              className="grow border-0 bg-transparent px-0"
               placeholder="รหัสผ่าน"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={10}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
           </label>
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary w-full"
+            variant="primary"
+            className="w-full"
             disabled={submitting || !email || !password}
           >
             {submitting ? (
@@ -143,16 +132,16 @@ export default function AuthModal() {
             ) : (
               'สมัครสมาชิก'
             )}
-          </button>
+          </Button>
         </form>
 
         {/* Switch mode */}
-        <p className="text-center text-sm mt-4 text-base-content/50">
+        <p className="mt-4 text-center text-sm text-[var(--mg-muted)]">
           {mode === 'login' ? (
             <>
               ยังไม่มีบัญชี?{' '}
               <button
-                className="text-primary font-medium hover:underline"
+                className="font-medium text-blue-300 hover:underline"
                 onClick={() => setMode('signup')}
               >
                 สมัครสมาชิก
@@ -162,7 +151,7 @@ export default function AuthModal() {
             <>
               มีบัญชีแล้ว?{' '}
               <button
-                className="text-primary font-medium hover:underline"
+                className="font-medium text-blue-300 hover:underline"
                 onClick={() => setMode('login')}
               >
                 เข้าสู่ระบบ
@@ -170,7 +159,6 @@ export default function AuthModal() {
             </>
           )}
         </p>
-      </div>
-    </div>
+    </Modal>
   )
 }

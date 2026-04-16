@@ -1,8 +1,22 @@
 import { useEffect, useState } from 'react'
-import type { AppSettings, GeminiModelId, TranslationEngine } from '../../types'
-import { GEMINI_MODELS } from '../../services/geminiQuota'
-import { Settings, X, Save, Key, Server, Globe, Palette, Cpu, Sparkles } from 'lucide-react'
+import type { AppSettings } from '../../types'
+import type { OllamaStatus } from '../../services/ollama'
+import { getPanelCleanerStatus } from '../../services/panelcleaner-api'
+import { webRuntime } from '../../runtime/webRuntime'
+import {
+  AlertCircle,
+  CheckCircle2,
+  Cpu,
+  Globe,
+  Key,
+  Loader2,
+  Palette,
+  Save,
+  Server,
+  Settings,
+} from 'lucide-react'
 import { toast } from 'sonner'
+import { Button, Field, Modal, SelectField, TextareaField, TextInput } from '../ui/primitives'
 
 interface SettingsPanelProps {
   settings: AppSettings
@@ -11,66 +25,14 @@ interface SettingsPanelProps {
   onClose: () => void
 }
 
-type SettingsTab = 'general' | 'appearance' | 'api' | 'ai'
+type SettingsTab = 'general' | 'cleanup' | 'ai' | 'appearance'
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
   { id: 'general', label: 'General', icon: Settings },
-  { id: 'ai', label: 'AI / Translation', icon: Sparkles },
+  { id: 'cleanup', label: 'Cleanup', icon: Server },
+  { id: 'ai', label: 'Ollama', icon: Cpu },
   { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'api', label: 'API Keys', icon: Key },
 ]
-
-const TIER_BADGE: Record<string, string> = {
-  budget: 'badge-success',
-  balanced: 'badge-info',
-  premium: 'badge-warning',
-}
-
-const DAISY_THEMES = [
-  'light', 'dark', 'cupcake', 'bumblebee', 'emerald', 'corporate',
-  'synthwave', 'retro', 'cyberpunk', 'valentine', 'halloween',
-  'garden', 'forest', 'aqua', 'lofi', 'pastel', 'fantasy',
-  'wireframe', 'black', 'luxury', 'dracula', 'cmyk', 'autumn',
-  'business', 'acid', 'lemonade', 'night', 'coffee', 'winter',
-  'dim', 'nord', 'sunset',
-]
-
-function ThemePreview({ theme, isActive, onClick }: { theme: string; isActive: boolean; onClick: () => void }) {
-  return (
-    <button
-      data-theme={theme}
-      className={`rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
-        isActive ? 'border-primary ring-2 ring-primary/40 scale-105' : 'border-base-300/50'
-      }`}
-      onClick={onClick}
-      title={theme}
-    >
-      <div className="bg-base-100 p-2 w-full">
-        <div className="flex gap-1 mb-1.5">
-          <div className="rounded-full w-2 h-2 bg-primary" />
-          <div className="rounded-full w-2 h-2 bg-secondary" />
-          <div className="rounded-full w-2 h-2 bg-accent" />
-          <div className="rounded-full w-2 h-2 bg-neutral" />
-        </div>
-        <div className="space-y-1">
-          <div className="rounded bg-base-content/20 h-1.5 w-full" />
-          <div className="rounded bg-base-content/10 h-1.5 w-3/4" />
-        </div>
-        <div className="flex gap-1 mt-1.5">
-          <div className="rounded bg-primary px-1.5 py-0.5">
-            <span className="text-primary-content text-[7px] font-bold">Btn</span>
-          </div>
-          <div className="rounded bg-secondary px-1.5 py-0.5">
-            <span className="text-secondary-content text-[7px] font-bold">Btn</span>
-          </div>
-        </div>
-      </div>
-      <div className="bg-base-200 px-2 py-1">
-        <span className="text-[9px] font-medium text-base-content capitalize">{theme}</span>
-      </div>
-    </button>
-  )
-}
 
 export default function SettingsPanel({
   settings,
@@ -80,256 +42,282 @@ export default function SettingsPanel({
 }: SettingsPanelProps) {
   const [draft, setDraft] = useState<AppSettings>(settings)
   const [tab, setTab] = useState<SettingsTab>('general')
+  const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null)
+  const [checkingOllama, setCheckingOllama] = useState(false)
+  const [modelNames, setModelNames] = useState<string[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
+  const [panelCleanerStatus, setPanelCleanerStatus] = useState<{ ok: boolean; version?: string; command?: string; error?: string; installHint?: string } | null>(null)
+  const [checkingPanelCleaner, setCheckingPanelCleaner] = useState(false)
 
-  // Sync draft when settings change externally
   useEffect(() => {
-    if (isOpen) setDraft(settings)
+    if (isOpen) {
+      setDraft(settings)
+      setOllamaStatus(null)
+      setPanelCleanerStatus(null)
+    }
   }, [isOpen, settings])
 
-  // Live theme preview
-  useEffect(() => {
-    if (isOpen) document.documentElement.setAttribute('data-theme', draft.theme)
-    return () => { document.documentElement.setAttribute('data-theme', settings.theme) }
-  }, [draft.theme, isOpen, settings.theme])
-
   const handleSave = () => {
-    document.documentElement.setAttribute('data-theme', draft.theme)
-    onSave(draft)
+    onSave({ ...draft, theme: 'studio-dark' })
     onClose()
     toast.success('บันทึกการตั้งค่าเรียบร้อย')
   }
 
-  if (!isOpen) return null
+  const handleCheckOllama = async () => {
+    setCheckingOllama(true)
+    const status = await webRuntime.ollama.getServerStatus({
+      ollamaUrl: draft.ollamaUrl,
+      ollamaApiKey: draft.ollamaApiKey,
+    })
+    setOllamaStatus(status)
+    setCheckingOllama(false)
+    if (status.ok) {
+      toast.success(status.version === 'cloud' ? 'Ollama Cloud พร้อมใช้งาน' : `Ollama ${status.version ?? ''} พร้อมใช้งาน`)
+    } else {
+      toast.error('เชื่อมต่อ Ollama ไม่สำเร็จ')
+    }
+  }
+
+  const handleLoadModels = async () => {
+    setLoadingModels(true)
+    try {
+      const models = await webRuntime.ollama.listModels({
+        ollamaUrl: draft.ollamaUrl,
+        ollamaApiKey: draft.ollamaApiKey,
+      })
+      setModelNames(models.map((model) => model.name || model.model || '').filter(Boolean))
+      toast.success(`พบ ${models.length} โมเดล`)
+    } catch (err) {
+      toast.error('โหลดรายการโมเดลไม่สำเร็จ: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setLoadingModels(false)
+    }
+  }
+
+  const handleCheckPanelCleaner = async () => {
+    setCheckingPanelCleaner(true)
+    const status = await getPanelCleanerStatus({
+      bridgeUrl: draft.panelCleanerBridgeUrl,
+      executablePath: draft.panelCleanerExecutablePath,
+    })
+    setPanelCleanerStatus(status)
+    if (status.ok && !draft.panelCleanerExecutablePath && status.command && /[\\/]/.test(status.command)) {
+      setDraft((current) => ({ ...current, panelCleanerExecutablePath: status.command! }))
+    }
+    setCheckingPanelCleaner(false)
+    if (status.ok) {
+      toast.success(`PanelCleaner พร้อมใช้งาน${status.version ? ` (${status.version})` : ''}`)
+    } else {
+      toast.error('เช็ค PanelCleaner ไม่สำเร็จ')
+    }
+  }
 
   return (
-    <dialog className="modal modal-open">
-      <div className="modal-box max-w-2xl p-0 flex h-[70vh] max-h-[600px]">
-        {/* Side menu */}
-        <div className="w-44 shrink-0 bg-base-200 border-r border-base-300 flex flex-col">
-          <h3 className="text-sm font-bold px-4 pt-4 pb-2 flex items-center gap-2">
-            <Settings size={16} /> Settings
-          </h3>
-          <ul className="menu menu-sm flex-1 px-2">
+    <Modal isOpen={isOpen} onClose={onClose} title="Settings" className="max-w-3xl p-0">
+      <div className="flex h-[70vh] max-h-[620px] min-h-0">
+        <aside className="w-44 shrink-0 border-r border-[var(--mg-border)] p-3">
+          <nav className="space-y-1">
             {TABS.map(({ id, label, icon: Icon }) => (
-              <li key={id}>
-                <a
-                  className={tab === id ? 'active' : ''}
-                  onClick={() => setTab(id)}
-                >
-                  <Icon size={14} /> {label}
-                </a>
-              </li>
+              <button
+                key={id}
+                className={`flex w-full items-center gap-2 rounded-[7px] px-3 py-2 text-left text-sm font-bold ${
+                  tab === id ? 'bg-white/10 text-[var(--mg-text)]' : 'text-[var(--mg-muted)] hover:bg-white/5'
+                }`}
+                onClick={() => setTab(id)}
+              >
+                <Icon size={14} /> {label}
+              </button>
             ))}
-          </ul>
-          <div className="p-3 border-t border-base-300 flex flex-col gap-1">
-            <button className="btn btn-primary btn-sm w-full gap-1" onClick={handleSave}>
-              <Save size={12} /> Save
-            </button>
-          </div>
-        </div>
+          </nav>
+          <Button variant="primary" size="sm" className="mt-4 w-full" onClick={handleSave}>
+            <Save size={12} /> Save
+          </Button>
+        </aside>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 relative">
-          <button
-            className="btn btn-ghost btn-xs btn-square absolute top-3 right-3"
-            onClick={onClose}
-          >
-            <X size={14} />
-          </button>
-
-          {/* General tab */}
+        <section className="min-w-0 flex-1 overflow-y-auto p-5">
           {tab === 'general' && (
             <div className="space-y-5">
               <h4 className="text-lg font-bold">General</h4>
-              <div className="form-control">
-                <label className="label"><span className="label-text">Source Language</span></label>
-                <select
-                  className="select select-bordered w-full"
+              <Field label="Source Language">
+                <SelectField
                   value={draft.sourceLang}
-                  onChange={(e) =>
-                    setDraft({ ...draft, sourceLang: e.target.value as AppSettings['sourceLang'] })
-                  }
-                >
-                  <option value="auto">Auto Detect</option>
-                  <option value="ja">Japanese</option>
-                  <option value="zh">Chinese</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text flex items-center gap-1"><Server size={12} /> Translator Server URL</span>
-                </label>
-                <input
-                  type="url"
-                  className="input input-bordered w-full"
-                  placeholder="http://localhost:5003"
-                  value={draft.translatorApiUrl}
-                  onChange={(e) => setDraft({ ...draft, translatorApiUrl: e.target.value })}
+                  onChange={(sourceLang) => setDraft({ ...draft, sourceLang })}
+                  options={[
+                    { value: 'auto', label: 'Auto Detect' },
+                    { value: 'ja', label: 'Japanese' },
+                    { value: 'zh', label: 'Chinese' },
+                    { value: 'en', label: 'English' },
+                  ]}
                 />
-              </div>
+              </Field>
             </div>
           )}
 
-          {/* Appearance tab */}
+          {tab === 'cleanup' && (
+            <div className="space-y-5">
+              <h4 className="text-lg font-bold">Cleanup Backend</h4>
+              <div className="mg-notice">
+                <Server size={14} />
+                <span>Web phase ต้องใช้ local bridge เพราะ browser เรียก Python/CLI โดยตรงไม่ได้ ให้รัน npm run backend:panelcleaner ก่อนเริ่มประมวลผล</span>
+              </div>
+              <Field label="Cleanup Backend" hint="Legacy ยังอยู่ชั่วคราวสำหรับ fallback ระหว่าง migration">
+                <SelectField
+                  value={draft.cleanupBackend}
+                  onChange={(cleanupBackend) => setDraft({ ...draft, cleanupBackend })}
+                  options={[
+                    { value: 'panelcleaner', label: 'PanelCleaner' },
+                    { value: 'legacy-manga-translator', label: 'Legacy manga-image-translator' },
+                  ]}
+                />
+              </Field>
+
+              {draft.cleanupBackend === 'panelcleaner' ? (
+                <>
+                  <Field label="PanelCleaner Bridge URL" hint="ค่าเริ่มต้น: http://localhost:5055">
+                    <TextInput
+                      type="url"
+                      placeholder="http://localhost:5055"
+                      value={draft.panelCleanerBridgeUrl}
+                      onChange={(e) => setDraft({ ...draft, panelCleanerBridgeUrl: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="PanelCleaner Executable Path" hint="เว้นว่างเพื่อค้นหา pcleaner / pcleaner-cli จาก PATH">
+                    <TextInput
+                      type="text"
+                      placeholder="เว้นว่างเพื่อค้นหา pcleaner / pcleaner-cli จาก PATH"
+                      value={draft.panelCleanerExecutablePath}
+                      onChange={(e) => setDraft({ ...draft, panelCleanerExecutablePath: e.target.value })}
+                    />
+                  </Field>
+                  <label className="flex cursor-pointer items-center gap-3 text-sm text-[var(--mg-muted)]">
+                    <input
+                      type="checkbox"
+                      checked={draft.panelCleanerUseOcrFallback}
+                      onChange={(e) => setDraft({ ...draft, panelCleanerUseOcrFallback: e.target.checked })}
+                    />
+                    ใช้ PanelCleaner OCR เป็น fallback เมื่อ Gemma คืน bbox ไม่พอ
+                  </label>
+                  <Button variant="soft" size="sm" onClick={handleCheckPanelCleaner} disabled={checkingPanelCleaner}>
+                    {checkingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                    ตรวจ PanelCleaner
+                  </Button>
+                  {panelCleanerStatus && (
+                    <div className="mg-notice">
+                      {panelCleanerStatus.ok ? <CheckCircle2 size={14} className="text-[var(--mg-success)]" /> : <AlertCircle size={14} className="text-[var(--mg-warning)]" />}
+                      <span>
+                        {panelCleanerStatus.ok
+                          ? `PanelCleaner พร้อมใช้งาน${panelCleanerStatus.version ? ` (${panelCleanerStatus.version})` : ''}${panelCleanerStatus.command ? ` - ${panelCleanerStatus.command}` : ''}`
+                          : `${panelCleanerStatus.error ?? 'เช็ค PanelCleaner ไม่สำเร็จ'}${panelCleanerStatus.installHint ? ` - ${panelCleanerStatus.installHint}` : ''}`}
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Field label="manga-image-translator Server URL" hint="ใช้เมื่อเลือก legacy fallback เท่านั้น">
+                  <TextInput
+                    type="url"
+                    placeholder="http://localhost:5003"
+                    value={draft.translatorApiUrl}
+                    onChange={(e) => setDraft({ ...draft, translatorApiUrl: e.target.value })}
+                  />
+                </Field>
+              )}
+            </div>
+          )}
+
+          {tab === 'ai' && (
+            <div className="space-y-5">
+              <h4 className="text-lg font-bold">Ollama Translation</h4>
+              <div className="mg-notice">
+                <Globe size={14} />
+                <span>Phase นี้เป็น web app จึงตรวจ path ของ ollama.exe หรือสั่ง start service โดยตรงไม่ได้ ให้เปิด Ollama app หรือรัน ollama serve ก่อนใช้งาน local endpoint</span>
+              </div>
+              <Field label="Ollama Endpoint" hint="Local: http://localhost:11434, Cloud: https://ollama.com">
+                <TextInput
+                  type="url"
+                  placeholder="http://localhost:11434"
+                  value={draft.ollamaUrl}
+                  onChange={(e) => setDraft({ ...draft, ollamaUrl: e.target.value })}
+                />
+              </Field>
+              <Field label="Ollama Model" hint="เช่น gemma4:31b-cloud, qwen3-vl:235b-instruct-cloud หรือโมเดล vision ที่คุณติดตั้งเอง">
+                <TextInput
+                  type="text"
+                  placeholder="gemma4:31b-cloud"
+                  value={draft.ollamaModel}
+                  onChange={(e) => setDraft({ ...draft, ollamaModel: e.target.value })}
+                  list={modelNames.length > 0 ? 'ollama-models' : undefined}
+                />
+                {modelNames.length > 0 && (
+                  <datalist id="ollama-models">
+                    {modelNames.map((name) => <option key={name} value={name} />)}
+                  </datalist>
+                )}
+              </Field>
+              <Field label={<span className="flex items-center gap-1"><Key size={12} /> Ollama Cloud API Key</span>}>
+                <TextInput
+                  type="password"
+                  placeholder="ใส่เฉพาะเมื่อใช้ https://ollama.com"
+                  value={draft.ollamaApiKey}
+                  onChange={(e) => setDraft({ ...draft, ollamaApiKey: e.target.value })}
+                />
+              </Field>
+              <label className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-[var(--mg-border)] bg-white/[0.03] p-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={draft.translationContextEnabled}
+                  onChange={(e) => setDraft({ ...draft, translationContextEnabled: e.target.checked })}
+                />
+                <span>
+                  <span className="block font-bold text-[var(--mg-text)]">Story context across pages</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-[var(--mg-muted)]">
+                    ส่งบทพูดหน้าก่อน ๆ เข้า Ollama ตอนแปลหลายหน้า เพื่อรักษาคำเรียก ความสัมพันธ์ และสำนวนให้ต่อเนื่อง
+                  </span>
+                </span>
+              </label>
+              <Field label="Translation Style Guide" hint="ใช้กำกับทั้งอัลบั้ม เช่น ชื่อตัวละคร ความสัมพันธ์ คำเรียกแทนตัว และโทนภาษา">
+                <TextareaField
+                  rows={6}
+                  className="resize-none font-mono text-xs"
+                  value={draft.translationStyleGuide}
+                  onChange={(e) => setDraft({ ...draft, translationStyleGuide: e.target.value })}
+                />
+              </Field>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="soft" size="sm" onClick={handleCheckOllama} disabled={checkingOllama}>
+                  {checkingOllama ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                  ตรวจสถานะ
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleLoadModels} disabled={loadingModels}>
+                  {loadingModels ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
+                  โหลดโมเดล
+                </Button>
+              </div>
+              {ollamaStatus && (
+                <div className="mg-notice">
+                  {ollamaStatus.ok ? <CheckCircle2 size={14} className="text-[var(--mg-success)]" /> : <AlertCircle size={14} className="text-[var(--mg-warning)]" />}
+                  <span>
+                    {ollamaStatus.ok
+                      ? `เชื่อมต่อ ${ollamaStatus.url} สำเร็จ${ollamaStatus.version ? ` (${ollamaStatus.version})` : ''}`
+                      : `${ollamaStatus.url}: ${ollamaStatus.error ?? 'เชื่อมต่อไม่ได้'}`}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {tab === 'appearance' && (
             <div className="space-y-4">
               <h4 className="text-lg font-bold">Appearance</h4>
-              <p className="text-sm text-base-content/60">
-                เลือกธีมที่ชอบ — จะแสดงตัวอย่างทันที
-              </p>
-              <div className="grid grid-cols-4 gap-2">
-                {DAISY_THEMES.map((t) => (
-                  <ThemePreview
-                    key={t}
-                    theme={t}
-                    isActive={draft.theme === t}
-                    onClick={() => setDraft({ ...draft, theme: t })}
-                  />
-                ))}
+              <div className="rounded-[8px] border border-[var(--mg-border)] bg-white/[0.03] p-4">
+                <p className="font-bold">Studio Dark</p>
+                <p className="mt-1 text-sm text-[var(--mg-muted)]">ธีมภายในใหม่ที่แทน daisyUI themes ทั้งหมดใน phase นี้</p>
               </div>
             </div>
           )}
-
-          {/* AI tab */}
-          {tab === 'ai' && (
-            <div className="space-y-5">
-              <h4 className="text-lg font-bold">AI / Translation</h4>
-
-              {/* Translation Engine */}
-              <div className="form-control">
-                <label className="label"><span className="label-text flex items-center gap-1"><Cpu size={12} /> Translation Engine</span></label>
-                <select
-                  className="select select-bordered w-full"
-                  value={draft.translationEngine}
-                  onChange={(e) => setDraft({ ...draft, translationEngine: e.target.value as TranslationEngine })}
-                >
-                  <option value="gemini">Gemini API (แนะนำ)</option>
-                  <option value="libretranslate">LibreTranslate (Docker)</option>
-                  <option value="ollama">Ollama (Local LLM)</option>
-                </select>
-              </div>
-
-              {/* Gemini Model Selector */}
-              {draft.translationEngine === 'gemini' && (
-                <div className="form-control">
-                  <label className="label"><span className="label-text flex items-center gap-1"><Sparkles size={12} /> Gemini Model</span></label>
-                  <div className="space-y-1.5">
-                    {GEMINI_MODELS.map((m) => (
-                      <label
-                        key={m.id}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
-                          draft.geminiModel === m.id
-                            ? 'border-primary bg-primary/10'
-                            : 'border-base-300/50 hover:border-base-300'
-                        } ${!m.freeAvailable ? 'opacity-60' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name="geminiModel"
-                          className="radio radio-primary radio-xs"
-                          checked={draft.geminiModel === m.id}
-                          onChange={() => setDraft({ ...draft, geminiModel: m.id as GeminiModelId })}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium">{m.label}</span>
-                            <span className={`badge badge-xs ${TIER_BADGE[m.tier]}`}>{m.tier}</span>
-                            {!m.freeAvailable && <span className="badge badge-xs badge-ghost">Paid</span>}
-                          </div>
-                          <p className="text-[10px] text-base-content/50 mt-0.5">
-                            {m.description} • In: {m.inputPrice} • Out: {m.outputPrice}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* LibreTranslate URL */}
-              {draft.translationEngine === 'libretranslate' && (
-                <div className="form-control">
-                  <label className="label"><span className="label-text flex items-center gap-1"><Server size={12} /> LibreTranslate URL</span></label>
-                  <input
-                    type="url"
-                    className="input input-bordered w-full"
-                    placeholder="http://localhost:5004"
-                    value={draft.libreTranslateUrl}
-                    onChange={(e) => setDraft({ ...draft, libreTranslateUrl: e.target.value })}
-                  />
-                  <label className="label"><span className="label-text-alt text-xs">ต้องรัน Docker: libretranslate/libretranslate</span></label>
-                </div>
-              )}
-
-              {/* Ollama URL + Model */}
-              {draft.translationEngine === 'ollama' && (
-                <>
-                  <div className="form-control">
-                    <label className="label"><span className="label-text flex items-center gap-1"><Server size={12} /> Ollama URL</span></label>
-                    <input
-                      type="url"
-                      className="input input-bordered w-full"
-                      placeholder="http://localhost:11434"
-                      value={draft.ollamaUrl}
-                      onChange={(e) => setDraft({ ...draft, ollamaUrl: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-control">
-                    <label className="label"><span className="label-text">Ollama Model</span></label>
-                    <input
-                      type="text"
-                      className="input input-bordered w-full"
-                      placeholder="typhoon2:8b"
-                      value={draft.ollamaModel}
-                      onChange={(e) => setDraft({ ...draft, ollamaModel: e.target.value })}
-                    />
-                    <label className="label"><span className="label-text-alt text-xs">เช่น typhoon2:8b, llama3.1:8b, gemma2:9b</span></label>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* API tab */}
-          {tab === 'api' && (
-            <div className="space-y-5">
-              <h4 className="text-lg font-bold">API Keys</h4>
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text flex items-center gap-1"><Key size={12} /> Gemini API Key</span>
-                </label>
-                <input
-                  type="password"
-                  className="input input-bordered w-full"
-                  placeholder="AIza..."
-                  value={draft.geminiApiKey}
-                  onChange={(e) => setDraft({ ...draft, geminiApiKey: e.target.value })}
-                />
-                <label className="label">
-                  <span className="label-text-alt">
-                    <a
-                      href="https://aistudio.google.com/apikey"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="link link-primary text-xs"
-                    >
-                      Get API Key from Google AI Studio →
-                    </a>
-                  </span>
-                </label>
-              </div>
-              <div className="alert alert-info text-xs">
-                <Globe size={14} />
-                <span>API Key จะถูกเก็บไว้ใน localStorage ของเบราว์เซอร์เท่านั้น ไม่ส่งไปที่ server อื่น</span>
-              </div>
-            </div>
-          )}
-        </div>
+        </section>
       </div>
-      <form method="dialog" className="modal-backdrop">
-        <button onClick={onClose}>close</button>
-      </form>
-    </dialog>
+    </Modal>
   )
 }

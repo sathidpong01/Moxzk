@@ -3,25 +3,30 @@ import type { AppStep, TextRegion, AppSettings, ExportFormat, ActiveTool, BrushS
 import type { AlbumPage } from '../types/database'
 import { DEFAULT_MOOD_MAP, restoreCustomFont } from '../config/fonts'
 import { loadSettings, saveSettings } from '../services/settingsStorage'
+import { DEFAULT_TRANSLATION_STYLE_GUIDE } from '../services/story-context'
 import { getAllFonts } from '../services/fontStorage'
 import { downloadImage } from '../services/storageService'
 import { parseApiError } from '../utils/parseApiError'
 import { toast } from 'sonner'
 
 const DEFAULT_SETTINGS: AppSettings = {
-  geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY ?? '',
+  cleanupBackend: 'panelcleaner',
   translatorApiUrl: import.meta.env.VITE_TRANSLATOR_API_URL ?? 'http://localhost:5003',
+  panelCleanerBridgeUrl: import.meta.env.VITE_PANELCLEANER_BRIDGE_URL ?? 'http://localhost:5055',
+  panelCleanerExecutablePath: '',
+  panelCleanerUseOcrFallback: true,
   sourceLang: 'auto',
   fontMoodMap: DEFAULT_MOOD_MAP,
-  theme: 'dark',
-  geminiModel: 'gemini-2.5-flash',
-  translationEngine: 'gemini',
-  ollamaUrl: 'http://localhost:11434',
-  ollamaModel: 'typhoon2:8b',
-  libreTranslateUrl: 'http://localhost:5004',
+  theme: 'studio-dark',
+  ollamaUrl: import.meta.env.VITE_OLLAMA_URL ?? 'http://localhost:11434',
+  ollamaModel: import.meta.env.VITE_OLLAMA_MODEL ?? 'gemma4',
+  ollamaApiKey: '',
+  translationContextEnabled: true,
+  translationStyleGuide: DEFAULT_TRANSLATION_STYLE_GUIDE,
 }
 
-export type PanelId = 'brush' | 'properties' | 'resource' | 'quota' | 'logs'
+export type PanelId = 'brush' | 'properties' | 'resource' | 'logs'
+type ProcessKind = 'ai' | 'loading' | null
 
 interface AppStore {
   // Navigation
@@ -44,6 +49,10 @@ interface AppStore {
   removeImageEntry: (id: string) => void
   reorderImages: (fromIndex: number, toIndex: number) => void
   updateImageEntry: (id: string, updates: Partial<ImageEntry>) => void
+  saveActiveEntryState: () => void
+  updateArtboardPosition: (id: string, x: number, y: number) => void
+  moveArtboardAndReorder: (id: string, x: number, y: number) => ImageEntry[]
+  resetArtboardLayout: () => void
 
   // Regions
   regions: TextRegion[]
@@ -102,15 +111,19 @@ interface AppStore {
 
   // Process
   isProcessing: boolean
+  processKind: ProcessKind
+  processRunId: number
+  processAbortController: AbortController | null
   processError: string | null
-  setProcessError: (e: string | null) => void
+  setProcessError: (e: string | null, runId?: number) => void
 
   // Actions
   goToEdit: () => void
   switchImage: (id: string) => void
   resetToUpload: () => void
-  startProcess: () => void
-  completeProcess: (regions: TextRegion[], cleanedUrl: string) => void
+  startProcess: () => number
+  cancelProcess: () => void
+  completeProcess: (regions: TextRegion[], cleanedUrl: string, runId?: number) => void
   loadAlbumPages: (pages: AlbumPage[], activePageId: string) => Promise<void>
 
   // Init
@@ -122,11 +135,64 @@ function generateEntryId(): string {
   return `img-${Date.now()}-${_nextEntryId++}`
 }
 
+async function hydrateAlbumEntryImage(entry: ImageEntry): Promise<{
+  originalUrl: string
+  cleanedUrl: string | null
+  file: File | null
+}> {
+  let originalUrl = entry.originalUrl
+  let cleanedUrl: string | null = null
+  let file: File | null = null
+
+  if (entry.originalR2Key) {
+    originalUrl = await downloadImage(entry.originalR2Key)
+    const res = await fetch(originalUrl)
+    const blob = await res.blob()
+    file = new File([blob], `page-${entry.pageNumber ?? entry.id}.webp`, { type: blob.type || 'image/webp' })
+  }
+  if (entry.cleanedR2Key) {
+    cleanedUrl = await downloadImage(entry.cleanedR2Key)
+  }
+
+  return {
+    originalUrl: cleanedUrl ?? originalUrl,
+    cleanedUrl,
+    file,
+  }
+}
+
+export const ARTBOARD_COLUMNS = 5
+export const ARTBOARD_GAP_X = 96
+export const ARTBOARD_GAP_Y = 112
+export const ARTBOARD_MAX_PREVIEW_WIDTH = 300
+export const ARTBOARD_HEADER_HEIGHT = 34
+export const ARTBOARD_ROW_HEIGHT = ARTBOARD_MAX_PREVIEW_WIDTH * 1.45 + ARTBOARD_HEADER_HEIGHT + ARTBOARD_GAP_Y
+
+export function getDefaultArtboardPosition(index: number) {
+  return {
+    x: 40 + (index % ARTBOARD_COLUMNS) * (ARTBOARD_MAX_PREVIEW_WIDTH + ARTBOARD_GAP_X),
+    y: 48 + Math.floor(index / ARTBOARD_COLUMNS) * ARTBOARD_ROW_HEIGHT,
+  }
+}
+
+function compareArtboardOrder(a: ImageEntry, b: ImageEntry): number {
+  const fallbackA = getDefaultArtboardPosition((a.pageNumber ?? 1) - 1)
+  const fallbackB = getDefaultArtboardPosition((b.pageNumber ?? 1) - 1)
+  const ax = a.artboardX ?? fallbackA.x
+  const ay = a.artboardY ?? fallbackA.y
+  const bx = b.artboardX ?? fallbackB.x
+  const by = b.artboardY ?? fallbackB.y
+  const rowA = Math.round(ay / ARTBOARD_ROW_HEIGHT)
+  const rowB = Math.round(by / ARTBOARD_ROW_HEIGHT)
+  if (rowA !== rowB) return rowA - rowB
+  if (Math.abs(ax - bx) > 1) return ax - bx
+  return (a.pageNumber ?? 0) - (b.pageNumber ?? 0)
+}
+
 const DEFAULT_PANELS: Record<PanelId, boolean> = {
   brush: false,
   properties: true,
   resource: false,
-  quota: true,
   logs: false,
 }
 
@@ -148,16 +214,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activeImageId: null,
   setActiveImage: (id) => set({ activeImageId: id }),
   addImageEntries: (files) => {
-    const newEntries: ImageEntry[] = files.map((file) => ({
-      id: generateEntryId(),
-      file,
-      originalUrl: URL.createObjectURL(file),
-      cleanedImageUrl: null,
-      regions: [],
-      brushStrokes: [],
-      status: 'pending',
-    }))
     set((state) => {
+      const newEntries: ImageEntry[] = files.map((file, index) => ({
+        id: generateEntryId(),
+        file,
+        originalUrl: URL.createObjectURL(file),
+        cleanedImageUrl: null,
+        regions: [],
+        brushStrokes: [],
+        status: 'pending',
+        pageNumber: state.imageEntries.length + index + 1,
+        ...getDefaultArtboardPosition(state.imageEntries.length + index),
+      }))
       const entries = [...state.imageEntries, ...newEntries]
       return {
         imageEntries: entries,
@@ -166,26 +234,95 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
     })
   },
-  removeImageEntry: (id) =>
+  removeImageEntry: (id) => {
+    let nextActiveToLoad: string | null = null
     set((state) => {
       const entry = state.imageEntries.find((e) => e.id === id)
-      if (entry) URL.revokeObjectURL(entry.originalUrl)
-      const entries = state.imageEntries.filter((e) => e.id !== id)
+      if (entry?.originalUrl?.startsWith('blob:')) URL.revokeObjectURL(entry.originalUrl)
+      const entries = state.imageEntries
+        .filter((e) => e.id !== id)
+        .map((e, index) => ({ ...e, pageNumber: index + 1, ...getDefaultArtboardPosition(index) }))
+      const nextActiveId = state.activeImageId === id ? (entries[0]?.id ?? null) : state.activeImageId
+      const nextActive = entries.find((e) => e.id === nextActiveId) ?? null
+      if (state.activeImageId === id && nextActive?.imageLoaded === false && nextActive.originalR2Key) {
+        nextActiveToLoad = nextActive.id
+      }
       return {
         imageEntries: entries,
-        activeImageId: state.activeImageId === id ? (entries[0]?.id ?? null) : state.activeImageId,
+        images: entries.map((e) => e.file).filter((file): file is File => Boolean(file)),
+        activeImageId: nextActiveId,
+        ...(state.activeImageId === id
+          ? {
+              originalImageUrl: nextActive ? (nextActive.cleanedImageUrl ?? nextActive.originalUrl) : null,
+              cleanedImageUrl: nextActive?.cleanedImageUrl ?? null,
+              regions: nextActive?.regions ?? [],
+              brushStrokes: nextActive?.brushStrokes ?? [],
+              selectedRegionId: null,
+              _brushRedoStack: [],
+            }
+          : {}),
       }
-    }),
+    })
+    if (nextActiveToLoad) queueMicrotask(() => get().switchImage(nextActiveToLoad!))
+  },
   reorderImages: (fromIndex, toIndex) =>
     set((state) => {
       const entries = [...state.imageEntries]
       const [moved] = entries.splice(fromIndex, 1)
       entries.splice(toIndex, 0, moved)
-      return { imageEntries: entries }
+      return {
+        imageEntries: entries.map((entry, index) => ({
+          ...entry,
+          pageNumber: index + 1,
+          ...getDefaultArtboardPosition(index),
+        })),
+      }
     }),
   updateImageEntry: (id, updates) =>
     set((state) => ({
       imageEntries: state.imageEntries.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+      ...(state.activeImageId === id
+        ? {
+            regions: updates.regions ?? state.regions,
+            brushStrokes: updates.brushStrokes ?? state.brushStrokes,
+            cleanedImageUrl: updates.cleanedImageUrl !== undefined ? updates.cleanedImageUrl : state.cleanedImageUrl,
+          }
+        : {}),
+    })),
+  saveActiveEntryState: () => {
+    const { activeImageId, regions, brushStrokes } = get()
+    if (!activeImageId) return
+    set((state) => ({
+      imageEntries: state.imageEntries.map((entry) =>
+        entry.id === activeImageId ? { ...entry, regions, brushStrokes } : entry,
+      ),
+    }))
+  },
+  updateArtboardPosition: (id, x, y) =>
+    set((state) => ({
+      imageEntries: state.imageEntries.map((entry) =>
+        entry.id === id ? { ...entry, artboardX: Math.round(x), artboardY: Math.round(y) } : entry,
+      ),
+    })),
+  moveArtboardAndReorder: (id, x, y) => {
+    let nextEntries: ImageEntry[] = []
+    set((state) => {
+      const moved = state.imageEntries.map((entry) =>
+        entry.id === id ? { ...entry, artboardX: Math.round(x), artboardY: Math.round(y) } : entry,
+      )
+      nextEntries = [...moved]
+        .sort(compareArtboardOrder)
+        .map((entry, index) => ({ ...entry, pageNumber: index + 1 }))
+      return { imageEntries: nextEntries }
+    })
+    return nextEntries
+  },
+  resetArtboardLayout: () =>
+    set((state) => ({
+      imageEntries: state.imageEntries.map((entry, index) => ({
+        ...entry,
+        ...getDefaultArtboardPosition(index),
+      })),
     })),
 
   // Regions
@@ -194,10 +331,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
   updateRegion: (id, updates) =>
     set((state) => ({
       regions: state.regions.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+      imageEntries: state.activeImageId
+        ? state.imageEntries.map((entry) =>
+            entry.id === state.activeImageId
+              ? {
+                  ...entry,
+                  regions: entry.regions.map((region) =>
+                    region.id === id ? { ...region, ...updates } : region,
+                  ),
+                }
+              : entry,
+          )
+        : state.imageEntries,
     })),
   deleteRegion: (id) =>
     set((state) => ({
       regions: state.regions.filter((r) => r.id !== id),
+      imageEntries: state.activeImageId
+        ? state.imageEntries.map((entry) =>
+            entry.id === state.activeImageId
+              ? { ...entry, regions: entry.regions.filter((region) => region.id !== id) }
+              : entry,
+          )
+        : state.imageEntries,
       selectedRegionId: state.selectedRegionId === id ? null : state.selectedRegionId,
     })),
   selectedRegionId: null,
@@ -273,14 +429,38 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // Process
   isProcessing: false,
+  processKind: null,
+  processRunId: 0,
+  processAbortController: null,
   processError: null,
-  setProcessError: (e) => {
+  setProcessError: (e, runId) => {
+    const current = get()
+    if (runId !== undefined && runId !== current.processRunId) return
     if (e) {
       const parsed = parseApiError(e)
-      set({ processError: parsed.shortMessage, isProcessing: false })
+      set((state) => ({
+        processError: parsed.shortMessage,
+        isProcessing: false,
+        processKind: null,
+        processRunId: state.processRunId + 1,
+        processAbortController: null,
+        imageEntries: state.activeImageId
+          ? state.imageEntries.map((entry) =>
+              entry.id === state.activeImageId
+                ? { ...entry, status: 'error', error: parsed.shortMessage }
+                : entry,
+            )
+          : state.imageEntries,
+      }))
       toast.error(parsed.shortMessage)
     } else {
-      set({ processError: null, isProcessing: false })
+      set((state) => ({
+        processError: null,
+        isProcessing: false,
+        processKind: null,
+        processRunId: state.processRunId + 1,
+        processAbortController: null,
+      }))
     }
   },
 
@@ -329,18 +509,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     // Lazy load full image from R2 if not yet loaded
     if (target.imageLoaded === false && target.originalR2Key) {
-      set({ isProcessing: true })
+      set({ isProcessing: true, processKind: 'loading' })
       ;(async () => {
         try {
-          const originalUrl = await downloadImage(target.originalR2Key!)
-          let cleanedUrl: string | null = null
-          if (target.cleanedR2Key) {
-            cleanedUrl = await downloadImage(target.cleanedR2Key)
-          }
-
-          const res = await fetch(originalUrl)
-          const blob = await res.blob()
-          const file = new File([blob], 'album-image.webp', { type: blob.type })
+          const hydrated = await hydrateAlbumEntryImage(target)
 
           // Update entry with full image
           set((state) => {
@@ -348,10 +520,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
               e.id === id
                 ? {
                     ...e,
-                    originalUrl: cleanedUrl ?? originalUrl,
-                    cleanedImageUrl: cleanedUrl,
+                    originalUrl: hydrated.originalUrl,
+                    cleanedImageUrl: hydrated.cleanedUrl,
                     imageLoaded: true,
-                    file,
+                    file: hydrated.file ?? e.file,
                   }
                 : e,
             )
@@ -359,17 +531,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
             return {
               imageEntries: entries,
               isProcessing: false,
+              processKind: null,
               ...(isStillActive
                 ? {
-                    originalImageUrl: cleanedUrl ?? originalUrl,
-                    cleanedImageUrl: cleanedUrl,
+                    originalImageUrl: hydrated.originalUrl,
+                    cleanedImageUrl: hydrated.cleanedUrl,
                   }
                 : {}),
             }
           })
         } catch (err) {
           console.error('[switchImage] lazy download failed:', err)
-          set({ isProcessing: false })
+          set({ isProcessing: false, processKind: null })
           toast.error('โหลดรูปจาก R2 ล้มเหลว')
         }
       })()
@@ -398,21 +571,65 @@ export const useAppStore = create<AppStore>((set, get) => ({
       logs: [],
       processError: null,
       isProcessing: false,
+      processKind: null,
+      processRunId: 0,
+      processAbortController: null,
       activeTool: 'select',
     })
   },
 
   startProcess: () => {
-    set({ processError: null, logs: [], isProcessing: true })
+    let nextRunId = 0
+    const abortController = new AbortController()
+    set((state) => ({
+      processRunId: (nextRunId = state.processRunId + 1),
+      processAbortController: abortController,
+      processError: null,
+      logs: [],
+      isProcessing: true,
+      processKind: 'ai',
+      imageEntries: state.activeImageId
+        ? state.imageEntries.map((entry) =>
+            entry.id === state.activeImageId
+              ? { ...entry, status: 'processing', error: undefined }
+              : entry,
+          )
+        : state.imageEntries,
+    }))
     toast.info('เริ่มประมวลผล AI...')
+    return nextRunId
   },
 
-  completeProcess: (regions, cleanedUrl) => {
-    const { activeImageId } = get()
+  cancelProcess: () => {
+    get().processAbortController?.abort()
+    set((state) => ({
+      isProcessing: false,
+      processKind: null,
+      processError: null,
+      processRunId: state.processRunId + 1,
+      processAbortController: null,
+      imageEntries: state.activeImageId
+        ? state.imageEntries.map((entry) =>
+            entry.id === state.activeImageId && entry.status === 'processing'
+              ? { ...entry, status: entry.cleanedImageUrl ? 'done' : 'pending', error: undefined }
+              : entry,
+          )
+        : state.imageEntries,
+    }))
+    toast.info('ยกเลิกงาน AI แล้ว')
+  },
+
+  completeProcess: (regions, cleanedUrl, runId) => {
+    const { activeImageId, isProcessing, processKind, processRunId } = get()
+    if (runId !== undefined && runId !== processRunId) return
+    if (!isProcessing || processKind !== 'ai') return
     set({
       regions,
       cleanedImageUrl: cleanedUrl,
       isProcessing: false,
+      processKind: null,
+      processRunId: processRunId + 1,
+      processAbortController: null,
       brushStrokes: [],
       _brushRedoStack: [],
     })
@@ -421,6 +638,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         cleanedImageUrl: cleanedUrl,
         regions,
         status: 'done',
+        progress: 100,
       })
     }
     toast.success(`แปลเสร็จ! พบ ${regions.length} regions`)
@@ -455,7 +673,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
         cleanedImageUrl: null,
         regions: Array.isArray(page.regions) ? (page.regions as TextRegion[]) : [],
         brushStrokes: Array.isArray(page.brush_strokes) ? (page.brush_strokes as BrushStroke[]) : [],
-        status: page.status === 'translated' ? 'done' : 'pending',
+        status: page.status === 'translated'
+          ? 'done'
+          : page.status === 'clean_done'
+            ? 'clean_done'
+            : page.status === 'error'
+              ? 'error'
+              : 'pending',
+        pageNumber: page.page_number,
+        ...getDefaultArtboardPosition(page.page_number - 1),
         albumPageId: page.id,
         originalR2Key: (page.original_key as string) ?? undefined,
         cleanedR2Key: (page.cleaned_key as string) ?? undefined,
@@ -481,50 +707,65 @@ export const useAppStore = create<AppStore>((set, get) => ({
       logs: [],
       processError: null,
       isProcessing: true,
+      processKind: 'loading',
       activeTool: 'select',
     })
 
     // Download full image for active page
     try {
-      let originalUrl = activeEntry.originalUrl
-      let cleanedUrl: string | null = null
-      let activeFile: File | null = null
-
-      if (activeEntry.originalR2Key) {
-        originalUrl = await downloadImage(activeEntry.originalR2Key)
-        const res = await fetch(originalUrl)
-        const blob = await res.blob()
-        activeFile = new File([blob], 'album-image.webp', { type: blob.type })
-      }
-      if (activeEntry.cleanedR2Key) {
-        cleanedUrl = await downloadImage(activeEntry.cleanedR2Key)
-      }
+      const hydrated = await hydrateAlbumEntryImage(activeEntry)
 
       // Update active entry
       set((state) => ({
         imageEntries: state.imageEntries.map((e) =>
           e.id === activeEntry.id
-            ? { ...e, originalUrl: cleanedUrl ?? originalUrl, cleanedImageUrl: cleanedUrl, imageLoaded: true, file: activeFile ?? e.file }
+            ? {
+                ...e,
+                originalUrl: hydrated.originalUrl,
+                cleanedImageUrl: hydrated.cleanedUrl,
+                imageLoaded: true,
+                file: hydrated.file ?? e.file,
+              }
             : e,
         ),
-        originalImageUrl: cleanedUrl ?? originalUrl,
-        cleanedImageUrl: cleanedUrl,
+        originalImageUrl: hydrated.originalUrl,
+        cleanedImageUrl: hydrated.cleanedUrl,
         isProcessing: false,
+        processKind: null,
       }))
     } catch (err) {
       console.error('[loadAlbumPages] download failed:', err)
-      set({ isProcessing: false })
+      set({ isProcessing: false, processKind: null })
       toast.error('โหลดรูปจาก R2 ล้มเหลว')
     }
+
+    void (async () => {
+      for (const entry of entries) {
+        if (entry.id === activeEntry.id || entry.imageLoaded !== false || !entry.originalR2Key) continue
+        try {
+          const hydrated = await hydrateAlbumEntryImage(entry)
+          set((state) => ({
+            imageEntries: state.imageEntries.map((e) =>
+              e.id === entry.id
+                ? {
+                    ...e,
+                    originalUrl: hydrated.originalUrl,
+                    cleanedImageUrl: hydrated.cleanedUrl,
+                    imageLoaded: true,
+                    file: hydrated.file ?? e.file,
+                  }
+                : e,
+            ),
+          }))
+        } catch (error) {
+          console.warn('[loadAlbumPages] background download failed:', entry.id, error)
+        }
+      }
+    })()
   },
 
-  // Init — restore custom fonts from IndexedDB + apply saved theme
+  // Init — restore custom fonts from IndexedDB
   init: async () => {
-    // Apply saved theme
-    const { settings } = get()
-    if (settings.theme) {
-      document.documentElement.setAttribute('data-theme', settings.theme)
-    }
     try {
       const storedFonts = await getAllFonts()
       for (const sf of storedFonts) {

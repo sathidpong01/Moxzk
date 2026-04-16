@@ -1,6 +1,6 @@
 /**
  * Translation Memory — IndexedDB cache for translated text.
- * Before calling Gemini/LLM, check cache first.
+ * Before calling Ollama/LLM, check cache first.
  * Key = hash(originalText + sourceLang), value = translatedText.
  * TTL: 30 days, max 10,000 entries with LRU eviction.
  */

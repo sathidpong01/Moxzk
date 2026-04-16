@@ -5,12 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "backend:panelcleaner": "node scripts/panelcleaner-bridge.mjs",
     "build": "tsc -b && vite build",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply mg-translater-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply mg-translater-db --remote",
+    "worker:check": "wrangler deploy --dry-run",
+    "worker:deploy:dry": "wrangler deploy --dry-run",
+    "test": "node --test scripts/*.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@google/genai": "^1.42.0",
-    "@supabase/supabase-js": "^2.97.0",
+    "@headlessui/react": "^2.2.10",
+    "drizzle-orm": "^0.45.2",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "konva": "^10.2.0",
@@ -24,15 +31,17 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260415.1",
     "@tailwindcss/vite": "^4.2.0",
     "@types/file-saver": "^2.0.7",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
-    "daisyui": "^5.5.18",
+    "drizzle-kit": "^0.31.10",
     "tailwindcss": "^4.2.0",
     "typescript": "~5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^4.83.0"
   },
   "overrides": {
     "minimatch": "^10.2.2"

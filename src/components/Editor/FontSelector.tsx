@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { restoreCustomFont, FONT_ID_MAP } from '../../config/fonts'
 import type { FontDefinition, MoodType } from '../../types'
 import { getAllFonts } from '../../services/fontStorage'
+import { Button, SelectField } from '../ui/primitives'
 
 interface FontSelectorProps {
   currentFont: string
@@ -44,39 +45,29 @@ export default function FontSelector({
 
   return (
     <div className="space-y-2">
-      <select
-        className="select select-bordered select-sm w-full"
+      <SelectField
         value={currentFont}
-        onChange={(e) => onSelect(e.target.value)}
-      >
-        {fontOptions.map((opt) => (
-          <option key={opt.id} value={opt.id}>
-            {opt.name}
-          </option>
-        ))}
-        {customFonts.length > 0 && (
-          <optgroup label="Custom">
-            {customFonts.map((f) => (
-              <option key={f.name} value={f.name}>
-                {f.name}
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </select>
+        onChange={onSelect}
+        options={[
+          ...fontOptions.map((opt) => ({ value: opt.id, label: opt.name })),
+          ...customFonts.map((f) => ({ value: f.name, label: f.name })),
+        ]}
+      />
 
       {/* Mood-based font suggestion */}
       {currentFont !== moodFontId && moodFont && (
-        <button
-          className="btn btn-xs btn-outline btn-info w-full"
+        <Button
+          variant="soft"
+          size="sm"
+          className="w-full"
           onClick={() => onSelect(moodFontId)}
         >
           🤖 ใช้ฟอนต์ตาม mood: {moodFont.name}
-        </button>
+        </Button>
       )}
 
       {/* Live preview */}
-      <div className="bg-base-300 rounded-lg p-2 text-center">
+      <div className="rounded-[8px] bg-black/30 p-2 text-center">
         <span
           className="text-base"
           style={{ fontFamily: `"${resolvedFamily}", sans-serif` }}

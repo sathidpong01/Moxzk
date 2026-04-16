@@ -1,33 +1,40 @@
 import type { AppSettings, FontMoodMap } from '../types'
+import { LEGACY_FATHER_SON_STYLE_GUIDE } from './story-context'
 
 const SETTINGS_KEY = 'mg-translater-settings'
 
 interface SerializedSettings {
-  geminiApiKey: string
+  cleanupBackend?: string
   translatorApiUrl: string
+  panelCleanerBridgeUrl?: string
+  panelCleanerExecutablePath?: string
+  panelCleanerUseOcrFallback?: boolean
   sourceLang: string
   fontMoodMap: FontMoodMap
   theme?: string
-  geminiModel?: string
-  translationEngine?: string
   ollamaUrl?: string
   ollamaModel?: string
-  libreTranslateUrl?: string
+  ollamaApiKey?: string
+  translationContextEnabled?: boolean
+  translationStyleGuide?: string
 }
 
 export function saveSettings(settings: AppSettings): void {
   try {
     const serialized: SerializedSettings = {
-      geminiApiKey: settings.geminiApiKey,
+      cleanupBackend: settings.cleanupBackend,
       translatorApiUrl: settings.translatorApiUrl,
+      panelCleanerBridgeUrl: settings.panelCleanerBridgeUrl,
+      panelCleanerExecutablePath: settings.panelCleanerExecutablePath,
+      panelCleanerUseOcrFallback: settings.panelCleanerUseOcrFallback,
       sourceLang: settings.sourceLang,
       fontMoodMap: settings.fontMoodMap,
       theme: settings.theme,
-      geminiModel: settings.geminiModel,
-      translationEngine: settings.translationEngine,
       ollamaUrl: settings.ollamaUrl,
       ollamaModel: settings.ollamaModel,
-      libreTranslateUrl: settings.libreTranslateUrl,
+      ollamaApiKey: settings.ollamaApiKey,
+      translationContextEnabled: settings.translationContextEnabled,
+      translationStyleGuide: settings.translationStyleGuide,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(serialized))
   } catch (err) {
@@ -41,22 +48,36 @@ export function loadSettings(defaults: AppSettings): AppSettings {
     if (!raw) return defaults
 
     const parsed: SerializedSettings = JSON.parse(raw)
+    const cleanupBackend: AppSettings['cleanupBackend'] =
+      parsed.cleanupBackend === 'legacy-manga-translator' ? 'legacy-manga-translator' : defaults.cleanupBackend
     return {
-      geminiApiKey: parsed.geminiApiKey || defaults.geminiApiKey,
+      cleanupBackend,
       translatorApiUrl: parsed.translatorApiUrl || defaults.translatorApiUrl,
+      panelCleanerBridgeUrl: parsed.panelCleanerBridgeUrl || defaults.panelCleanerBridgeUrl,
+      panelCleanerExecutablePath: parsed.panelCleanerExecutablePath || defaults.panelCleanerExecutablePath,
+      panelCleanerUseOcrFallback: parsed.panelCleanerUseOcrFallback ?? defaults.panelCleanerUseOcrFallback,
       sourceLang: (parsed.sourceLang as AppSettings['sourceLang']) || defaults.sourceLang,
       fontMoodMap: parsed.fontMoodMap || defaults.fontMoodMap,
-      theme: parsed.theme || defaults.theme,
-      geminiModel: (parsed.geminiModel as AppSettings['geminiModel']) || defaults.geminiModel,
-      translationEngine: (parsed.translationEngine as AppSettings['translationEngine']) || defaults.translationEngine,
+      theme: normalizeTheme(parsed.theme, defaults.theme),
       ollamaUrl: parsed.ollamaUrl || defaults.ollamaUrl,
       ollamaModel: parsed.ollamaModel || defaults.ollamaModel,
-      libreTranslateUrl: parsed.libreTranslateUrl || defaults.libreTranslateUrl,
+      ollamaApiKey: parsed.ollamaApiKey || defaults.ollamaApiKey,
+      translationContextEnabled: parsed.translationContextEnabled ?? defaults.translationContextEnabled,
+      translationStyleGuide: normalizeTranslationStyleGuide(parsed.translationStyleGuide, defaults.translationStyleGuide),
     }
   } catch (err) {
     console.error('Failed to load settings:', err)
     return defaults
   }
+}
+
+function normalizeTheme(theme: string | undefined, fallback: string): string {
+  return theme === 'studio-dark' ? theme : fallback
+}
+
+function normalizeTranslationStyleGuide(value: string | undefined, fallback: string): string {
+  if (!value?.trim()) return fallback
+  return value === LEGACY_FATHER_SON_STYLE_GUIDE ? fallback : value
 }
 
 export function clearSettings(): void {

@@ -4,6 +4,7 @@ import Konva from 'konva'
 import type { TextRegion, BrushStroke } from '../../types'
 import { resolveFont } from '../../config/fonts'
 import { useAppStore } from '../../store/appStore'
+import { calculateBalloonFitFontSize, normalizeTextLayoutMode } from '../../utils/textLayout'
 import { Hand, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -15,21 +16,24 @@ interface CanvasEditorProps {
   imageUrl: string
   regions: TextRegion[]
   onRegionUpdate: (id: string, updates: Partial<TextRegion>) => void
-  onRegionDelete: (id: string) => void
   onSelectedRegion: (id: string | null) => void
   stageRef?: React.RefObject<Konva.Stage | null>
   onScaleChange?: (scale: number) => void
+  onViewportChange?: (state: { zoom: number; imageWidth: number; imageHeight: number }) => void
   editorRef?: React.RefObject<CanvasEditorHandle | null>
 }
+
+const MIN_ZOOM = 0.1
+const MAX_ZOOM = 8
 
 export default function CanvasEditor({
   imageUrl,
   regions,
   onRegionUpdate,
-  onRegionDelete,
   onSelectedRegion,
   stageRef: externalStageRef,
   onScaleChange,
+  onViewportChange,
   editorRef,
 }: CanvasEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -43,7 +47,6 @@ export default function CanvasEditor({
   const [zoom, setZoom] = useState(1)
   const [zoomInput, setZoomInput] = useState('100')
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
-  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   // Paint state
   const isDrawing = useRef(false)
@@ -64,6 +67,7 @@ export default function CanvasEditor({
   const addBrushStroke = useAppStore((s) => s.addBrushStroke)
   const setBrushColor = useAppStore((s) => s.setBrushColor)
   const showTextOverlay = useAppStore((s) => s.showTextOverlay)
+  const selectedId = useAppStore((s) => s.selectedRegionId)
 
   const isPanning = activeTool === 'pan'
   const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
@@ -72,7 +76,6 @@ export default function CanvasEditor({
   // Expose deselect for export
   useImperativeHandle(editorRef, () => ({
     deselectAll: () => {
-      setSelectedId(null)
       onSelectedRegion(null)
       transformerRef.current?.nodes([])
       transformerRef.current?.getLayer()?.batchDraw()
@@ -90,6 +93,14 @@ export default function CanvasEditor({
     }
     img.src = imageUrl
   }, [imageUrl])
+
+  useEffect(() => {
+    onViewportChange?.({
+      zoom,
+      imageWidth: image?.naturalWidth ?? image?.width ?? 0,
+      imageHeight: image?.naturalHeight ?? image?.height ?? 0,
+    })
+  }, [image, onViewportChange, zoom])
 
   const fitImageToContainer = useCallback((img: HTMLImageElement) => {
     const cw = containerRef.current?.clientWidth ?? 800
@@ -140,35 +151,9 @@ export default function CanvasEditor({
     tr.getLayer()?.batchDraw()
   }, [selectedId, regions, stageRef])
 
-  // Keyboard shortcuts: Delete key, Ctrl+Z/Y, Space for pan
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Don't delete if user is typing in an input
-        if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
-        if (selectedId) {
-          onRegionDelete(selectedId)
-          setSelectedId(null)
-          onSelectedRegion(null)
-        }
-      }
-      if (e.ctrlKey && e.key === 'z') {
-        e.preventDefault()
-        useAppStore.getState().undoBrushStroke()
-      }
-      if (e.ctrlKey && e.key === 'y') {
-        e.preventDefault()
-        useAppStore.getState().redoBrushStroke()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedId, onRegionDelete, onSelectedRegion])
-
   // Selection
   const handleSelect = useCallback(
     (regionId: string | null) => {
-      setSelectedId(regionId)
       onSelectedRegion(regionId)
     },
     [onSelectedRegion],
@@ -322,27 +307,60 @@ export default function CanvasEditor({
     [regions, scale, onRegionUpdate],
   )
 
-  // Transform end — update bbox + fontSize + rotation
-  const handleTransformEnd = useCallback(
-    (regionId: string, e: Konva.KonvaEventObject<Event>) => {
-      const node = e.target as Konva.Text
-      const sx = node.scaleX()
-      const sy = node.scaleY()
+  const applyLiveTextBoxResize = useCallback(
+    (node: Konva.Text) => {
+      const nextWidth = Math.max(20 * scale, node.width() * Math.abs(node.scaleX()))
+      const nextHeight = Math.max(16 * scale, node.height() * Math.abs(node.scaleY()))
+
       node.scaleX(1)
       node.scaleY(1)
+      node.width(nextWidth)
+      node.height(nextHeight)
+      node.getLayer()?.batchDraw()
 
-      onRegionUpdate(regionId, {
+      return { width: nextWidth, height: nextHeight }
+    },
+    [scale],
+  )
+
+  // Transform end — update paragraph box + rotation. Font size is edited separately.
+  const handleTransformEnd = useCallback(
+    (region: TextRegion, e: Konva.KonvaEventObject<Event>) => {
+      const node = e.target as Konva.Text
+      const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+
+      if (layoutMode === 'artistic') {
+        const textScaleX = node.scaleX()
+        const textScaleY = node.scaleY()
+
+        onRegionUpdate(region.id, {
+          bbox: {
+            ...region.bbox,
+            x: node.x() / scale,
+            y: node.y() / scale,
+            width: (node.width() * Math.abs(textScaleX)) / scale,
+            height: (node.height() * Math.abs(textScaleY)) / scale,
+          },
+          textScaleX,
+          textScaleY,
+          rotation: node.rotation(),
+        })
+        return
+      }
+
+      const resized = applyLiveTextBoxResize(node)
+
+      onRegionUpdate(region.id, {
         bbox: {
           x: node.x() / scale,
           y: node.y() / scale,
-          width: (node.width() * sx) / scale,
-          height: (node.height() * sy) / scale,
+          width: resized.width / scale,
+          height: resized.height / scale,
         },
-        fontSize: node.fontSize() * sy,
         rotation: node.rotation(),
       })
     },
-    [scale, onRegionUpdate],
+    [applyLiveTextBoxResize, scale, onRegionUpdate],
   )
 
   // Scroll wheel zoom to pointer
@@ -357,8 +375,8 @@ export default function CanvasEditor({
 
       const oldZoom = zoom
       const newZoom = Math.max(
-        0.1,
-        Math.min(5, e.evt.deltaY > 0 ? oldZoom * 0.9 : oldZoom * 1.1),
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, e.evt.deltaY > 0 ? oldZoom * 0.9 : oldZoom * 1.1),
       )
 
       const mousePointTo = {
@@ -378,14 +396,14 @@ export default function CanvasEditor({
 
   // Zoom helpers
   const applyZoom = useCallback((newZoom: number) => {
-    const clamped = Math.max(0.1, Math.min(5, newZoom))
+    const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom))
     setZoom(clamped)
     setZoomInput(Math.round(clamped * 100).toString())
   }, [])
 
   const handleZoomInputCommit = useCallback(() => {
     const val = parseInt(zoomInput, 10)
-    if (!isNaN(val) && val >= 10 && val <= 500) {
+    if (!isNaN(val) && val >= MIN_ZOOM * 100 && val <= MAX_ZOOM * 100) {
       applyZoom(val / 100)
     } else {
       setZoomInput(Math.round(zoom * 100).toString())
@@ -438,62 +456,83 @@ export default function CanvasEditor({
     return 'default'
   }
 
+  const selectedRegion = selectedId ? regions.find((region) => region.id === selectedId) : null
+  const selectedLayoutMode = normalizeTextLayoutMode(selectedRegion?.textLayoutMode)
+  const transformerAnchors = selectedLayoutMode === 'artistic'
+    ? [
+        'top-left',
+        'top-center',
+        'top-right',
+        'middle-left',
+        'middle-right',
+        'bottom-left',
+        'bottom-center',
+        'bottom-right',
+      ]
+    : [
+        'top-left',
+        'top-right',
+        'bottom-left',
+        'bottom-right',
+        'middle-left',
+        'middle-right',
+      ]
+
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Toolbar */}
-      <div className="flex items-center gap-1.5 mb-1.5 shrink-0">
-        <div className="join border border-base-300 rounded-lg">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-[8px] border border-[var(--mg-border)] bg-black/45 p-1 backdrop-blur">
+        <div className="flex items-center rounded-[7px] border border-[var(--mg-border)]">
           <button
-            className="join-item btn btn-xs btn-ghost px-2"
+            className="mg-icon-button h-7 w-7"
             onClick={() => applyZoom(zoom - 0.1)}
-            title="Zoom out"
+            aria-label="Zoom out"
           >
             <ZoomOut size={14} />
           </button>
-          <div className="join-item flex items-center bg-base-100">
+          <div className="flex items-center">
             <input
-              className="w-10 text-center text-xs bg-transparent outline-none font-mono"
+              className="w-10 bg-transparent text-center font-mono text-xs text-[var(--mg-text)]"
               value={zoomInput}
+              aria-label="Zoom percent"
               onChange={(e) => setZoomInput(e.target.value)}
               onBlur={handleZoomInputCommit}
               onKeyDown={(e) => e.key === 'Enter' && handleZoomInputCommit()}
             />
-            <span className="text-xs text-base-content/40 pr-1">%</span>
+            <span className="pr-1 text-xs text-[var(--mg-dim)]">%</span>
           </div>
           <button
-            className="join-item btn btn-xs btn-ghost px-2"
+            className="mg-icon-button h-7 w-7"
             onClick={() => applyZoom(zoom + 0.1)}
-            title="Zoom in"
+            aria-label="Zoom in"
           >
             <ZoomIn size={14} />
           </button>
         </div>
 
         <button
-          className={`btn btn-xs ${isPanning ? 'btn-primary' : 'btn-ghost'}`}
+          className={`mg-icon-button h-7 w-7 ${isPanning ? 'mg-tool-active' : ''}`}
           onClick={() => useAppStore.getState().setActiveTool(isPanning ? 'select' : 'pan')}
-          title="Pan mode (or hold Alt)"
+          aria-label="Pan mode"
         >
           <Hand size={14} />
         </button>
 
         <button
-          className="btn btn-xs btn-ghost"
+          className="mg-icon-button h-7 w-7"
           onClick={handleResetView}
-          title="Reset view"
+          aria-label="Reset view"
         >
           <RotateCcw size={14} />
         </button>
 
-        <span className="text-[10px] text-base-content/30 ml-auto">
+        <span className="px-1 text-[10px] text-[var(--mg-muted)]">
           {Math.round(zoom * 100)}% · {activeTool}
         </span>
       </div>
 
-      {/* Canvas — fills entire space */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 relative"
+        className="relative min-h-0 flex-1"
       >
         <Stage
           ref={stageRef}
@@ -576,22 +615,42 @@ export default function CanvasEditor({
           <Layer visible={showTextOverlay}>
             {regions.map((region) => {
               const font = resolveFont(region.suggestedFont, region.mood)
+              const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+              const isArtistic = layoutMode === 'artistic'
+              const text = region.translatedText || ' '
+              const fontSize = isArtistic
+                ? Math.max(8, region.fontSize * scale)
+                : calculateBalloonFitFontSize(text, region.bbox, region.fontSize) * scale
               return (
                 <Text
-                  key={region.id}
+                  key={`${region.id}-${layoutMode}`}
                   id={region.id}
                   x={region.bbox.x * scale}
                   y={region.bbox.y * scale}
-                  width={region.bbox.width * scale}
-                  text={region.translatedText || ' '}
-                  fontSize={Math.max(10, region.fontSize * scale)}
+                  text={text}
+                  fontSize={fontSize}
                   fontFamily={font.family}
                   fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
                   fill={region.fontColor}
                   stroke={region.strokeWidth > 0 ? region.strokeColor : undefined}
                   strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
-                  align="center"
-                  wrap="char"
+                  fillAfterStrokeEnabled
+                  lineJoin={region.strokeJoin ?? 'round'}
+                  lineHeight={1.18}
+                  {...(isArtistic
+                    ? {
+                        wrap: 'none' as const,
+                        align: 'left' as const,
+                        scaleX: region.textScaleX ?? 1,
+                        scaleY: region.textScaleY ?? 1,
+                      }
+                    : {
+                        width: region.bbox.width * scale,
+                        height: region.bbox.height * scale,
+                        wrap: 'char' as const,
+                        align: 'center' as const,
+                        verticalAlign: 'middle' as const,
+                      })}
                   draggable={!isPanning && !isBrushActive && !isEyedropper}
                   rotation={region.rotation}
                   onClick={() => {
@@ -599,11 +658,14 @@ export default function CanvasEditor({
                   }}
                   onDragEnd={(e) => handleDragEnd(region.id, e)}
                   onTransform={(e) => {
-                    // Live preview during transform
                     const node = e.target as Konva.Text
-                    node.getLayer()?.batchDraw()
+                    if (layoutMode === 'balloon_fit') {
+                      applyLiveTextBoxResize(node)
+                    } else {
+                      node.getLayer()?.batchDraw()
+                    }
                   }}
-                  onTransformEnd={(e) => handleTransformEnd(region.id, e)}
+                  onTransformEnd={(e) => handleTransformEnd(region, e)}
                 />
               )
             })}
@@ -618,14 +680,13 @@ export default function CanvasEditor({
               anchorCornerRadius={4}
               padding={4}
               rotateEnabled={true}
-              enabledAnchors={[
-                'top-left',
-                'top-right',
-                'bottom-left',
-                'bottom-right',
-                'middle-left',
-                'middle-right',
-              ]}
+              keepRatio={false}
+              enabledAnchors={transformerAnchors}
+              flipEnabled={false}
+              boundBoxFunc={(oldBox, newBox) => {
+                if (Math.abs(newBox.width) < 20 || Math.abs(newBox.height) < 16) return oldBox
+                return newBox
+              }}
             />
           </Layer>
         </Stage>
@@ -633,14 +694,14 @@ export default function CanvasEditor({
         {/* Eyedropper preview tooltip */}
         {eyedropPreview && (
           <div
-            className="fixed z-100 pointer-events-none flex items-center gap-2 bg-base-300/90 backdrop-blur-sm rounded-lg px-2.5 py-1.5 shadow-lg border border-base-content/10"
+            className="fixed z-100 pointer-events-none flex items-center gap-2 rounded-[8px] border border-[var(--mg-border)] bg-black/85 px-2.5 py-1.5 shadow-lg backdrop-blur"
             style={{ left: eyedropPreview.x + 20, top: eyedropPreview.y - 10 }}
           >
             <div
-              className="w-6 h-6 rounded border-2 border-base-content/30"
+              className="h-6 w-6 rounded border-2 border-[var(--mg-border-strong)]"
               style={{ backgroundColor: eyedropPreview.color }}
             />
-            <span className="text-xs font-mono text-base-content">{eyedropPreview.color}</span>
+            <span className="font-mono text-xs text-[var(--mg-text)]">{eyedropPreview.color}</span>
           </div>
         )}
       </div>

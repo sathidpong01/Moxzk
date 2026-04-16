@@ -1,8 +1,10 @@
 import Konva from 'konva'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
-import type { ExportFormat } from '../types'
+import type { BrushStroke, ExportFormat, ImageEntry, TextRegion } from '../types'
 import type { AlbumPage } from '../types/database'
+import { resolveFont } from '../config/fonts'
+import { calculateBalloonFitFontSize, estimateWrappedLineCount, normalizeTextLayoutMode } from '../utils/textLayout'
 
 const MIME_TYPES: Record<ExportFormat, string> = {
   png: 'image/png',
@@ -83,6 +85,87 @@ export function exportFromDataUrl(
   img.src = srcDataUrl
 }
 
+export interface ImageEntryExportOptions {
+  format: ExportFormat
+  quality: number
+  albumTitle: string
+  selectedIds: string[]
+  onProgress?: (current: number, total: number) => void
+}
+
+export async function exportImageEntries(
+  entries: ImageEntry[],
+  options: ImageEntryExportOptions,
+): Promise<'folder' | 'zip'> {
+  const selected = entries
+    .filter((entry) => options.selectedIds.includes(entry.id))
+    .sort((a, b) => (a.pageNumber ?? 0) - (b.pageNumber ?? 0))
+
+  if (selected.length === 0) throw new Error('ไม่มีหน้าที่เลือกสำหรับ export')
+
+  const rendered: Array<{ name: string; blob: Blob }> = []
+  for (let i = 0; i < selected.length; i += 1) {
+    const entry = selected[i]
+    const blob = await renderImageEntryToBlob(entry, options.format, options.quality)
+    const pageNumber = String(entry.pageNumber ?? i + 1).padStart(3, '0')
+    rendered.push({
+      name: `${safeFilename(options.albumTitle || 'manga')}_${pageNumber}.${extensionForFormat(options.format)}`,
+      blob,
+    })
+    options.onProgress?.(i + 1, selected.length)
+  }
+
+  const directoryPicker = getDirectoryPicker()
+  if (directoryPicker) {
+    try {
+      const dir = await directoryPicker()
+      for (const file of rendered) {
+        const handle = await dir.getFileHandle(file.name, { create: true })
+        const writable = await handle.createWritable()
+        await writable.write(file.blob)
+        await writable.close()
+      }
+      return 'folder'
+    } catch (error) {
+      if (isAbortError(error)) throw error
+      console.warn('[export] folder export failed, falling back to zip:', error)
+    }
+  }
+
+  const zip = new JSZip()
+  for (const file of rendered) {
+    zip.file(file.name, file.blob)
+  }
+  const content = await zip.generateAsync({ type: 'blob' })
+  saveAs(content, `${safeFilename(options.albumTitle || 'manga')}.zip`)
+  return 'zip'
+}
+
+export async function renderImageEntryToBlob(
+  entry: ImageEntry,
+  format: ExportFormat,
+  quality: number,
+): Promise<Blob> {
+  const image = await loadHtmlImage(entry.cleanedImageUrl || entry.originalUrl)
+  const canvas = document.createElement('canvas')
+  canvas.width = image.naturalWidth || image.width
+  canvas.height = image.naturalHeight || image.height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas is not available')
+
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+  drawBrushStrokes(ctx, entry.brushStrokes)
+  drawTextRegions(ctx, entry.regions)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error('Export canvas failed')),
+      MIME_TYPES[format],
+      format === 'png' ? undefined : quality,
+    )
+  })
+}
+
 function dataUrlToBlob(dataUrl: string): Blob {
   const parts = dataUrl.split(',')
   const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png'
@@ -92,6 +175,115 @@ function dataUrlToBlob(dataUrl: string): Blob {
     array[i] = binary.charCodeAt(i)
   }
   return new Blob([array], { type: mime })
+}
+
+function drawBrushStrokes(ctx: CanvasRenderingContext2D, strokes: BrushStroke[]) {
+  for (const stroke of strokes) {
+    if (stroke.points.length < 2) continue
+    ctx.save()
+    ctx.globalAlpha = stroke.opacity
+    ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over'
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = stroke.color
+    ctx.lineWidth = Math.max(1, stroke.width - 2 * stroke.shadowBlur)
+    ctx.shadowBlur = stroke.shadowBlur
+    ctx.shadowColor = stroke.tool === 'eraser' ? 'transparent' : stroke.color
+    ctx.beginPath()
+    ctx.moveTo(stroke.points[0], stroke.points[1])
+    for (let i = 2; i < stroke.points.length; i += 2) {
+      ctx.lineTo(stroke.points[i], stroke.points[i + 1])
+    }
+    ctx.stroke()
+    ctx.restore()
+  }
+}
+
+function drawTextRegions(ctx: CanvasRenderingContext2D, regions: TextRegion[]) {
+  for (const region of regions) {
+    const text = region.translatedText || ''
+    if (!text.trim()) continue
+    const font = resolveFont(region.suggestedFont, region.mood)
+    const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+    const size = layoutMode === 'artistic'
+      ? Math.max(8, region.fontSize)
+      : calculateBalloonFitFontSize(text, region.bbox, region.fontSize)
+    const weight = font.weight >= 700 ? '700' : '400'
+    const style = font.style === 'italic' ? 'italic ' : ''
+    const fontFamily = font.family.includes(' ') ? `"${font.family}"` : font.family
+
+    ctx.save()
+    ctx.translate(region.bbox.x + region.bbox.width / 2, region.bbox.y + region.bbox.height / 2)
+    ctx.rotate((region.rotation || 0) * Math.PI / 180)
+    ctx.font = `${style}${weight} ${size}px ${fontFamily}, sans-serif`
+    ctx.fillStyle = region.fontColor
+    ctx.strokeStyle = region.strokeColor
+    ctx.lineWidth = region.strokeWidth
+    ctx.lineJoin = region.strokeJoin ?? 'round'
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = layoutMode === 'artistic' ? 'left' : 'center'
+
+    const lines = wrapText(text, region.bbox.width, size)
+    const lineHeight = size * 1.18
+    const totalHeight = lines.length * lineHeight
+    const startY = -totalHeight / 2 + lineHeight / 2
+    for (let i = 0; i < lines.length; i += 1) {
+      const x = layoutMode === 'artistic' ? -region.bbox.width / 2 : 0
+      const y = startY + i * lineHeight
+      if (region.strokeWidth > 0) ctx.strokeText(lines[i], x, y)
+      ctx.fillText(lines[i], x, y)
+    }
+    ctx.restore()
+  }
+}
+
+function wrapText(text: string, width: number, fontSize: number): string[] {
+  const targetLines = estimateWrappedLineCount(text, width, fontSize)
+  const charsPerLine = Math.max(1, Math.ceil([...text].length / Math.max(1, targetLines)))
+  const lines: string[] = []
+  for (const paragraph of text.split(/\r?\n/)) {
+    const chars = [...paragraph]
+    for (let i = 0; i < chars.length; i += charsPerLine) {
+      lines.push(chars.slice(i, i + charsPerLine).join(''))
+    }
+  }
+  return lines.length ? lines : ['']
+}
+
+function loadHtmlImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('โหลดรูปสำหรับ export ไม่สำเร็จ'))
+    img.src = src
+  })
+}
+
+function extensionForFormat(format: ExportFormat): string {
+  return format === 'jpg' ? 'jpg' : format
+}
+
+function safeFilename(value: string): string {
+  return value.trim().replace(/[<>:"/\\|?*\x00-\x1f]+/g, '-').replace(/\s+/g, ' ').slice(0, 80) || 'manga'
+}
+
+type DirectoryPicker = () => Promise<{
+  getFileHandle: (name: string, options: { create: boolean }) => Promise<{
+    createWritable: () => Promise<{
+      write: (data: Blob) => Promise<void>
+      close: () => Promise<void>
+    }>
+  }>
+}>
+
+function getDirectoryPicker(): DirectoryPicker | null {
+  const candidate = (window as unknown as { showDirectoryPicker?: DirectoryPicker }).showDirectoryPicker
+  return typeof candidate === 'function' ? candidate.bind(window) : null
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 // ── Batch Album Export ──────────────────────────────────────────────

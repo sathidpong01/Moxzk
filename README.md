@@ -1,432 +1,376 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=white" alt="React 19.2">
-  <img src="https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite 7">
-  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript 5.9">
-  <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS 4">
-  <img src="https://img.shields.io/badge/daisyUI-5-5A0EF8?style=for-the-badge&logo=daisyui&logoColor=white" alt="daisyUI 5">
-  <img src="https://img.shields.io/badge/Konva-10-0D83CD?style=for-the-badge&logoColor=white" alt="Konva 10">
-  <img src="https://img.shields.io/badge/Gemini-2.5-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini 2.5">
-  <img src="https://img.shields.io/badge/Supabase-Auth-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase">
-  <img src="https://img.shields.io/badge/Docker-Engine-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
-</p>
+# MG_Translater
 
-# 📖 MG_Translater
+React/Vite image editor สำหรับคลีนภาพมังงะและแปลเป็นภาษาไทย โดยใช้ PanelCleaner, Ollama vision model และ Cloudflare Worker/D1/R2 เป็นแกนหลัก
 
-**AI-Powered Manga Translation Web App** — แปลมังงะจาก ญี่ปุ่น/จีน/อังกฤษ เป็นไทย ด้วย AI ที่เข้าใจอารมณ์ตัวละคร
+โปรเจคนี้อยู่ในช่วง web app ก่อน ยังไม่เพิ่ม Electron dependency. งานที่ต้องแตะ native โดยตรง เช่นหา executable, start service, secure local storage, native folder export และย้าย bridge เข้า main process จะเป็น Electron phase ภายหลัง
 
-แอปเว็บสำหรับแปลมังงะอัตโนมัติ ใช้ **manga-image-translator** เป็น engine หลักสำหรับ detection, OCR, และ inpainting ร่วมกับ **Gemini 2.5** (Multimodal AI) ที่รับรูปต้นฉบับเพื่อวิเคราะห์อารมณ์ตัวละครและบริบทฉาก → ส่งกลับคำแปลที่แม่นยำพร้อมฟอนต์ที่เหมาะสม
+## Current Direction
 
----
+- Frontend: React 19 + Vite 7 + TypeScript
+- UI: Tailwind CSS 4 + Headless UI primitives + custom studio-dark design system
+- Editor: Konva/react-konva พร้อม multi-artboard workspace
+- Cleanup: PanelCleaner external CLI ผ่าน local bridge
+- AI: Ollama `/api/chat` สำหรับ OCR/translation/vision JSON
+- Storage/Auth: Cloudflare Worker API + D1 + R2
+- Schema: Drizzle เป็น source of truth สำหรับ Cloudflare D1
+- Legacy backend: `manga-image-translator` ยังอยู่เป็น fallback ชั่วคราวเท่านั้น
 
-## ✨ Features
+## Features
 
-### 🔍 AI Detection & OCR
+- Upload หลายรูปแล้วเปิดเป็น artboard workspace แนวนอน
+- แสดงหลายหน้าใน canvas เดียว พร้อมเลขหน้า, active page, status และ filmstrip ที่เปิด/ปิดได้
+- Reorder page แบบล็อกตำแหน่งรูปภาพ ไม่ลากภาพอิสระจนชนกับ text regions
+- แก้ text region บน Konva canvas: font, color, stroke, stroke corner, size, rotation, layout mode
+- PanelCleaner clean ผ่าน local bridge และรองรับ native batch clean endpoint
+- Batch AI queue: clean หลายหน้าก่อน แล้วแปลทีละหน้าเพื่อลดการแย่ง VRAM/โมเดล
+- Story context across pages: ส่งบทพูดหน้าก่อนหน้าและ style guide เข้า Ollama เพื่อรักษาคำเรียก ความสัมพันธ์ และศัพท์ให้ต่อเนื่อง
+- Translation memory ผ่าน IndexedDB
+- Albums บน Cloudflare D1/R2 พร้อม Google OAuth, email/password, session cookie และ ownership checks
+- Export หลายหน้า โดยเลือกทุกหน้าเป็นค่าเริ่มต้น หรือเลือกเฉพาะบางหน้า
+- Export ผ่าน File System Access API เมื่อ browser รองรับ และ fallback เป็น ZIP
 
-- ตรวจจับ text regions อัตโนมัติด้วย CTD detector
-- OCR อ่านข้อความจากมังงะ (JP/CN/EN) ด้วย 48px model
-- Inpainting ลบข้อความต้นฉบับด้วย LaMa Large
-- **OCR Correction** — ตรวจสอบ/แก้ไข OCR ก่อนส่งแปล
+## Architecture
 
-### 🤖 Multi-Engine Translation
-
-- **Gemini 2.5** (Multimodal) — ส่ง **รูปต้นฉบับเต็ม** ให้ AI เห็นภาพจริง + mood detection + font suggestion
-- **Ollama** (Local LLM) — ใช้ model เช่น typhoon2:8b แปลแบบ offline
-- **LibreTranslate** — self-hosted translation API
-- ผู้ใช้เลือก engine ได้จากหน้า Settings
-
-### 🎨 Canvas Editor (Konva)
-
-- ลาก, ย้าย, resize, rotate text boxes บน canvas
-- Zoom & Pan เพื่อดูรายละเอียด
-- **Brush & Eraser** — วาด/ลบบน canvas ด้วยมือ
-- ปรับ font, ขนาด, สี, ตำแหน่งได้อิสระ
-- เห็น original text + translated text คู่กัน
-- **Floating panels** — ลากย้ายได้ (Properties, Brush, Quota, Logs, Resource)
-
-### 🔤 Font Mood System
-
-- 6 ฟอนต์ไทยในตัว: Sarabun, Kanit, K2D, Prompt, Bai Jamjuree, Mitr
-- AI แนะนำฟอนต์ตามอารมณ์: `normal`, `shouting`, `whisper`, `comedy`, `narration`, `sfx`
-- **Font Config Page** — ปรับ mood→font mapping ได้ตามใจ
-- อัพโหลด **custom font** (.ttf/.otf/.woff2) จากเครื่อง (เก็บใน IndexedDB)
-
-### 🔐 Authentication (Supabase)
-
-- Login / Register ผ่าน Supabase Auth
-- User menu + avatar
-- Auto-save ผลงานไปยัง Supabase Storage
-
-### 📚 Albums
-
-- จัดกลุ่มรูปมังงะเป็น Albums
-- จัดการ (สร้าง/ลบ/แก้ไข) Albums
-- ดูผลงานที่แปลแล้วในรูปแบบ grid
-
-### 🖼️ Multi-Image Support
-
-- อัพโหลดหลายรูปพร้อมกัน
-- Image strip แสดงรูปทั้งหมด, สลับไปมาได้
-- แปลแต่ละรูปอิสระ
-
-### ↔️ Before/After Comparison
-
-- Slider แบ่งซ้าย/ขวา เปรียบเทียบต้นฉบับกับฉบับแปล
-- Side-by-side view
-- Overlay toggle
-
-### 📤 Export
-
-- บันทึกผลลัพธ์เป็น **PNG / JPG / WebP**
-- รักษาความละเอียดต้นฉบับ
-- Export ผ่าน Konva stage rendering
-
-### ⌨️ Keyboard Shortcuts
-
-- ทางลัดคีย์บอร์ดสำหรับเครื่องมือต่างๆ
-- Undo/Redo brush strokes
-
-### 📊 Resource Monitor & Quota
-
-- Resource Monitor — ติดตามการใช้ CPU/memory
-- Gemini Quota Bar — ติดตามจำนวน API calls ที่ใช้
-
----
-
-## 🏗️ Architecture
-
-```
-┌──────────────────────────────────────────────────────────┐
-│         Frontend (React 19.2 + Vite 7 + TypeScript)      │
-│                     port 5173                             │
-│                                                           │
-│   Upload → Processing → Canvas Editor (Konva) → Export    │
-│              │                                            │
-│   Auth (Supabase) ─── Albums ─── Multi-image              │
-└──────────────┼────────────────────────────────────────────┘
-               │
-    ┌──────────┴──────────┐
-    │                     │
-    ▼                     ▼
-┌────────────────┐  ┌─────────────────────┐
-│  manga-image-  │  │  Translation Engines │
-│  translator    │  │                     │
-│  Docker :5003  │  │  1. Gemini 2.5 API  │
-│                │  │     (Multimodal)    │
-│  Detection     │  │  2. Ollama (local)  │
-│  OCR           │  │  3. LibreTranslate  │
-│  Inpainting    │  │                     │
-│  translator:   │  │  รูปต้นฉบับ + OCR    │
-│  "none"        │  │  → แปลไทย + mood    │
-└────────────────┘  └─────────────────────┘
+```text
+React + Vite + TypeScript
+        |
+        | upload / edit / export
+        v
+Konva Multi-Artboard Editor
+        |
+        +--> PanelCleaner bridge :5055
+        |       - spawn external pcleaner CLI
+        |       - single clean and batch clean
+        |       - optional OCR fallback CSV
+        |
+        +--> Ollama API
+        |       - /api/chat for vision OCR/translation
+        |       - /api/version health check
+        |       - /api/tags model list
+        |       - story context + style guide prompt layer
+        |
+        +--> Cloudflare Worker :8787
+                - auth/session
+                - albums/pages metadata in D1
+                - image ownership and streaming through R2
 ```
 
-### Split Pipeline
+## Tech Stack
 
-โปรเจคนี้ใช้แนวทาง **Split Pipeline** — แยก detection/cleaning กับ translation:
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, Vite 7, TypeScript |
+| Styling | Tailwind CSS 4, Headless UI, custom studio-dark tokens |
+| Canvas | Konva, react-konva |
+| State | Zustand |
+| Cleanup | PanelCleaner external CLI through local bridge |
+| OCR/Translation | Ollama vision/chat API |
+| Backend | Cloudflare Workers |
+| Database | Cloudflare D1 + Drizzle |
+| Object Storage | Cloudflare R2 |
+| Auth | Custom Worker auth, Google OAuth, email/password |
+| Export | File System Access API, file-saver, jszip |
 
-1. **manga-image-translator** (`translator: "none"`)
-   - รับรูปมังงะ → ส่งกลับ bounding boxes, OCR text, cleaned image
-   - ใช้ Docker ไม่ต้องติดตั้ง Python/models เอง
+## Project Structure
 
-2. **Translation Engine** (เลือกได้)
-   - **Gemini 2.5** — รับ **รูปต้นฉบับ** + OCR text → วิเคราะห์อารมณ์, บริบท → คำแปลไทย + mood + font
-   - **Ollama** — ใช้ local LLM เช่น typhoon2:8b
-   - **LibreTranslate** — self-hosted translation
-
-3. **Frontend**
-   - รวม cleaned image + translated text ลง Konva canvas
-   - ผู้ใช้แก้ไข/ปรับแต่งได้ทั้งหมดก่อน export
-
----
-
-## 🛠️ Tech Stack
-
-| Layer              | Technology                   | Version          |
-| ------------------ | ---------------------------- | ---------------- |
-| **Frontend**       | React + Vite + TypeScript    | 19.2 / 7.x / 5.9 |
-| **Canvas Editor**  | Konva + react-konva          | 10.x / 19.x      |
-| **State**          | Zustand                      | 5.x              |
-| **Auth & Storage** | Supabase                     | 2.x              |
-| **Backend Engine** | manga-image-translator       | Docker image     |
-| **Translation AI** | Gemini 2.5 (`@google/genai`) | 1.x              |
-| **Styling**        | Tailwind CSS 4 + daisyUI 5   | 4.x / 5.x        |
-| **Toast**          | sonner                       | 2.x              |
-| **Export**         | file-saver + jszip           | —                |
-| **Container**      | Docker Compose               | —                |
-
----
-
-## 📁 Project Structure
-
-```
-MG_Translater/
-├── docker-compose.yml              # manga-image-translator service
-├── package.json                     # React 19.2 + Vite 7 + deps
-├── vite.config.ts                   # API proxy → :5003 + manualChunks
-├── README.md
-│
-├── src/
-│   ├── App.tsx                      # Shell: Navbar + Step routing + Modals
-│   ├── main.tsx                     # Entry point
-│   ├── index.css                    # Dark theme, Tailwind + daisyUI
-│   ├── types/
-│   │   └── index.ts                 # TextRegion, AppSettings, ImageEntry, etc.
-│   ├── config/
-│   │   └── fonts.ts                 # Mood→Font mapping, FONT_ID_MAP
-│   ├── store/
-│   │   ├── appStore.ts              # Zustand store (全 app state)
-│   │   ├── authStore.ts             # Supabase auth state
-│   │   └── albumStore.ts            # Album management state
-│   ├── hooks/
-│   │   ├── useAutoSave.ts           # Auto-save to Supabase
-│   │   ├── useEditorActions.ts      # Editor callbacks (export, AI, save)
-│   │   ├── useFloatingPanel.ts      # Draggable floating panels
-│   │   └── useKeyboardShortcuts.ts  # Keyboard shortcuts
-│   ├── lib/
-│   │   └── supabase.ts              # Supabase client init
-│   ├── utils/
-│   │   ├── fileValidation.ts        # File type/size validation
-│   │   └── parseApiError.ts         # API error parsing
-│   ├── services/
-│   │   ├── translator-api.ts        # manga-image-translator API client
-│   │   ├── gemini.ts                # Gemini multimodal translation
-│   │   ├── localLLM.ts              # Ollama / LibreTranslate client
-│   │   ├── exporter.ts              # PNG/JPG/WebP export via Konva
-│   │   ├── fontStorage.ts           # IndexedDB font persistence
-│   │   ├── imageCache.ts            # Image caching
-│   │   ├── translationMemory.ts     # Translation memory/cache
-│   │   ├── geminiQuota.ts           # Gemini API quota tracking
-│   │   ├── settingsStorage.ts       # Settings persistence
-│   │   └── storageService.ts        # Supabase storage service
-│   └── components/
-│       ├── Steps/                    # ★ Step views (refactored from App.tsx)
-│       │   ├── UploadStep.tsx        # Upload step — drag & drop images
-│       │   ├── EditStep.tsx          # Edit step — canvas, toolbar, panels
-│       │   └── ExportStep.tsx        # Export step — format, quality, download
-│       ├── Upload/
-│       │   └── ImageUploader.tsx     # Drag & drop, paste, multi-image
-│       ├── Processing/
-│       │   ├── ProcessingView.tsx    # Real-time stream progress
-│       │   └── ResourceMonitor.tsx   # CPU/memory monitor
-│       ├── Editor/
-│       │   ├── CanvasEditor.tsx      # Konva canvas editor
-│       │   ├── PropertiesPanel.tsx   # Text/font/size/color controls
-│       │   ├── FloatingProperties.tsx # ★ Draggable properties wrapper
-│       │   ├── FontSelector.tsx      # Font picker + AI badge
-│       │   ├── BrushToolbar.tsx      # Brush/eraser tools
-│       │   ├── ImageStrip.tsx        # Multi-image navigator
-│       │   └── OcrCorrectionModal.tsx # OCR correction before translate
-│       ├── Comparison/
-│       │   └── SplitView.tsx         # Before/After comparison
-│       ├── Settings/
-│       │   ├── SettingsPanel.tsx      # API keys, URLs, engine select
-│       │   └── FontConfigPage.tsx     # Mood→Font config + custom upload
-│       ├── Auth/
-│       │   ├── AuthModal.tsx          # Login/Register (Supabase)
-│       │   └── UserMenu.tsx           # User avatar + menu
-│       ├── Albums/
-│       │   ├── AlbumCard.tsx          # Album card
-│       │   ├── AlbumListModal.tsx     # Album management
-│       │   ├── AlbumPageGrid.tsx      # Album page grid
-│       │   └── ConfirmModal.tsx       # Confirm dialog
-│       └── Layout/
-│           ├── FloatingQuotaBar.tsx   # Floating Gemini quota display
-│           ├── LogPanel.tsx           # ★ Log display panel
-│           └── PanelToggleBar.tsx     # ★ Bottom panel toggle bar
-│
-└── .agents/
-    ├── skills/                       # AI development skills
-    │   ├── manga-translator/         # 🎯 Project architecture & rules
-    │   ├── ai-engineer/              # 🤖 LLM/multimodal patterns
-    │   ├── prompt-engineering/       # 📝 Prompt design
-    │   ├── typescript-expert/        # 🔷 TypeScript best practices
-    │   ├── ui-ux-pro-max/            # 🎨 Design system intelligence
-    │   ├── systematic-debugging/     # 🔍 4-phase debugging
-    │   ├── web-design-guidelines/    # 🌐 Web standards
-    │   ├── webapp-testing/           # 🧪 Playwright testing
-    │   └── computer-vision-expert/   # 👁️ CV reference
-    └── workflows/
-        ├── dev.md                    # /dev — start dev environment
-        └── skills.md                 # /skills — use skills guide
+```text
+drizzle/
+  0000_parallel_stranger.sql
+  0001_artboard_layout.sql
+docs/
+  cloudflare-d1-schema.md
+scripts/
+  panelcleaner-bridge.mjs
+  *.test.mjs
+src/
+  components/
+    Albums/
+    Auth/
+    Editor/
+    Processing/
+    Settings/
+    Steps/
+    ui/
+  runtime/
+    webRuntime.ts
+  services/
+    batch-processing.ts
+    cleanup-provider.ts
+    cloudflareApi.ts
+    exporter.ts
+    ollama.ts
+    panelcleaner-api.ts
+    story-context.ts
+    translationMemory.ts
+  store/
+    albumStore.ts
+    appStore.ts
+    authStore.ts
+  worker/
+    index.ts
+    auth.ts
+    albums.ts
+    storage.ts
+    db/schema.ts
+  types/
+    index.ts
+    database.ts
 ```
 
----
+## Prerequisites
 
-## 🚀 Getting Started
+- Node.js 20+
+- Python environment ที่ติดตั้ง PanelCleaner CLI ได้
+- Ollama local app หรือ Ollama Cloud account
+- Vision-capable Ollama model เช่น `gemma4`
+- Cloudflare account ที่มี Worker, D1 และ R2
+- Wrangler authentication สำหรับ local Worker/D1/R2 development
 
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (สำหรับ manga-image-translator backend)
-- [Node.js 20+](https://nodejs.org/) (สำหรับ frontend)
-- [Gemini API Key](https://aistudio.google.com/apikey) (สำหรับ translation)
-- GPU (NVIDIA) — แนะนำ แต่ไม่บังคับ (CPU ก็ทำงานได้ แค่ช้า)
-
-### 1. Clone Repository
+## Install
 
 ```bash
-git clone https://github.com/sathidpong01/MG_Translater.git
-cd MG_Translater
+npm install
+pip install pcleaner-cli
 ```
 
-### 2. Configure Environment
+PanelCleaner อาจดาวน์โหลด model data ครั้งแรกหลายร้อย MB. โปรเจคนี้ใช้ PanelCleaner เป็น external CLI เพื่อหลีกเลี่ยงการ vendor GPLv3 code เข้ามาใน repo
 
-สร้างไฟล์ `.env.local`:
+## Local Environment
+
+สร้าง `.env.local` สำหรับ frontend override ถ้าต้องการ:
 
 ```env
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
+VITE_PANELCLEANER_BRIDGE_URL=http://localhost:5055
 VITE_TRANSLATOR_API_URL=http://localhost:5003
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_OLLAMA_URL=http://localhost:11434
+VITE_OLLAMA_MODEL=gemma4
 ```
 
-### 3. Start Backend (Docker)
+ไม่ควรใส่ Ollama Cloud API key ใน `VITE_*` env เพราะค่าจะถูก bundle เข้า browser app. ให้ใส่ใน Settings ระหว่าง web phase
+
+สร้าง `.dev.vars` สำหรับ Wrangler local secrets:
+
+```env
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+```
+
+Resend ไม่จำเป็นใน build ปัจจุบัน เพราะ email verification/reset ถูกปิดไว้ และ email/password register ถูก mark verified ทันที ดูรายละเอียดใน [Cloudflare D1 Schema](docs/cloudflare-d1-schema.md)
+
+## Run Locally
+
+เปิด Ollama:
+
+```bash
+ollama serve
+ollama pull gemma4
+```
+
+เปิด PanelCleaner bridge:
+
+```bash
+npm run backend:panelcleaner
+```
+
+เปิด Cloudflare Worker local:
+
+```bash
+npx wrangler dev --local --port 8787
+```
+
+เปิด Vite frontend:
+
+```bash
+npm run dev
+```
+
+เปิด `http://localhost:5173`
+
+Vite proxy จะส่ง `/api` ไปที่ Worker local `http://localhost:8787`
+
+## Cloudflare Resources
+
+ค่าใน `wrangler.jsonc`:
+
+- Worker: `mg-translater-api`
+- D1: `mg-translater-db`
+- R2: `mg-translater-images`
+- D1 binding: `DB`
+- R2 binding: `IMAGES`
+
+Generate migration:
+
+```bash
+npm run db:generate
+```
+
+Apply local migration:
+
+```bash
+npm run db:migrate:local
+```
+
+Apply remote migration:
+
+```bash
+npm run db:migrate:remote
+```
+
+Worker dry run:
+
+```bash
+npm run worker:check
+```
+
+Required Worker secrets:
+
+```bash
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+## Usage Flow
+
+```text
+1. Upload manga images
+2. Open editor as multi-artboard workspace
+3. Run AI:
+   - PanelCleaner batch clean
+   - derive text boxes from cleanup diff
+   - Ollama boxed vision translation
+   - fallback to vision OCR/translation when needed
+4. Edit text regions, font, stroke, layout and page order
+5. Save pages to Cloudflare album
+6. Export all pages or selected pages
+```
+
+## AI Translation Notes
+
+The translation pipeline is intentionally not page-isolated anymore.
+
+- `story-context.ts` collects previous translated lines during batch translation.
+- `translationStyleGuide` in Settings controls relationships, pronouns, tone and recurring terms.
+- The default guide covers broad relationships: family, siblings, partners, friends, rivals, hierarchy, workplace roles, school roles, customer/staff and strangers.
+- If a relationship is established by earlier pages or image context, prompts tell Ollama to keep it consistent.
+- If the relationship is uncertain, prompts prefer neutral Thai phrasing instead of forcing a wrong relationship.
+
+Recommended workflow for better continuity:
+
+```text
+1. Sort pages correctly
+2. Add project-specific glossary/style guide in Settings > Ollama
+3. Run AI for all pages in order
+4. Review OCR correction / text regions
+5. Re-run specific pages only when needed
+```
+
+## PanelCleaner Bridge Notes
+
+- Bridge รับรูปเป็น base64 JSON แล้วเขียน temp files ต่อ job
+- Single endpoint: `/panelcleaner/process`
+- Batch endpoint: `/panelcleaner/batch`
+- Status endpoint: `/panelcleaner/status`
+- เรียก `pcleaner` ด้วย `spawn(..., { shell: false })`
+- จำกัด origin เฉพาะ local dev origins โดย default
+- รองรับ `PANELCLEANER_BRIDGE_PORT`, `PANELCLEANER_MAX_BODY_BYTES`, `PANELCLEANER_ALLOWED_ORIGIN`
+- ลบ temp directory หลังจบงาน เว้นแต่ตั้ง `PANELCLEANER_KEEP_TEMP=1`
+
+## Auth And Albums
+
+Worker API routes:
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/auth/google/start`
+- `GET /api/auth/google/callback`
+- `GET /api/albums`
+- `POST /api/albums`
+- `GET /api/albums/:albumId/pages`
+- `POST /api/albums/:albumId/pages`
+- `POST /api/albums/:albumId/pages/reorder`
+- `PATCH /api/pages/:pageId`
+- `DELETE /api/pages/:pageId`
+- `POST /api/storage/upload`
+- `GET /api/storage/object/:key`
+- `DELETE /api/storage/object/:key`
+
+R2 object access is checked through D1 `objects` metadata before download/delete. Album and page deletes are hard deletes.
+
+## Verification
+
+```bash
+npm test
+npm run build
+npm run worker:check
+```
+
+Expected current test coverage includes:
+
+- album save target behavior
+- D1 migration/schema checks
+- PanelCleaner CSV parser
+- story context continuity rules
+- text layout sizing
+
+Manual smoke tests:
+
+```text
+upload 6 images -> editor opens -> 5 artboards in first row -> page 6 second row
+run AI all pages -> clean status updates -> translation runs page by page
+save to existing album -> no duplicate pages
+open album -> pages load with consistent layout
+delete page from album/canvas -> page disappears from editor state
+export all pages -> folder export or ZIP fallback
+```
+
+## Legacy Docker Fallback
+
+`docker-compose.yml` remains only for legacy fallback:
 
 ```bash
 docker compose up -d
 ```
 
-> ⚠️ ครั้งแรกจะดาวน์โหลด models (~15GB) อาจใช้เวลาสักพัก
+Then choose Settings > Cleanup > `Legacy manga-image-translator`.
 
-### 4. Install & Run Frontend
+## Skills
 
-```bash
-npm install
-npm run dev
-```
+Installed skills that are relevant to this project:
 
-เปิด http://localhost:5173
+| Skill | Use |
+| --- | --- |
+| `baoyu-comic` | comic/storyboard thinking and character continuity ideas |
+| `context-extraction` | translator context, glossary and ambiguity handling |
+| `thai-interpreter` | Thai wording, intent and encoding safety |
+| `ocr` | OCR/PaddleOCR guidance |
+| `ollama` | Ollama API and structured vision responses |
+| `d1-drizzle-schema` | Cloudflare D1 schema design with Drizzle |
+| `d1-migration` | D1 migration workflow |
+| `cloudflare:workers-best-practices` | Worker code and deployment checks |
+| `frontend-ui-engineering` | React UI implementation |
+| `frontend-design` | visual direction and layout polish |
+| `accessibility` | dialog/focus/keyboard checks |
+| `webapp-testing` / `playwright` | browser smoke tests |
 
-### 5. (Optional) Local Translation Engines
+## Roadmap
 
-```bash
-# Ollama — ใช้ local LLM
-ollama serve
-ollama pull typhoon2:8b
+- [x] Replace daisyUI with Headless UI + project primitives
+- [x] Cloudflare Worker auth/session API
+- [x] D1 schema with Drizzle migrations
+- [x] R2 upload/download ownership checks
+- [x] PanelCleaner bridge and batch clean endpoint
+- [x] Multi-artboard editor workspace
+- [x] Export all/selected pages
+- [x] Story context prompt layer for batch translation
+- [ ] Album-level story bible and glossary UI
+- [ ] Translation review pass for pronoun/relationship consistency
+- [ ] OCR confidence review and fallback comparison
+- [ ] Remove legacy backend after PanelCleaner flow is verified
+- [ ] Electron shell with secure typed IPC
+- [ ] Native executable discovery/version/start service
 
-# LibreTranslate — self-hosted translation
-docker run -d -p 5004:5000 libretranslate/libretranslate
-```
-
----
-
-## 📖 Usage
-
-### Workflow (3 ขั้นตอน)
-
-```
-1. Upload    →  ลากรูปมังงะมาวาง หรือเลือกไฟล์ (รองรับหลายรูป)
-2. Edit      →  AI ตรวจจับ, OCR, ลบข้อความ, แปล → แก้ไขบน Konva canvas
-3. Export    →  บันทึกเป็น PNG / JPG / WebP
-```
-
-### Font Mood Mapping (ค่าเริ่มต้น)
-
-| Mood        | ฟอนต์             | ใช้เมื่อ            |
-| ----------- | ----------------- | ------------------- |
-| `normal`    | Sarabun           | สนทนาทั่วไป         |
-| `shouting`  | Kanit Bold        | ตะโกน / โกรธ        |
-| `whisper`   | Prompt Light      | กระซิบ / นุ่มนวล    |
-| `comedy`    | K2D               | ตลก / สนุกสนาน      |
-| `narration` | Sarabun Italic    | บรรยาย / เล่าเรื่อง |
-| `sfx`       | Bai Jamjuree Bold | เสียงเอฟเฟกต์       |
-
-> 💡 ปรับ mapping ได้ผ่าน Font Config Page + อัพโหลด custom font จากเครื่อง
-
----
-
-## 🔧 API Reference
-
-### manga-image-translator Endpoints
-
-| Method | Endpoint                            | Description                        |
-| ------ | ----------------------------------- | ---------------------------------- |
-| `POST` | `/translate/with-form/json/stream`  | Stream JSON (bboxes, OCR, regions) |
-| `POST` | `/translate/with-form/image/stream` | Stream cleaned image               |
-| `GET`  | `/queue-size`                       | Current queue length               |
-| `GET`  | `/result/{folder}/final.png`        | Saved result image                 |
-
-### Config ที่ใช้
-
-```json
-{
-  "translator": { "translator": "none" },
-  "detector": { "detector": "ctd", "detection_size": 2048 },
-  "inpainter": { "inpainter": "lama_large", "inpainting_size": 2048 },
-  "ocr": { "ocr": "48px" }
-}
-```
-
-### Stream Response Format
-
-Binary stream: `1 byte status` + `4 bytes size` + `N bytes data`
-
-| Status Code | Meaning                         |
-| ----------- | ------------------------------- |
-| `0`         | Result data                     |
-| `1`         | Progress report                 |
-| `2`         | Error                           |
-| `3`         | Queue position                  |
-| `4`         | Waiting for translator instance |
-
----
-
-## 🧠 AI Skills (Development)
-
-โปรเจคนี้มี AI skills 9 ตัวใน `.agents/skills/` สำหรับช่วย development:
-
-| Skill                    | ใช้เมื่อ                                    |
-| ------------------------ | ------------------------------------------- |
-| `manga-translator`       | อ่านก่อนเริ่มทำงาน — architecture, pipeline |
-| `ui-ux-pro-max`          | ออกแบบ UI, เลือกสี, font, style             |
-| `prompt-engineering`     | ออกแบบ prompt สำหรับ Gemini                 |
-| `typescript-expert`      | TypeScript best practices, types            |
-| `ai-engineer`            | Gemini integration, streaming               |
-| `systematic-debugging`   | Debug ปัญหาทุกชนิด (4 phases)               |
-| `web-design-guidelines`  | ตรวจสอบ UI ตาม web standards                |
-| `webapp-testing`         | ทดสอบด้วย Playwright                        |
-| `computer-vision-expert` | CV reference (YOLO, SAM)                    |
-
-### Workflows
-
-| Command   | Description                                  |
-| --------- | -------------------------------------------- |
-| `/dev`    | เริ่ม development environment (Docker + npm) |
-| `/skills` | เลือกและใช้ skill ที่เหมาะกับงาน             |
-
----
-
-## 🗺️ Roadmap
-
-- [x] วางแผน architecture & split pipeline
-- [x] สร้าง project skill & workflows
-- [x] Project setup (Docker, Vite, React 19.2)
-- [x] Backend communication (translator-api, gemini)
-- [x] UI components (uploader, processing, editor)
-- [x] Canvas editor (Konva + react-konva)
-- [x] Font config page
-- [x] Before/After comparison
-- [x] Export (PNG/JPG/WebP)
-- [x] Multi-image support
-- [x] Brush & Eraser tools
-- [x] Supabase Auth + Albums
-- [x] OCR Correction Modal
-- [x] Multiple translation engines (Gemini/Ollama/LibreTranslate)
-- [x] Resource Monitor & Gemini Quota tracking
-- [x] Keyboard shortcuts
-- [x] Translation Memory & Image Cache
-- [x] Refactor App.tsx → Steps, Hooks, Components
-- [ ] End-to-end testing
-- [ ] Batch export (JSZip)
-- [ ] Mobile responsive optimization
-
----
-
-## 📝 License
+## License
 
 MIT
-
----
-
-<p align="center">
-  Made with ❤️ for manga fans who want to read in Thai
-</p>

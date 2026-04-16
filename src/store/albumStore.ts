@@ -1,8 +1,18 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
-import { useAuthStore } from './authStore'
-import type { Album, AlbumPage } from '../types/database'
 import { toast } from 'sonner'
+import {
+  createAlbum as createCloudflareAlbum,
+  createPage as createCloudflarePage,
+  deleteAlbum as deleteCloudflareAlbum,
+  deletePage as deleteCloudflarePage,
+  fetchAlbums as fetchCloudflareAlbums,
+  fetchPages as fetchCloudflarePages,
+  reorderPages as reorderCloudflarePages,
+  updateAlbum as updateCloudflareAlbum,
+  updatePage as updateCloudflarePage,
+} from '../services/cloudflareApi'
+import type { Album, AlbumPage } from '../types/database'
+import { useAuthStore } from './authStore'
 
 interface AlbumStore {
   albums: Album[]
@@ -12,32 +22,30 @@ interface AlbumStore {
   showAlbumModal: boolean
   saveMode: boolean
 
-  // Actions
   setShowAlbumModal: (show: boolean) => void
   setSaveMode: (save: boolean) => void
   openForSave: () => void
   openForBrowse: () => void
   setCurrentAlbum: (album: Album | null) => void
 
-  // CRUD Albums
   fetchAlbums: () => Promise<void>
   createAlbum: (title: string, description?: string, sourceLang?: string) => Promise<Album | null>
   updateAlbum: (id: string, updates: Partial<Pick<Album, 'title' | 'description' | 'cover_key' | 'source_lang'>>) => Promise<void>
   deleteAlbum: (id: string) => Promise<void>
 
-  // CRUD Pages
   fetchPages: (albumId: string) => Promise<void>
   createPage: (albumId: string, pageNumber: number) => Promise<AlbumPage | null>
-  updatePage: (pageId: string, updates: Partial<Pick<AlbumPage, 'original_key' | 'cleaned_key' | 'thumbnail_key' | 'regions' | 'brush_strokes' | 'status' | 'processing_mode' | 'error_message'>>) => Promise<void>
-  deletePage: (pageId: string) => Promise<void>
+  updatePage: (pageId: string, updates: Partial<Pick<AlbumPage, 'page_number' | 'original_key' | 'cleaned_key' | 'thumbnail_key' | 'artboard_x' | 'artboard_y' | 'regions' | 'brush_strokes' | 'status' | 'processing_mode' | 'error_message'>>) => Promise<void>
+  deletePage: (pageId: string) => Promise<boolean>
   reorderPages: (albumId: string, pageIds: string[]) => Promise<void>
 
-  // Save current editor state to album page
   saveCurrentToPage: (albumId: string, pageNumber: number, data: {
     regions: unknown
     brushStrokes: unknown
     status: AlbumPage['status']
     processingMode?: AlbumPage['processing_mode']
+    artboardX?: number | null
+    artboardY?: number | null
   }) => Promise<AlbumPage | null>
 }
 
@@ -55,28 +63,21 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
   openForBrowse: () => set({ showAlbumModal: true, saveMode: false }),
   setCurrentAlbum: (album) => set({ currentAlbum: album }),
 
-  // ── Fetch all albums for current user ──
   fetchAlbums: async () => {
     const user = useAuthStore.getState().user
     if (!user) return
 
     set({ loading: true })
-    const { data, error } = await supabase
-      .from('albums')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('updated_at', { ascending: false })
-
-    if (error) {
-      console.error('[album] fetchAlbums error:', error.message)
+    try {
+      const albums = await fetchCloudflareAlbums()
+      set({ albums, loading: false })
+    } catch (error) {
+      console.error('[album] fetchAlbums error:', error)
       toast.error('โหลดอัลบั้มล้มเหลว')
       set({ loading: false })
-      return
     }
-    set({ albums: data ?? [], loading: false })
   },
 
-  // ── Create album ──
   createAlbum: async (title, description, sourceLang) => {
     const user = useAuthStore.getState().user
     if (!user) {
@@ -84,37 +85,23 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       return null
     }
 
-    const { data, error } = await supabase
-      .from('albums')
-      .insert({
-        user_id: user.id,
-        title,
-        description: description || null,
-        source_lang: sourceLang || 'ja',
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('[album] createAlbum error:', error.message)
-      toast.error(`สร้างอัลบั้มล้มเหลว: ${error.message}`)
+    try {
+      const album = await createCloudflareAlbum({ title, description, sourceLang })
+      set((state) => ({ albums: [album, ...state.albums] }))
+      toast.success(`สร้างอัลบั้ม "${title}" แล้ว`)
+      return album
+    } catch (error) {
+      console.error('[album] createAlbum error:', error)
+      toast.error(error instanceof Error ? `สร้างอัลบั้มล้มเหลว: ${error.message}` : 'สร้างอัลบั้มล้มเหลว')
       return null
     }
-
-    set((state) => ({ albums: [data, ...state.albums] }))
-    toast.success(`สร้างอัลบั้ม "${title}" แล้ว`)
-    return data
   },
 
-  // ── Update album ──
   updateAlbum: async (id, updates) => {
-    const { error } = await supabase
-      .from('albums')
-      .update(updates)
-      .eq('id', id)
-
-    if (error) {
-      toast.error(`แก้ไขอัลบั้มล้มเหลว: ${error.message}`)
+    try {
+      await updateCloudflareAlbum(id, updates)
+    } catch (error) {
+      toast.error(error instanceof Error ? `แก้ไขอัลบั้มล้มเหลว: ${error.message}` : 'แก้ไขอัลบั้มล้มเหลว')
       return
     }
 
@@ -129,15 +116,11 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     toast.success('อัปเดตอัลบั้มแล้ว')
   },
 
-  // ── Delete album ──
   deleteAlbum: async (id) => {
-    const { error } = await supabase
-      .from('albums')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      toast.error(`ลบอัลบั้มล้มเหลว: ${error.message}`)
+    try {
+      await deleteCloudflareAlbum(id)
+    } catch (error) {
+      toast.error(error instanceof Error ? `ลบอัลบั้มล้มเหลว: ${error.message}` : 'ลบอัลบั้มล้มเหลว')
       return
     }
 
@@ -149,52 +132,36 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     toast.success('ลบอัลบั้มแล้ว')
   },
 
-  // ── Fetch pages for an album ──
   fetchPages: async (albumId) => {
     set({ loading: true })
-    const { data, error } = await supabase
-      .from('album_pages')
-      .select('*')
-      .eq('album_id', albumId)
-      .order('page_number', { ascending: true })
-
-    if (error) {
-      console.error('[album] fetchPages error:', error.message)
+    try {
+      const pages = await fetchCloudflarePages(albumId)
+      set({ currentPages: pages, loading: false })
+    } catch (error) {
+      console.error('[album] fetchPages error:', error)
       toast.error('โหลดหน้าล้มเหลว')
       set({ loading: false })
-      return
     }
-    set({ currentPages: data ?? [], loading: false })
   },
 
-  // ── Create page ──
   createPage: async (albumId, pageNumber) => {
-    const { data, error } = await supabase
-      .from('album_pages')
-      .insert({ album_id: albumId, page_number: pageNumber })
-      .select()
-      .single()
-
-    if (error) {
-      toast.error(`สร้างหน้าล้มเหลว: ${error.message}`)
+    try {
+      const page = await createCloudflarePage(albumId, { pageNumber })
+      set((state) => ({
+        currentPages: [...state.currentPages, page].sort((a, b) => a.page_number - b.page_number),
+      }))
+      return page
+    } catch (error) {
+      toast.error(error instanceof Error ? `สร้างหน้าล้มเหลว: ${error.message}` : 'สร้างหน้าล้มเหลว')
       return null
     }
-
-    set((state) => ({
-      currentPages: [...state.currentPages, data].sort((a, b) => a.page_number - b.page_number),
-    }))
-    return data
   },
 
-  // ── Update page ──
   updatePage: async (pageId, updates) => {
-    const { error } = await supabase
-      .from('album_pages')
-      .update(updates)
-      .eq('id', pageId)
-
-    if (error) {
-      toast.error(`อัปเดตหน้าล้มเหลว: ${error.message}`)
+    try {
+      await updateCloudflarePage(pageId, updates)
+    } catch (error) {
+      toast.error(error instanceof Error ? `อัปเดตหน้าล้มเหลว: ${error.message}` : 'อัปเดตหน้าล้มเหลว')
       return
     }
 
@@ -205,55 +172,44 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     }))
   },
 
-  // ── Delete page + renumber remaining ──
   deletePage: async (pageId) => {
-    const { error } = await supabase
-      .from('album_pages')
-      .delete()
-      .eq('id', pageId)
-
-    if (error) {
-      toast.error(`ลบหน้าล้มเหลว: ${error.message}`)
-      return
+    try {
+      await deleteCloudflarePage(pageId)
+    } catch (error) {
+      toast.error(error instanceof Error ? `ลบหน้าล้มเหลว: ${error.message}` : 'ลบหน้าล้มเหลว')
+      return false
     }
 
-    // Remove from state and renumber sequentially
-    const remaining = get().currentPages
+    const state = get()
+    const hadPage = state.currentPages.some((p) => p.id === pageId)
+    const remaining = state.currentPages
       .filter((p) => p.id !== pageId)
       .sort((a, b) => a.page_number - b.page_number)
 
-    const renumbered = remaining.map((p, i) => ({
-      ...p,
-      page_number: i + 1,
-    }))
-
-    set({ currentPages: renumbered })
-
-    // Update DB in background
-    for (const p of renumbered) {
-      if (p.page_number !== remaining.find((r) => r.id === p.id)?.page_number) {
-        supabase
-          .from('album_pages')
-          .update({ page_number: p.page_number })
-          .eq('id', p.id)
-          .then(({ error: e }) => {
-            if (e) console.warn('[album] renumber error:', e.message)
-          })
+    if (hadPage && state.currentAlbum && remaining.length > 0) {
+      try {
+        await reorderCloudflarePages(state.currentAlbum.id, remaining.map((p) => p.id))
+      } catch (error) {
+        console.error('[album] reorder after delete error:', error)
+        toast.warning('ลบหน้าแล้ว แต่เรียงเลขหน้าใหม่ไม่สำเร็จ')
       }
     }
 
+    set({
+      currentPages: remaining.map((p, i) => ({
+        ...p,
+        page_number: i + 1,
+      })),
+    })
+
     toast.success('ลบหน้าแล้ว')
+    return true
   },
 
-  // ── Reorder pages ──
   reorderPages: async (albumId, pageIds) => {
-    // Update page_number based on new order
-    const updates = pageIds.map((id, index) => ({
-      id,
-      page_number: index + 1,
-    }))
+    const previousPages = get().currentPages
+    const updates = pageIds.map((id, index) => ({ id, page_number: index + 1 }))
 
-    // Optimistic update
     set((state) => ({
       currentPages: state.currentPages
         .map((p) => {
@@ -263,46 +219,36 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
         .sort((a, b) => a.page_number - b.page_number),
     }))
 
-    // Batch update in DB
-    for (const u of updates) {
-      await supabase
-        .from('album_pages')
-        .update({ page_number: u.page_number })
-        .eq('id', u.id)
-        .eq('album_id', albumId)
+    try {
+      await reorderCloudflarePages(albumId, pageIds)
+    } catch (error) {
+      set({ currentPages: previousPages })
+      toast.error(error instanceof Error ? `เรียงหน้าล้มเหลว: ${error.message}` : 'เรียงหน้าล้มเหลว')
     }
   },
 
-  // ── Save current editor state to an album page ──
   saveCurrentToPage: async (albumId, pageNumber, data) => {
-    // Check if page exists
     const existing = get().currentPages.find(
       (p) => p.album_id === albumId && p.page_number === pageNumber,
     )
 
     if (existing) {
-      // Update existing page
-      const { error } = await supabase
-        .from('album_pages')
-        .update({
-          regions: data.regions,
-          brush_strokes: data.brushStrokes,
-          status: data.status,
-          processing_mode: data.processingMode || 'full',
-        })
-        .eq('id', existing.id)
-
-      if (error) {
-        toast.error(`บันทึกหน้าล้มเหลว: ${error.message}`)
-        return null
-      }
-
+      await get().updatePage(existing.id, {
+        regions: data.regions,
+        brush_strokes: data.brushStrokes,
+        status: data.status,
+        processing_mode: data.processingMode || 'full',
+        artboard_x: data.artboardX,
+        artboard_y: data.artboardY,
+      })
       const updated = {
         ...existing,
         regions: data.regions,
         brush_strokes: data.brushStrokes,
         status: data.status,
         processing_mode: data.processingMode || existing.processing_mode,
+        artboard_x: data.artboardX ?? existing.artboard_x,
+        artboard_y: data.artboardY ?? existing.artboard_y,
         updated_at: new Date().toISOString(),
       }
       set((state) => ({
@@ -310,31 +256,38 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       }))
       toast.success(`บันทึกหน้า ${pageNumber} แล้ว`)
       return updated
-    } else {
-      // Create new page
-      const { data: newPage, error } = await supabase
-        .from('album_pages')
-        .insert({
-          album_id: albumId,
-          page_number: pageNumber,
-          regions: data.regions,
-          brush_strokes: data.brushStrokes,
-          status: data.status,
-          processing_mode: data.processingMode || 'full',
-        })
-        .select()
-        .single()
+    }
 
-      if (error) {
-        toast.error(`สร้างหน้าล้มเหลว: ${error.message}`)
-        return null
+    try {
+      const newPage = await createCloudflarePage(albumId, {
+        pageNumber,
+      })
+      await updateCloudflarePage(newPage.id, {
+        regions: data.regions,
+        brush_strokes: data.brushStrokes,
+        status: data.status,
+        processing_mode: data.processingMode || 'full',
+        artboard_x: data.artboardX,
+        artboard_y: data.artboardY,
+      })
+      const page = {
+        ...newPage,
+        regions: data.regions,
+        brush_strokes: data.brushStrokes,
+        status: data.status,
+        processing_mode: data.processingMode || 'full',
+        artboard_x: data.artboardX ?? null,
+        artboard_y: data.artboardY ?? null,
+        updated_at: new Date().toISOString(),
       }
-
       set((state) => ({
-        currentPages: [...state.currentPages, newPage].sort((a, b) => a.page_number - b.page_number),
+        currentPages: [...state.currentPages, page].sort((a, b) => a.page_number - b.page_number),
       }))
       toast.success(`บันทึกหน้า ${pageNumber} แล้ว`)
-      return newPage
+      return page
+    } catch (error) {
+      toast.error(error instanceof Error ? `สร้างหน้าล้มเหลว: ${error.message}` : 'สร้างหน้าล้มเหลว')
+      return null
     }
   },
 }))

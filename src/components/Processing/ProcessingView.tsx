@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ProcessingState, TextRegion, ProcessingMode, GeminiModelId, TranslationEngine } from '../../types'
-import { processImage } from '../../services/translator-api'
-import { translateWithImage } from '../../services/gemini'
-import { translateRegionsWithLocalLLM } from '../../services/localLLM'
-import type { StreamProgress } from '../../services/translator-api'
+import type { AppSettings, ProcessingState, TextRegion, ProcessingMode } from '../../types'
+import { processImageWithCleanupProvider } from '../../services/cleanup-provider'
+import {
+  detectOcrWithOllamaVision,
+  translateWithOllamaBoxedVision,
+  translateWithOllamaImage,
+  translateWithOllamaVision,
+  type OllamaOptions,
+} from '../../services/ollama'
+import {
+  alignRegionsToCleanupBoxes,
+  deriveTextBoxesFromCleanupDiff,
+} from '../../services/cleanup-diff-bboxes'
+import type { BoundingBox } from '../../types'
+import type { OcrRegion, StreamProgress } from '../../services/translator-api'
 import {
   Search,
   FileText,
@@ -17,15 +27,10 @@ import {
 interface ProcessingViewProps {
   imageFile: File
   sourceLang: string
-  apiKey?: string
-  modelId?: GeminiModelId
   mode?: ProcessingMode
-  translationEngine?: TranslationEngine
-  llmOptions?: {
-    libreTranslateUrl?: string
-    ollamaUrl?: string
-    ollamaModel?: string
-  }
+  settings: AppSettings
+  ollamaOptions?: OllamaOptions
+  abortSignal?: AbortSignal
   onComplete: (regions: TextRegion[], cleanedImageUrl: string) => void
   onError: (error: string) => void
   onLog?: (msg: string) => void
@@ -35,10 +40,10 @@ interface ProcessingViewProps {
 type PipelineStep = 'detection' | 'ocr' | 'inpainting' | 'translating' | 'done' | 'error'
 
 const STEPS: { id: PipelineStep; label: string; icon: typeof Search }[] = [
-  { id: 'detection', label: 'Detection (CTD)', icon: Search },
-  { id: 'ocr', label: 'OCR (48px)', icon: FileText },
-  { id: 'inpainting', label: 'Inpainting (LaMa)', icon: Paintbrush },
-  { id: 'translating', label: 'Translation (Gemini)', icon: Languages },
+  { id: 'detection', label: 'Cleanup Backend', icon: Search },
+  { id: 'ocr', label: 'OCR', icon: FileText },
+  { id: 'inpainting', label: 'Cleaned Image', icon: Paintbrush },
+  { id: 'translating', label: 'Gemma Vision', icon: Languages },
   { id: 'done', label: 'Done', icon: CheckCircle2 },
 ]
 
@@ -65,24 +70,52 @@ function stepToProgress(step: PipelineStep): number {
 }
 
 // Cached intermediate results for smart retry
-let _cachedOcrRegions: { text: string; bbox: { x: number; y: number; width: number; height: number } }[] | null = null
+let _cachedOcrRegions: OcrRegion[] | null = null
 let _cachedCleanedBlob: Blob | null = null
+let _cachedCleanupBoxes: BoundingBox[] | null = null
 let _cachedFailedStep: PipelineStep | null = null
 
 export function clearProcessingCache() {
   _cachedOcrRegions = null
   _cachedCleanedBlob = null
+  _cachedCleanupBoxes = null
   _cachedFailedStep = null
+}
+
+function toOcrTextRegions(ocrRegions: OcrRegion[]): TextRegion[] {
+  return ocrRegions.map((r, i) => ({
+    id: `region-${i}`,
+    bbox: r.bbox,
+    originalText: r.text,
+    translatedText: '',
+    mood: 'normal' as const,
+    suggestedFont: 'normal',
+    fontSize: 14,
+    fontColor: '#000000',
+    rotation: 0,
+    strokeWidth: 0,
+    strokeColor: '#ffffff',
+    textLayoutMode: 'balloon_fit',
+    textScaleX: 1,
+    textScaleY: 1,
+  }))
+}
+
+function hasUsableRegions(regions: TextRegion[]): boolean {
+  return regions.some((region) => (
+    region.originalText.trim().length > 0 &&
+    region.bbox.width > 1 &&
+    region.bbox.height > 1
+  ))
 }
 
 export default function ProcessingView({
   imageFile,
   sourceLang,
-  apiKey,
-  modelId,
-  mode = 'full',
-  translationEngine = 'gemini',
-  llmOptions,
+  mode = 'gemma_vision_full',
+  settings,
+  ollamaOptions,
+  abortSignal,
   onComplete,
   onError,
   onLog,
@@ -105,6 +138,17 @@ export default function ProcessingView({
     const entry = `[${new Date().toLocaleTimeString()}] ${msg}`
     onLog?.(entry)
   }, [onLog])
+  const ollamaRunOptions = useMemo(
+    () => ({
+      ...ollamaOptions,
+      signal: abortSignal,
+      storyContext: {
+        enabled: settings.translationContextEnabled,
+        styleGuide: settings.translationStyleGuide,
+      },
+    }),
+    [ollamaOptions, abortSignal, settings.translationContextEnabled, settings.translationStyleGuide],
+  )
 
   useEffect(() => {
     if (hasStarted.current) return
@@ -112,16 +156,22 @@ export default function ProcessingView({
 
     const run = async () => {
       try {
-        // Smart retry: skip Docker pipeline if we already have OCR results
+        const cleanupLabel = settings.cleanupBackend === 'panelcleaner'
+          ? 'PanelCleaner'
+          : 'legacy manga-image-translator'
+        const shouldUseCleanupOcr = mode === 'full' || mode === 'ocr_only'
+
+        // Smart retry: skip cleanup backend if we already have OCR/cleaned results
         let ocrRegions = _cachedOcrRegions
         let cleanedImageBlob = _cachedCleanedBlob
+        let cleanupBoxes = _cachedCleanupBoxes
         const resumeFromTranslation = _cachedFailedStep === 'translating' && ocrRegions && ocrRegions.length > 0
 
         if (!resumeFromTranslation) {
-          // Step 1: Docker pipeline (detection + OCR + inpainting)
+          // Step 1: cleanup backend
           setCurrentStep('detection')
-          setState({ status: 'detecting', progress: 10, message: 'กำลังตรวจจับข้อความ...' })
-          addLog('เริ่มส่งรูปไปยัง manga-image-translator')
+          setState({ status: 'detecting', progress: 10, message: `กำลังส่งรูปไปยัง ${cleanupLabel}...` })
+          addLog(`เริ่ม cleanup ด้วย ${cleanupLabel}`)
 
           const onProgress = (p: StreamProgress) => {
             addLog(`[${p.status}] ${p.message}`)
@@ -138,111 +188,128 @@ export default function ProcessingView({
                   message: p.message,
                 }))
               } else if (p.message.toLowerCase().includes('finished')) {
-                setState((s) => ({ ...s, progress: 55, message: 'Docker pipeline เสร็จ' }))
+                setState((s) => ({ ...s, progress: 55, message: `${cleanupLabel} เสร็จ` }))
               } else {
                 setState((s) => ({ ...s, message: p.message }))
               }
             }
           }
 
-          const result = await processImage(imageFile, undefined, onProgress)
+          const result = await processImageWithCleanupProvider({
+            file: imageFile,
+            mode,
+            settings,
+            signal: abortSignal,
+            runOcr: shouldUseCleanupOcr,
+            onProgress,
+          })
           ocrRegions = result.regions
           cleanedImageBlob = result.cleanedImageBlob
-          // Cache results for potential retry
           _cachedOcrRegions = ocrRegions
           _cachedCleanedBlob = cleanedImageBlob
-          addLog(`ตรวจจับเสร็จ: พบ ${ocrRegions.length} regions`)
+          addLog(`${cleanupLabel} เสร็จ: fallback OCR ${ocrRegions.length} regions`)
 
-          if (ocrRegions.length === 0) {
-            setCurrentStep('done')
-            setState({ status: 'done', progress: 100, message: 'ไม่พบข้อความในรูป' })
-            clearProcessingCache()
-            if (cleanedImageBlob) {
-              onComplete([], URL.createObjectURL(cleanedImageBlob))
+          if (cleanedImageBlob) {
+            try {
+              cleanupBoxes = await deriveTextBoxesFromCleanupDiff(imageFile, cleanedImageBlob)
+              _cachedCleanupBoxes = cleanupBoxes
+              addLog(`ตำแหน่งจาก cleanup diff: พบ ${cleanupBoxes.length} boxes`)
+            } catch (err) {
+              addLog(`ตำแหน่งจาก cleanup diff ใช้ไม่ได้: ${err instanceof Error ? err.message : String(err)}`)
+              cleanupBoxes = null
             }
-            return
           }
         } else {
-          addLog('⚡ Smart Retry: ข้าม Docker pipeline, เริ่มต่อที่ขั้นตอนแปลภาษา')
+          addLog(`Smart Retry: ข้าม ${cleanupLabel}, เริ่มต่อที่ขั้นตอนแปลภาษา`)
         }
 
-        // ── Mode: clean_only → stop here, return OCR regions without translation ──
+        const cleanedUrl = cleanedImageBlob ? URL.createObjectURL(cleanedImageBlob) : ''
+
         if (mode === 'clean_only') {
           setCurrentStep('done')
-          setState({ status: 'done', progress: 100, message: `คลีนเสร็จ! พบ ${ocrRegions!.length} text regions` })
-          addLog(`Mode: clean_only — หยุดที่ขั้นตอนคลีน, พบ ${ocrRegions!.length} regions`)
+          setState({ status: 'done', progress: 100, message: `คลีนเสร็จ! พบ fallback OCR ${ocrRegions?.length ?? 0} regions` })
+          addLog(`Mode: clean_only: หยุดที่ขั้นตอนคลีน, พบ fallback OCR ${ocrRegions?.length ?? 0} regions`)
           clearProcessingCache()
-          const cleanedUrl = cleanedImageBlob ? URL.createObjectURL(cleanedImageBlob) : ''
-          // Return regions with originalText only, no translation
-          const regionsWithOcr: TextRegion[] = ocrRegions!.map((r, i) => ({
-            id: `region-${i}`,
-            bbox: r.bbox,
-            originalText: r.text,
-            translatedText: '',
-            mood: 'normal' as const,
-            suggestedFont: 'normal',
-            fontSize: 14,
-            fontColor: '#000000',
-            rotation: 0,
-            strokeWidth: 0,
-            strokeColor: '#ffffff',
-          }))
+          onComplete(toOcrTextRegions(ocrRegions ?? []), cleanedUrl)
+          return
+        }
+
+        if (mode === 'ocr_only') {
+          setCurrentStep('ocr')
+          setState({ status: 'ocr', progress: 55, message: 'กำลัง OCR ด้วย Gemma vision...' })
+          addLog(`กำลังเรียก Ollama model "${ollamaOptions?.ollamaModel || 'gemma4'}" สำหรับ OCR...`)
+
+          let regionsWithOcr = await detectOcrWithOllamaVision(imageFile, sourceLang, ollamaRunOptions)
+          if (cleanupBoxes && cleanupBoxes.length > 0) {
+            regionsWithOcr = alignRegionsToCleanupBoxes(regionsWithOcr, cleanupBoxes)
+            addLog(`ปรับตำแหน่ง OCR ด้วย cleanup diff ${cleanupBoxes.length} boxes`)
+          }
+          if (!hasUsableRegions(regionsWithOcr) && ocrRegions && ocrRegions.length > 0) {
+            addLog('Gemma vision OCR ไม่คืน bbox ที่ใช้ได้, fallback ไปใช้ OCR จาก cleanup backend')
+            regionsWithOcr = toOcrTextRegions(ocrRegions)
+          }
+
+          setCurrentStep('done')
+          setState({ status: 'done', progress: 100, message: `OCR เสร็จ! พบ ${regionsWithOcr.length} text regions` })
+          addLog(`Mode: ocr_only: พบ ${regionsWithOcr.length} regions`)
+          clearProcessingCache()
           onComplete(regionsWithOcr, cleanedUrl)
           return
         }
 
-        // ── Mode: ocr_only → return OCR regions, no cleaned image ──
-        if (mode === 'ocr_only') {
-          setCurrentStep('done')
-          setState({ status: 'done', progress: 100, message: `OCR เสร็จ! พบ ${ocrRegions!.length} text regions` })
-          addLog(`Mode: ocr_only — หยุดที่ขั้นตอน OCR, พบ ${ocrRegions!.length} regions`)
-          clearProcessingCache()
-          const regionsWithOcr: TextRegion[] = ocrRegions!.map((r, i) => ({
-            id: `region-${i}`,
-            bbox: r.bbox,
-            originalText: r.text,
-            translatedText: '',
-            mood: 'normal' as const,
-            suggestedFont: 'normal',
-            fontSize: 14,
-            fontColor: '#000000',
-            rotation: 0,
-            strokeWidth: 0,
-            strokeColor: '#ffffff',
-          }))
-          onComplete(regionsWithOcr, '')
-          return
-        }
-
-        // ── Mode: full → Translation ──
         _cachedFailedStep = 'translating'
         setCurrentStep('translating')
-        const engineLabel = translationEngine === 'gemini' ? 'Gemini AI' : translationEngine === 'ollama' ? 'Ollama' : 'LibreTranslate'
-        setState({ status: 'translating', progress: 75, message: `กำลังแปลด้วย ${engineLabel}...` })
-        addLog(`เริ่มแปลภาษาด้วย ${engineLabel}`)
+        addLog(`กำลังเรียก Ollama model "${ollamaOptions?.ollamaModel || 'gemma4'}"...`)
 
-        const ocrTexts = ocrRegions!.map((r) => r.text)
-        const bboxes = ocrRegions!.map((r) => r.bbox)
-        addLog(`OCR texts: ${ocrTexts.map((t, i) => `[${i}] "${t}"`).join(', ')}`)
+        let translatedRegions: TextRegion[] = []
+        if (mode === 'gemma_vision_full') {
+          setState({ status: 'translating', progress: 75, message: 'กำลังให้ Gemma อ่านและแปลในรอบเดียว...' })
+          if (cleanupBoxes && cleanupBoxes.length > 0) {
+            addLog(`เริ่ม Gemma boxed vision flow: อ่านและแปลตาม cleanup diff ${cleanupBoxes.length} boxes`)
+            translatedRegions = await translateWithOllamaBoxedVision(
+              imageFile,
+              cleanupBoxes,
+              sourceLang,
+              ollamaRunOptions,
+            )
+          } else {
+            addLog('เริ่ม Gemma vision full flow: OCR + translate + bbox')
+            translatedRegions = await translateWithOllamaVision(imageFile, sourceLang, ollamaRunOptions)
+          }
 
-        let translatedRegions: TextRegion[]
-        if (translationEngine === 'gemini') {
-          addLog('กำลังเรียก Gemini API เพื่อแปลภาษา...')
-          translatedRegions = await translateWithImage(imageFile, ocrTexts, bboxes, sourceLang, apiKey, modelId)
+          if (!hasUsableRegions(translatedRegions) && ocrRegions && ocrRegions.length > 0) {
+            addLog('Gemma vision ไม่คืน bbox ที่ใช้ได้, fallback ไปใช้ OCR จาก cleanup backend แล้วแปลด้วย Ollama')
+            translatedRegions = await translateWithOllamaImage(
+              imageFile,
+              ocrRegions.map((r) => r.text),
+              ocrRegions.map((r) => r.bbox),
+              sourceLang,
+              ollamaRunOptions,
+            )
+          }
         } else {
-          addLog(`กำลังเรียก ${engineLabel} เพื่อแปล ${ocrTexts.length} regions...`)
-          translatedRegions = await translateRegionsWithLocalLLM(
-            ocrTexts, bboxes, sourceLang,
-            translationEngine as 'libretranslate' | 'ollama',
-            llmOptions,
-          )
+          setState({ status: 'translating', progress: 75, message: 'กำลังแปล OCR fallback ด้วย Ollama...' })
+          const regions = ocrRegions ?? []
+          if (regions.length === 0) {
+            addLog('ไม่มี OCR fallback, ใช้ Gemma vision full flow แทน')
+            translatedRegions = await translateWithOllamaVision(imageFile, sourceLang, ollamaRunOptions)
+          } else {
+            addLog(`เตรียมส่ง OCR ${regions.length} regions ไปยัง Ollama`)
+            translatedRegions = await translateWithOllamaImage(
+              imageFile,
+              regions.map((r) => r.text),
+              regions.map((r) => r.bbox),
+              sourceLang,
+              ollamaRunOptions,
+            )
+          }
         }
+
         addLog(`แปลเสร็จ: ${translatedRegions.length} regions`)
 
         setCurrentStep('done')
         setState({ status: 'done', progress: 100, message: 'เสร็จสิ้น!' })
         clearProcessingCache()
-        const cleanedUrl = cleanedImageBlob ? URL.createObjectURL(cleanedImageBlob) : ''
         onComplete(translatedRegions, cleanedUrl)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error'
@@ -254,7 +321,7 @@ export default function ProcessingView({
     }
 
     run()
-  }, [imageFile, sourceLang, apiKey, modelId, mode, onComplete, onError, addLog, retryCount])
+  }, [imageFile, sourceLang, mode, settings, abortSignal, ollamaRunOptions, onComplete, onError, addLog, retryCount])
 
   // Filter steps based on processing mode
   const visibleSteps = useMemo(() => {
@@ -272,37 +339,35 @@ export default function ProcessingView({
         <img
           src={imagePreviewUrl}
           alt="Processing"
-          className={`max-w-full max-h-[50vh] rounded-xl object-contain transition-all duration-500 ${
-            state.status === 'done' ? '' : 'blur-sm brightness-75'
-          }`}
+          className="max-w-full max-h-[56vh] rounded-lg object-contain opacity-20"
         />
 
         {state.status !== 'done' && state.status !== 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-12 h-12 text-primary animate-spin" />
-            <div className="bg-base-100/80 backdrop-blur-sm rounded-lg px-4 py-2 text-center max-w-xs">
-              <p className="text-sm font-medium text-base-content">
+            <Loader2 className="h-12 w-12 animate-spin text-[var(--mg-accent)]" />
+            <div className="max-w-xs rounded-[8px] bg-black/70 px-4 py-2 text-center backdrop-blur">
+              <p className="text-sm font-medium text-[var(--mg-text)]">
                 {visibleSteps[stepIndex]?.label ?? 'Processing...'}
               </p>
-              <p className="text-xs text-base-content/60 mt-0.5">{state.message}</p>
+              <p className="mt-0.5 text-xs text-[var(--mg-muted)]">{state.message}</p>
             </div>
           </div>
         )}
 
         {state.status === 'error' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-base-100/60">
-            <AlertCircle className="w-12 h-12 text-error" />
-            <div className="bg-error/10 border border-error/30 rounded-lg px-4 py-2 text-center max-w-sm">
-              <p className="text-sm font-medium text-error">เกิดข้อผิดพลาด</p>
-              <p className="text-xs text-error/80 mt-1">{state.message}</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60">
+            <AlertCircle className="h-12 w-12 text-[var(--mg-danger)]" />
+            <div className="max-w-sm rounded-[8px] border border-red-400/30 bg-red-500/10 px-4 py-2 text-center">
+              <p className="text-sm font-medium text-red-300">เกิดข้อผิดพลาด</p>
+              <p className="mt-1 text-xs text-red-200/80">{state.message}</p>
             </div>
           </div>
         )}
 
         {state.status === 'done' && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-success/20 backdrop-blur-sm rounded-full p-4 animate-bounce">
-              <CheckCircle2 className="w-10 h-10 text-success" />
+            <div className="animate-bounce rounded-full bg-green-500/20 p-4 backdrop-blur">
+              <CheckCircle2 className="h-10 w-10 text-[var(--mg-success)]" />
             </div>
           </div>
         )}
@@ -310,15 +375,16 @@ export default function ProcessingView({
 
       {/* Progress bar */}
       <div className="space-y-1">
-        <div className="flex justify-between text-xs text-base-content/50">
+        <div className="flex justify-between text-xs text-[var(--mg-muted)]">
           <span>{visibleSteps[stepIndex]?.label ?? 'Waiting...'}</span>
           <span>{state.progress}%</span>
         </div>
-        <progress
-          className={`progress w-full ${state.status === 'error' ? 'progress-error' : 'progress-primary'}`}
-          value={state.progress}
-          max={100}
-        />
+        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full ${state.status === 'error' ? 'bg-[var(--mg-danger)]' : 'bg-[var(--mg-accent)]'}`}
+            style={{ width: `${state.progress}%` }}
+          />
+        </div>
       </div>
 
       {/* Step indicators — horizontal */}
@@ -332,14 +398,14 @@ export default function ProcessingView({
           return (
             <div key={step.id} className="flex flex-col items-center gap-1 flex-1">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
                   isError && isActive
-                    ? 'bg-error text-error-content'
+                    ? 'bg-[var(--mg-danger)] text-white'
                     : isDone
-                      ? 'bg-primary text-primary-content'
+                      ? 'bg-[var(--mg-accent)] text-white'
                       : isActive
-                        ? 'bg-primary/20 text-primary ring-2 ring-primary ring-offset-2 ring-offset-base-100'
-                        : 'bg-base-300 text-base-content/30'
+                        ? 'bg-blue-500/20 text-blue-200 ring-2 ring-blue-400'
+                        : 'bg-white/8 text-[var(--mg-dim)]'
                 }`}
               >
                 {isActive && !isDone && !isError ? (
@@ -350,7 +416,7 @@ export default function ProcessingView({
               </div>
               <span
                 className={`text-[10px] text-center leading-tight ${
-                  isDone || isActive ? 'text-base-content' : 'text-base-content/30'
+                  isDone || isActive ? 'text-[var(--mg-text)]' : 'text-[var(--mg-dim)]'
                 }`}
               >
                 {step.label.split(' ')[0]}
@@ -360,10 +426,10 @@ export default function ProcessingView({
         })}
       </div>
 
-      {/* Queue badge */}
+      {/* Queue label */}
       {state.queuePosition !== undefined && (
         <div className="text-center">
-          <div className="badge badge-warning badge-sm">คิว: #{state.queuePosition}</div>
+          <div className="mg-pill text-yellow-300">คิว: #{state.queuePosition}</div>
         </div>
       )}
     </div>

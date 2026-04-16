@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useFloatingPanel } from '../../hooks/useFloatingPanel'
 import { GripVertical, X } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
+import { Badge, IconButton } from '../ui/primitives'
 
 interface SystemInfo {
   gpuRenderer: string
@@ -70,7 +71,7 @@ function CircleGauge({
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-base-content/10"
+          className="text-white/10"
         />
         {/* Progress ring */}
         <circle
@@ -95,7 +96,7 @@ function CircleGauge({
           {Math.round(percent)}%
         </span>
       </div>
-      <span className="text-[9px] text-base-content/50 font-medium">{label}</span>
+      <span className="text-[9px] font-medium text-[var(--mg-muted)]">{label}</span>
     </div>
   )
 }
@@ -167,21 +168,21 @@ export default function ResourceMonitor({ isProcessing }: ResourceMonitorProps) 
   const ramVisual = sysInfo.ramGB ? Math.min(100, Math.round(((heapMB ?? 0) / (sysInfo.ramGB * 1024)) * 100)) : 0
 
   return (
-    <div style={panelStyle} className="floating-panel-sm px-3 py-2 text-xs panel-enter">
+    <div style={panelStyle} className="floating-panel-sm panel-enter px-3 py-2 text-xs">
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5">
         <div {...dragHandleProps} className="flex items-center gap-1 drag-handle flex-1">
-          <GripVertical size={10} className="text-base-content/20" />
-          <span className="text-[9px] font-bold uppercase tracking-wider text-base-content/40">Resources</span>
+          <GripVertical size={10} className="text-[var(--mg-dim)]" />
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">Resources</span>
           {isProcessing && (
-            <span className="font-mono tabular-nums text-primary text-[10px] ml-1">
+            <span className="ml-1 font-mono text-[10px] tabular-nums text-blue-300">
               {formatElapsed(elapsed)}
             </span>
           )}
         </div>
-        <button className="btn btn-ghost btn-xs btn-square" onClick={() => togglePanel('resource', false)}>
+        <IconButton label="Close resource monitor" className="h-6 w-6" onClick={() => togglePanel('resource', false)}>
           <X size={10} />
-        </button>
+        </IconButton>
       </div>
       <div className="flex items-center gap-2">
         {/* Circular gauges */}
@@ -199,8 +200,8 @@ export default function ResourceMonitor({ isProcessing }: ResourceMonitorProps) 
           </div>
         )}
         <div className="flex items-center gap-1 ml-1" title={sysInfo.gpuRenderer}>
-          <span className="badge badge-xs badge-primary">GPU</span>
-          <span className="text-base-content/50 truncate max-w-[100px] text-[9px]">{gpuShort}</span>
+          <Badge>GPU</Badge>
+          <span className="max-w-[100px] truncate text-[9px] text-[var(--mg-muted)]">{gpuShort}</span>
         </div>
       </div>
     </div>

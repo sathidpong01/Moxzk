@@ -1,5 +1,5 @@
 /**
- * Parse Gemini/API error responses into user-friendly messages.
+ * Parse Ollama/API error responses into user-friendly messages.
  */
 
 export interface ParsedError {
@@ -44,7 +44,7 @@ export function parseApiError(raw: string): ParsedError {
 
     // Extract model name for context
     const modelMatch = raw.match(/model:\s*([a-z0-9._-]+)/i)
-    const model = modelMatch ? modelMatch[1] : 'gemini'
+    const model = modelMatch ? modelMatch[1] : 'ollama'
 
     // Extract limit
     const limitMatch = raw.match(/limit:\s*(\d+)/i)
@@ -59,12 +59,18 @@ export function parseApiError(raw: string): ParsedError {
 
   // Detect API key errors
   if (lower.includes('api key') || lower.includes('api_key') || lower.includes('unauthorized') || lower.includes('401')) {
-    result.shortMessage = 'API Key ไม่ถูกต้อง — ตรวจสอบ Gemini API Key ใน Settings'
+    result.shortMessage = 'API Key ไม่ถูกต้อง — ตรวจสอบ Ollama Cloud API Key ใน Settings'
   }
 
   // Detect network errors
   if (lower.includes('fetch') || lower.includes('network') || lower.includes('econnrefused')) {
-    result.shortMessage = 'เชื่อมต่อ Server ไม่ได้ — ตรวจสอบว่า manga-image-translator กำลังทำงาน'
+    if (lower.includes('ollama') || lower.includes('11434')) {
+      result.shortMessage = 'เชื่อมต่อ Ollama ไม่ได้ — เปิด Ollama app หรือรัน ollama serve แล้วลองใหม่'
+    } else if (lower.includes('panelcleaner') || lower.includes('5055')) {
+      result.shortMessage = 'เชื่อมต่อ PanelCleaner bridge ไม่ได้ — รัน npm run backend:panelcleaner แล้วลองใหม่'
+    } else {
+      result.shortMessage = 'เชื่อมต่อ Server ไม่ได้ — ตรวจสอบ PanelCleaner bridge หรือ legacy manga-image-translator'
+    }
   }
 
   // Truncate if still too long

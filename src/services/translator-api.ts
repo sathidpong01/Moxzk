@@ -32,12 +32,12 @@ const STATUS_CODES: Record<number, StreamProgress['status']> = {
   4: 'waiting',
 }
 
-function getApiUrl(): string {
-  return import.meta.env.VITE_TRANSLATOR_API_URL ?? 'http://localhost:5003'
+function getApiUrl(apiUrl?: string): string {
+  return (apiUrl || import.meta.env.VITE_TRANSLATOR_API_URL || 'http://localhost:5003').replace(/\/+$/, '')
 }
 
-export async function getQueueSize(): Promise<number> {
-  const res = await fetch(`${getApiUrl()}/queue-size`)
+export async function getQueueSize(apiUrl?: string): Promise<number> {
+  const res = await fetch(`${getApiUrl(apiUrl)}/queue-size`)
   if (!res.ok) throw new Error(`Queue size request failed: ${res.status}`)
   const data = await res.json()
   return data.size ?? 0
@@ -47,14 +47,17 @@ export async function translateImageJson(
   file: File,
   config: TranslatorConfig = DEFAULT_CONFIG,
   onProgress?: (progress: StreamProgress) => void,
+  apiUrl?: string,
+  signal?: AbortSignal,
 ): Promise<OcrRegion[]> {
   const formData = new FormData()
   formData.append('image', file)
   formData.append('config', JSON.stringify(config))
 
-  const res = await fetch(`${getApiUrl()}/translate/with-form/json/stream`, {
+  const res = await fetch(`${getApiUrl(apiUrl)}/translate/with-form/json/stream`, {
     method: 'POST',
     body: formData,
+    signal,
   })
 
   if (!res.ok) throw new Error(`Translation request failed: ${res.status}`)
@@ -108,14 +111,17 @@ export async function translateImageStream(
   file: File,
   config: TranslatorConfig = DEFAULT_CONFIG,
   onProgress?: (progress: StreamProgress) => void,
+  apiUrl?: string,
+  signal?: AbortSignal,
 ): Promise<Blob> {
   const formData = new FormData()
   formData.append('image', file)
   formData.append('config', JSON.stringify(config))
 
-  const res = await fetch(`${getApiUrl()}/translate/with-form/image/stream`, {
+  const res = await fetch(`${getApiUrl(apiUrl)}/translate/with-form/image/stream`, {
     method: 'POST',
     body: formData,
+    signal,
   })
 
   if (!res.ok) throw new Error(`Image stream request failed: ${res.status}`)
@@ -162,12 +168,14 @@ export async function processImage(
   file: File,
   config: TranslatorConfig = DEFAULT_CONFIG,
   onProgress?: (progress: StreamProgress) => void,
+  apiUrl?: string,
+  signal?: AbortSignal,
 ): Promise<TranslatorResponse> {
   // Only pass onProgress to JSON stream to avoid duplicate logs
   // (both endpoints trigger the same Docker pipeline)
   const [regions, cleanedImageBlob] = await Promise.all([
-    translateImageJson(file, config, onProgress),
-    translateImageStream(file, config),
+    translateImageJson(file, config, onProgress, apiUrl, signal),
+    translateImageStream(file, config, undefined, apiUrl, signal),
   ])
 
   return { regions, cleanedImageBlob }

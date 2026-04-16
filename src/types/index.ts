@@ -13,6 +13,9 @@ export interface BoundingBox {
   height: number;
 }
 
+export type TextLayoutMode = "balloon_fit" | "artistic";
+export type TextStrokeJoin = "round" | "bevel" | "miter";
+
 export interface TextRegion {
   id: string;
   bbox: BoundingBox;
@@ -25,6 +28,10 @@ export interface TextRegion {
   rotation: number;
   strokeWidth: number;
   strokeColor: string;
+  strokeJoin?: TextStrokeJoin;
+  textLayoutMode?: TextLayoutMode;
+  textScaleX?: number;
+  textScaleY?: number;
 }
 
 export interface TranslatorConfig {
@@ -69,17 +76,9 @@ export interface TranslationResult {
   originalImageUrl: string;
 }
 
-export type ProcessingMode = "full" | "clean_only" | "ocr_only";
+export type ProcessingMode = "gemma_vision_full" | "full" | "clean_only" | "ocr_only";
 
-export type TranslationEngine = "gemini" | "libretranslate" | "ollama";
-
-export type GeminiModelId =
-  | "gemini-2.5-flash-lite"
-  | "gemini-2.5-flash"
-  | "gemini-2.5-pro"
-  | "gemini-2.0-flash"
-  | "gemini-3-flash-preview"
-  | "gemini-3-pro-preview";
+export type CleanupBackend = "panelcleaner" | "legacy-manga-translator";
 
 export type ExportFormat = "png" | "jpg" | "webp";
 
@@ -103,7 +102,16 @@ export interface BrushStroke {
   tool: "brush" | "eraser";
 }
 
-export type ImageEntryStatus = "pending" | "processing" | "done" | "error";
+export type ImageEntryStatus =
+  | "pending"
+  | "clean_queued"
+  | "cleaning"
+  | "clean_done"
+  | "translate_queued"
+  | "translating"
+  | "processing"
+  | "done"
+  | "error";
 
 export interface ImageEntry {
   id: string;
@@ -114,6 +122,10 @@ export interface ImageEntry {
   brushStrokes: BrushStroke[];
   status: ImageEntryStatus;
   error?: string;
+  pageNumber?: number;
+  progress?: number;
+  artboardX?: number;
+  artboardY?: number;
   // Album metadata for lazy loading
   albumPageId?: string;
   originalR2Key?: string;
@@ -136,14 +148,17 @@ export interface AppState {
 }
 
 export interface AppSettings {
-  geminiApiKey: string;
+  cleanupBackend: CleanupBackend;
   translatorApiUrl: string;
+  panelCleanerBridgeUrl: string;
+  panelCleanerExecutablePath: string;
+  panelCleanerUseOcrFallback: boolean;
   sourceLang: "auto" | "ja" | "zh" | "en";
   fontMoodMap: FontMoodMap;
   theme: string;
-  geminiModel: GeminiModelId;
-  translationEngine: TranslationEngine;
   ollamaUrl: string;
   ollamaModel: string;
-  libreTranslateUrl: string;
+  ollamaApiKey: string;
+  translationContextEnabled: boolean;
+  translationStyleGuide: string;
 }

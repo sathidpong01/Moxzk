@@ -1,3 +1,4 @@
+# Legacy fallback only. Default cleanup backend is PanelCleaner via npm run backend:panelcleaner.
 services:
   manga-translator:
     image: zyddnys/manga-image-translator:main

@@ -4,6 +4,7 @@ import { BUILT_IN_FONTS, MOOD_LABELS, registerCustomFont, restoreCustomFont, fon
 import { getAllFonts, deleteFont as deleteFontFromDB } from '../../services/fontStorage'
 import { Type, RotateCcw, X as XIcon, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge, Button, Field, Modal, SelectField } from '../ui/primitives'
 
 interface FontConfigPageProps {
   moodMap: FontMoodMap
@@ -24,21 +25,17 @@ export default function FontConfigPage({
   const [customFonts, setCustomFonts] = useState<FontDefinition[]>([])
   const [uploading, setUploading] = useState(false)
 
-  // Load cached custom fonts from IndexedDB on mount
   useEffect(() => {
     getAllFonts().then(async (storedFonts) => {
       const restored: FontDefinition[] = []
       for (const sf of storedFonts) {
         try {
-          const fd = await restoreCustomFont(sf)
-          restored.push(fd)
+          restored.push(await restoreCustomFont(sf))
         } catch (err) {
           console.warn(`Failed to restore font "${sf.name}":`, err)
         }
       }
-      if (restored.length > 0) {
-        setCustomFonts(restored)
-      }
+      setCustomFonts(restored)
     }).catch((err) => {
       console.error('Failed to load cached fonts:', err)
     })
@@ -49,9 +46,7 @@ export default function FontConfigPage({
   const handleFontChange = useCallback(
     (mood: MoodType, fontName: string) => {
       const font = allFonts.find((f) => f.name === fontName)
-      if (font) {
-        setDraft((prev) => ({ ...prev, [mood]: font }))
-      }
+      if (font) setDraft((prev) => ({ ...prev, [mood]: font }))
     },
     [allFonts],
   )
@@ -59,7 +54,6 @@ export default function FontConfigPage({
   const handleUploadFont = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     setUploading(true)
     try {
       const name = file.name.replace(/\.(ttf|otf|woff2?)$/i, '')
@@ -79,131 +73,87 @@ export default function FontConfigPage({
     toast.success('บันทึกการตั้งค่าฟอนต์เรียบร้อย')
   }
 
-  if (!isOpen) return null
-
   return (
-    <dialog className="modal modal-open">
-      <div className="modal-box max-w-2xl">
-        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <Type size={18} /> Font Configuration
-        </h3>
-
-        {/* Mood → Font mapping table */}
-        <div className="overflow-x-auto">
-          <table className="table table-sm">
-            <thead>
-              <tr>
-                <th>Mood</th>
-                <th>Description</th>
-                <th>Font</th>
-                <th>Preview</th>
+    <Modal isOpen={isOpen} onClose={onClose} title={<span className="flex items-center gap-2"><Type size={18} /> Font Configuration</span>} className="max-w-3xl">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="text-xs uppercase text-[var(--mg-muted)]">
+            <tr>
+              <th className="px-2 py-2">Mood</th>
+              <th className="px-2 py-2">Description</th>
+              <th className="px-2 py-2">Font</th>
+              <th className="px-2 py-2">Preview</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--mg-border)]">
+            {MOODS.map((mood) => (
+              <tr key={mood}>
+                <td className="px-2 py-2"><Badge>{mood}</Badge></td>
+                <td className="px-2 py-2 text-xs text-[var(--mg-muted)]">{MOOD_LABELS[mood]}</td>
+                <td className="px-2 py-2">
+                  <SelectField
+                    value={draft[mood].name}
+                    onChange={(fontName) => handleFontChange(mood, fontName)}
+                    options={allFonts.map((font) => ({ value: font.name, label: font.name }))}
+                  />
+                </td>
+                <td className="px-2 py-2">
+                  <span className="text-sm" style={{ font: fontToCss(draft[mood]) }}>
+                    สวัสดีครับ
+                  </span>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {MOODS.map((mood) => (
-                <tr key={mood}>
-                  <td>
-                    <span className="badge badge-outline badge-sm">{mood}</span>
-                  </td>
-                  <td className="text-xs text-base-content/60">
-                    {MOOD_LABELS[mood]}
-                  </td>
-                  <td>
-                    <select
-                      className="select select-bordered select-xs w-full max-w-xs"
-                      value={draft[mood].name}
-                      onChange={(e) => handleFontChange(mood, e.target.value)}
-                    >
-                      {BUILT_IN_FONTS.length > 0 && (
-                        <optgroup label="Built-in">
-                          {BUILT_IN_FONTS.map((f) => (
-                            <option key={f.name} value={f.name}>
-                              {f.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {customFonts.length > 0 && (
-                        <optgroup label="Custom">
-                          {customFonts.map((f) => (
-                            <option key={f.name} value={f.name}>
-                              {f.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </select>
-                  </td>
-                  <td>
-                    <span
-                      className="text-sm"
-                      style={{ font: fontToCss(draft[mood]) }}
-                    >
-                      สวัสดีครับ
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Upload custom font */}
-        <div className="divider">Custom Font</div>
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text">Upload custom font (.ttf / .otf / .woff2)</span>
-          </label>
-          <input
-            type="file"
-            className="file-input file-input-bordered file-input-sm w-full max-w-xs"
-            accept=".ttf,.otf,.woff,.woff2"
-            onChange={handleUploadFont}
-            disabled={uploading}
-          />
-          {uploading && (
-            <span className="loading loading-spinner loading-xs mt-2"></span>
-          )}
-        </div>
-
-        {customFonts.length > 0 && (
-          <div className="mt-3">
-            <p className="text-xs text-base-content/60 mb-1">Custom fonts loaded:</p>
-            <div className="flex flex-wrap gap-1">
-              {customFonts.map((f) => (
-                <span key={f.name} className="badge badge-sm badge-accent gap-1">
-                  {f.name}
-                  <button
-                    className="btn btn-ghost btn-xs px-0 min-h-0 h-auto"
-                    onClick={async () => {
-                      await deleteFontFromDB(f.name)
-                      setCustomFonts((prev) => prev.filter((cf) => cf.name !== f.name))
-                    }}
-                    title={`ลบฟอนต์ ${f.name}`}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="modal-action">
-          <button className="btn btn-ghost gap-1" onClick={() => setDraft({ ...moodMap })}>
-            <RotateCcw size={14} /> Reset
-          </button>
-          <button className="btn btn-ghost gap-1" onClick={onClose}>
-            <XIcon size={14} /> Cancel
-          </button>
-          <button className="btn btn-primary gap-1" onClick={handleSave}>
-            <Save size={14} /> Save
-          </button>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <form method="dialog" className="modal-backdrop">
-        <button onClick={onClose}>close</button>
-      </form>
-    </dialog>
+
+      <div className="my-4 h-px bg-[var(--mg-border)]" />
+      <Field label="Upload custom font (.ttf / .otf / .woff2)">
+        <input
+          type="file"
+          className="mg-control"
+          accept=".ttf,.otf,.woff,.woff2"
+          onChange={handleUploadFont}
+          disabled={uploading}
+        />
+        {uploading && <span className="mt-2 text-xs text-[var(--mg-muted)]">Uploading...</span>}
+      </Field>
+
+      {customFonts.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1 text-xs text-[var(--mg-muted)]">Custom fonts loaded:</p>
+          <div className="flex flex-wrap gap-1">
+            {customFonts.map((font) => (
+              <Badge key={font.name}>
+                {font.name}
+                <button
+                  className="ml-1 text-[var(--mg-danger)]"
+                  onClick={async () => {
+                    await deleteFontFromDB(font.name)
+                    setCustomFonts((prev) => prev.filter((current) => current.name !== font.name))
+                  }}
+                  title={`ลบฟอนต์ ${font.name}`}
+                >
+                  x
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-5 flex justify-end gap-2">
+        <Button variant="ghost" onClick={() => setDraft({ ...moodMap })}>
+          <RotateCcw size={14} /> Reset
+        </Button>
+        <Button variant="ghost" onClick={onClose}>
+          <XIcon size={14} /> Cancel
+        </Button>
+        <Button variant="primary" onClick={handleSave}>
+          <Save size={14} /> Save
+        </Button>
+      </div>
+    </Modal>
   )
 }
