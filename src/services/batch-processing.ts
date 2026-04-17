@@ -25,6 +25,7 @@ export interface BatchProcessOptions {
   onEntryUpdate: (id: string, updates: Partial<ImageEntry>) => void
   onBatchProgress?: (state: BatchProgressState) => void
   onLog: (message: string) => void
+  services?: Partial<BatchAiServices>
 }
 
 export interface BatchProgressState {
@@ -42,9 +43,30 @@ interface CleanResult {
   cleanedUrl: string
 }
 
+export interface BatchAiServices {
+  processPanelCleanerBatch: typeof processImagesWithPanelCleanerBatch
+  processCleanupImage: typeof processImageWithCleanupProvider
+  deriveTextBoxes: typeof deriveTextBoxesFromCleanupDiff
+  translateBoxedVision: typeof translateWithOllamaBoxedVision
+  translateVision: typeof translateWithOllamaVision
+  detectOcrVision: typeof detectOcrWithOllamaVision
+  readImageUrlAsBlob: (url: string) => Promise<Blob>
+}
+
 const UI_STEP_DELAY_MS = 90
 
+const defaultServices: BatchAiServices = {
+  processPanelCleanerBatch: processImagesWithPanelCleanerBatch,
+  processCleanupImage: processImageWithCleanupProvider,
+  deriveTextBoxes: deriveTextBoxesFromCleanupDiff,
+  translateBoxedVision: translateWithOllamaBoxedVision,
+  translateVision: translateWithOllamaVision,
+  detectOcrVision: detectOcrWithOllamaVision,
+  readImageUrlAsBlob,
+}
+
 export async function runBatchAiQueue(options: BatchProcessOptions): Promise<void> {
+  const services = { ...defaultServices, ...options.services }
   const candidates = options.entries.filter((entry) => {
     if (!entry.file) return false
     if (options.retryFailedOnly) return entry.status === 'error'
@@ -57,11 +79,15 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
   }
 
   candidates.forEach((entry) => {
-    options.onEntryUpdate(entry.id, {
-      status: 'clean_queued',
-      progress: 0,
-      error: undefined,
-    })
+    if (entry.cleanedImageUrl) {
+      options.onEntryUpdate(entry.id, {
+        status: 'clean_done',
+        progress: Math.max(entry.progress ?? 0, 55),
+        error: undefined,
+      })
+      return
+    }
+    options.onEntryUpdate(entry.id, { status: 'clean_queued', progress: 0, error: undefined })
   })
   options.onBatchProgress?.({
     phase: 'queued',
@@ -71,7 +97,7 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
     message: `เตรียม ${candidates.length} หน้า`,
   })
 
-  const cleaned = await cleanPages(candidates, options)
+  const cleaned = await cleanPages(candidates, options, services)
 
   if (options.mode === 'clean_only') {
     cleaned.forEach(({ entry, cleanedUrl }) => {
@@ -124,7 +150,7 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
 
     try {
       const storyContext = buildBatchTranslationContext(options, item.entry, candidates, liveStoryLines)
-      const regions = await translatePage(item.entry.file!, item.cleanedBlob, options, storyContext)
+      const regions = await translatePage(item.entry.file!, item.cleanedBlob, options, services, storyContext)
       appendTranslatedLines(liveStoryLines, pageNumber, regions)
       options.onEntryUpdate(item.entry.id, {
         cleanedImageUrl: item.cleanedUrl,
@@ -133,6 +159,7 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
         status: 'done',
         progress: 100,
         error: undefined,
+        lastErrorStage: undefined,
       })
       options.onLog(`Batch AI: หน้า ${item.entry.pageNumber ?? item.entry.id} แปลเสร็จ ${regions.length} regions`)
       options.onBatchProgress?.({
@@ -148,6 +175,7 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
       options.onEntryUpdate(item.entry.id, {
         status: 'error',
         error: message,
+        lastErrorStage: 'translate',
         progress: 100,
       })
       options.onLog(`Batch AI ERROR: หน้า ${item.entry.pageNumber ?? item.entry.id}: ${message}`)
@@ -163,21 +191,47 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
   }
 }
 
-async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions): Promise<CleanResult[]> {
+async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions, services: BatchAiServices): Promise<CleanResult[]> {
+  const reusable: CleanResult[] = []
+  const needsClean: ImageEntry[] = []
+
+  for (const entry of entries) {
+    if (entry.cleanedImageUrl) {
+      try {
+        const cleanedBlob = await services.readImageUrlAsBlob(entry.cleanedImageUrl)
+        reusable.push({ entry, cleanedBlob, cleanedUrl: entry.cleanedImageUrl })
+        options.onEntryUpdate(entry.id, {
+          status: 'clean_done',
+          progress: Math.max(entry.progress ?? 0, 55),
+          error: undefined,
+        })
+        options.onLog(`Batch AI: ใช้ผลคลีนเดิมหน้า ${entry.pageNumber ?? entry.id}`)
+        continue
+      } catch (error) {
+        options.onLog(`Batch AI: โหลดผลคลีนเดิมหน้า ${entry.pageNumber ?? entry.id} ไม่ได้ (${error instanceof Error ? error.message : String(error)})`)
+      }
+    }
+    needsClean.push(entry)
+  }
+
+  if (needsClean.length === 0) {
+    return reusable
+  }
+
   options.onBatchProgress?.({
     phase: 'cleaning',
     currentIndex: 0,
-    total: entries.length,
+    total: needsClean.length,
     progress: 5,
-    message: `กำลังคลีน ${entries.length} หน้า`,
+    message: `กำลังคลีน ${needsClean.length} หน้า`,
   })
-  entries.forEach((entry) => {
+  needsClean.forEach((entry) => {
     options.onEntryUpdate(entry.id, { status: 'cleaning', progress: 15 })
   })
 
   if (options.settings.cleanupBackend === 'panelcleaner') {
-    const results = await processImagesWithPanelCleanerBatch(
-      entries.map((entry) => ({ id: entry.id, file: entry.file! })),
+    const results = await services.processPanelCleanerBatch(
+      needsClean.map((entry) => ({ id: entry.id, file: entry.file! })),
       {
         bridgeUrl: options.settings.panelCleanerBridgeUrl,
         executablePath: options.settings.panelCleanerExecutablePath,
@@ -187,13 +241,13 @@ async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions): 
 
     const byId = new Map(results.map((result) => [result.id, result]))
     const cleaned: CleanResult[] = []
-    for (const [index, entry] of entries.entries()) {
+    for (const [index, entry] of needsClean.entries()) {
       options.onBatchProgress?.({
         phase: 'cleaning',
         currentIndex: index + 1,
-        total: entries.length,
+        total: needsClean.length,
         currentPageNumber: entry.pageNumber ?? index + 1,
-        progress: Math.round((index / entries.length) * 55),
+        progress: Math.round((index / needsClean.length) * 55),
         message: `กำลังอัปเดตผลคลีนหน้า ${entry.pageNumber ?? index + 1}`,
       })
       await delay(UI_STEP_DELAY_MS)
@@ -201,7 +255,7 @@ async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions): 
       const result = byId.get(entry.id)
       if (!result?.cleanedImageBlob) {
         const message = result?.error || 'PanelCleaner batch did not return a cleaned image'
-        options.onEntryUpdate(entry.id, { status: 'error', error: message, progress: 100 })
+        options.onEntryUpdate(entry.id, { status: 'error', error: message, lastErrorStage: 'clean', progress: 100 })
         continue
       }
       result.logs?.forEach((line) => options.onLog(`PanelCleaner batch: ${line}`))
@@ -210,32 +264,34 @@ async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions): 
         cleanedImageUrl: cleanedUrl,
         status: 'clean_done',
         progress: 55,
+        error: undefined,
+        lastErrorStage: undefined,
       })
       options.onBatchProgress?.({
         phase: 'clean_done',
         currentIndex: index + 1,
-        total: entries.length,
+        total: needsClean.length,
         currentPageNumber: entry.pageNumber ?? index + 1,
-        progress: Math.round(((index + 1) / entries.length) * 55),
+        progress: Math.round(((index + 1) / needsClean.length) * 55),
         message: `คลีนหน้า ${entry.pageNumber ?? index + 1} เสร็จ`,
       })
       cleaned.push({ entry, cleanedBlob: result.cleanedImageBlob, cleanedUrl })
     }
-    return cleaned
+    return orderCleanResults(entries, [...reusable, ...cleaned])
   }
 
   const cleaned: CleanResult[] = []
-  for (const [index, entry] of entries.entries()) {
+  for (const [index, entry] of needsClean.entries()) {
     options.onBatchProgress?.({
       phase: 'cleaning',
       currentIndex: index + 1,
-      total: entries.length,
+      total: needsClean.length,
       currentPageNumber: entry.pageNumber ?? index + 1,
-      progress: Math.round((index / entries.length) * 55),
+      progress: Math.round((index / needsClean.length) * 55),
       message: `กำลังคลีนหน้า ${entry.pageNumber ?? index + 1}`,
     })
     try {
-      const result = await processImageWithCleanupProvider({
+      const result = await services.processCleanupImage({
         file: entry.file!,
         mode: options.mode,
         settings: options.settings,
@@ -245,58 +301,74 @@ async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions): 
       if (!result.cleanedImageBlob) throw new Error('Cleanup backend did not return a cleaned image')
       const cleanedUrl = URL.createObjectURL(result.cleanedImageBlob)
       cleaned.push({ entry, cleanedBlob: result.cleanedImageBlob, cleanedUrl })
-      options.onEntryUpdate(entry.id, { cleanedImageUrl: cleanedUrl, status: 'clean_done', progress: 55 })
+      options.onEntryUpdate(entry.id, { cleanedImageUrl: cleanedUrl, status: 'clean_done', progress: 55, error: undefined, lastErrorStage: undefined })
       options.onBatchProgress?.({
         phase: 'clean_done',
         currentIndex: index + 1,
-        total: entries.length,
+        total: needsClean.length,
         currentPageNumber: entry.pageNumber ?? index + 1,
-        progress: Math.round(((index + 1) / entries.length) * 55),
+        progress: Math.round(((index + 1) / needsClean.length) * 55),
         message: `คลีนหน้า ${entry.pageNumber ?? index + 1} เสร็จ`,
       })
     } catch (error) {
       options.onEntryUpdate(entry.id, {
         status: 'error',
         error: error instanceof Error ? error.message : String(error),
+        lastErrorStage: 'clean',
         progress: 100,
       })
     }
   }
-  return cleaned
+  return orderCleanResults(entries, [...reusable, ...cleaned])
 }
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function orderCleanResults(entries: ImageEntry[], results: CleanResult[]): CleanResult[] {
+  const byId = new Map(results.map((result) => [result.entry.id, result]))
+  return entries.flatMap((entry) => {
+    const result = byId.get(entry.id)
+    return result ? [result] : []
+  })
+}
+
 async function translatePage(
   file: File,
   cleanedBlob: Blob,
   options: BatchProcessOptions,
+  services: BatchAiServices,
   storyContext?: TranslationStoryContext,
 ): Promise<TextRegion[]> {
   if (options.mode === 'ocr_only') {
-    return detectOcrWithOllamaVision(file, options.sourceLang, options.ollamaOptions)
+    return services.detectOcrVision(file, options.sourceLang, options.ollamaOptions)
   }
 
   let boxes: BoundingBox[] = []
   try {
-    boxes = await deriveTextBoxesFromCleanupDiff(file, cleanedBlob)
+    boxes = await services.deriveTextBoxes(file, cleanedBlob)
   } catch (error) {
     options.onLog(`Batch AI: cleanup diff ใช้ไม่ได้ (${error instanceof Error ? error.message : String(error)})`)
   }
 
   if (boxes.length > 0) {
-    return translateWithOllamaBoxedVision(file, boxes, options.sourceLang, {
+    return services.translateBoxedVision(file, boxes, options.sourceLang, {
       ...options.ollamaOptions,
       storyContext,
     })
   }
 
-  return translateWithOllamaVision(file, options.sourceLang, {
+  return services.translateVision(file, options.sourceLang, {
     ...options.ollamaOptions,
     storyContext,
   })
+}
+
+async function readImageUrlAsBlob(url: string): Promise<Blob> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Failed to read cleaned image: ${response.status}`)
+  return response.blob()
 }
 
 function buildBatchTranslationContext(

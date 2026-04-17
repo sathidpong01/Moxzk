@@ -124,7 +124,7 @@ src/
 - Ollama local app หรือ Ollama Cloud account
 - Vision-capable Ollama model เช่น `gemma4`
 - Cloudflare account ที่มี Worker, D1 และ R2
-- Wrangler authentication สำหรับ local Worker/D1/R2 development
+- Wrangler authentication สำหรับ deploy Worker และ apply D1 migrations
 
 ## Install
 
@@ -140,15 +140,25 @@ PanelCleaner อาจดาวน์โหลด model data ครั้งแ�
 สร้าง `.env.local` สำหรับ frontend override ถ้าต้องการ:
 
 ```env
+VITE_CLOUDFLARE_API_URL=https://mg-translater-api.<your-subdomain>.workers.dev
 VITE_PANELCLEANER_BRIDGE_URL=http://localhost:5055
 VITE_TRANSLATOR_API_URL=http://localhost:5003
 VITE_OLLAMA_URL=http://localhost:11434
 VITE_OLLAMA_MODEL=gemma4
 ```
 
+ใน dev mode ค่า `VITE_CLOUDFLARE_API_URL` ใช้เป็น target ของ Vite proxy สำหรับ `/api` เพื่อให้ browser ยังเรียก same-origin `/api/...` และ session cookie ทำงานเหมือน app เดียวกัน. ถ้าไม่ตั้งค่านี้ proxy จะ fallback ไปที่ local Worker `http://localhost:8787` สำหรับ debug เฉพาะกรณี
+
 ไม่ควรใส่ Ollama Cloud API key ใน `VITE_*` env เพราะค่าจะถูก bundle เข้า browser app. ให้ใส่ใน Settings ระหว่าง web phase
 
-สร้าง `.dev.vars` สำหรับ Wrangler local secrets:
+ตั้ง Worker secrets บน Cloudflare:
+
+```bash
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+สร้าง `.dev.vars` เฉพาะเมื่อต้อง debug ด้วย Wrangler local dev:
 
 ```env
 GOOGLE_CLIENT_ID=your_google_client_id
@@ -158,6 +168,13 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 Resend ไม่จำเป็นใน build ปัจจุบัน เพราะ email verification/reset ถูกปิดไว้ และ email/password register ถูก mark verified ทันที ดูรายละเอียดใน [Cloudflare D1 Schema](docs/cloudflare-d1-schema.md)
 
 ## Run Locally
+
+ก่อนใช้งาน backend remote ครั้งแรก ให้ apply migration และ deploy Worker:
+
+```bash
+npm run db:migrate:remote
+npm run worker:deploy
+```
 
 เปิด Ollama:
 
@@ -172,12 +189,6 @@ ollama pull gemma4
 npm run backend:panelcleaner
 ```
 
-เปิด Cloudflare Worker local:
-
-```bash
-npx wrangler dev --local --port 8787
-```
-
 เปิด Vite frontend:
 
 ```bash
@@ -186,13 +197,13 @@ npm run dev
 
 เปิด `http://localhost:5173`
 
-Vite proxy จะส่ง `/api` ไปที่ Worker local `http://localhost:8787`
+Vite proxy จะส่ง `/api` ไปที่ `VITE_CLOUDFLARE_API_URL`. ถ้าไม่ได้ตั้งค่าไว้ จะ fallback ไป `http://localhost:8787` เพื่อให้ยังเปิด local Worker debug ได้ด้วย `npx wrangler dev --local --port 8787`
 
 ## Cloudflare Resources
 
 ค่าใน `wrangler.jsonc`:
 
-- Worker: `mg-translater-worker`
+- Worker: `mg-translater-api`
 - D1: `mg-translater-db`
 - R2: `mg-translater-images`
 - D1 binding: `DB`
@@ -222,12 +233,28 @@ Worker dry run:
 npm run worker:check
 ```
 
+Deploy Worker:
+
+```bash
+npm run worker:deploy
+```
+
 Required Worker secrets:
 
 ```bash
 wrangler secret put GOOGLE_CLIENT_ID
 wrangler secret put GOOGLE_CLIENT_SECRET
 ```
+
+Google OAuth authorized redirect URIs:
+
+```text
+http://localhost:5173/api/auth/google/callback
+http://localhost:5174/api/auth/google/callback
+https://mg-translater-api.<your-subdomain>.workers.dev/api/auth/google/callback
+```
+
+Local web dev uses the localhost callback through Vite proxy so the session cookie belongs to the local app. The workers.dev callback remains useful for direct Worker/API smoke tests and future hosted frontend flows.
 
 ## Usage Flow
 
@@ -304,6 +331,8 @@ R2 object access is checked through D1 `objects` metadata before download/delete
 npm test
 npm run build
 npm run worker:check
+npm run db:migrate:remote
+npm run worker:deploy
 ```
 
 Expected current test coverage includes:

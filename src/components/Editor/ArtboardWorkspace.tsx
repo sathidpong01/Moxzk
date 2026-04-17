@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
+import { Html } from 'react-konva-utils'
 import Konva from 'konva'
 import { Hand, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import type { ImageEntry, TextRegion } from '../../types'
@@ -15,7 +16,13 @@ import {
 import { useAlbumStore } from '../../store/albumStore'
 import { resolveFont } from '../../config/fonts'
 import { calculateBalloonFitFontSize, normalizeTextLayoutMode } from '../../utils/textLayout'
+import {
+  getInlineTextEditorBboxSize,
+  getInlineTextEditorLayerSize,
+  type InlineTextEditorCommitMetrics,
+} from '../../services/inlineTextEditor'
 import type { CanvasEditorHandle } from './CanvasEditor'
+import InlineTextEditor from './InlineTextEditor'
 import { Button, Modal } from '../ui/primitives'
 
 interface ArtboardWorkspaceProps {
@@ -97,6 +104,7 @@ export default function ArtboardWorkspace({
   const [drawingLine, setDrawingLine] = useState<number[] | null>(null)
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<ImageEntry | null>(null)
   const [isDeletingPage, setIsDeletingPage] = useState(false)
+  const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string } | null>(null)
 
   const activeEntry = entries.find((entry) => entry.id === activeImageId) ?? entries[0]
   const isPanning = activeTool === 'pan'
@@ -308,6 +316,54 @@ export default function ArtboardWorkspace({
   }
 
   const selectedRegion = activeEntry?.regions.find((region) => region.id === selectedRegionId) ?? null
+  const inlineEditRegion = inlineEdit ? activeEntry?.regions.find((region) => region.id === inlineEdit.id) ?? null : null
+  const inlineEditLayoutMode = normalizeTextLayoutMode(inlineEditRegion?.textLayoutMode)
+  const inlineEditFont = inlineEditRegion ? resolveFont(inlineEditRegion.suggestedFont, inlineEditRegion.mood) : null
+  const inlineEditScale = activeArtboard?.scale ?? 1
+  const inlineEditFontSize = inlineEditRegion
+    ? (
+        inlineEditLayoutMode === 'artistic'
+          ? Math.max(8, inlineEditRegion.fontSize * inlineEditScale)
+          : calculateBalloonFitFontSize(inlineEdit?.text ?? '', inlineEditRegion.bbox, inlineEditRegion.fontSize) * inlineEditScale
+      )
+    : 14
+  const inlineEditSize = inlineEditRegion
+    ? getInlineTextEditorLayerSize({
+        bbox: inlineEditRegion.bbox,
+        scale: inlineEditScale,
+        minWidth: 96 / zoom,
+        minHeight: 44 / zoom,
+      })
+    : null
+  const inlineEditPosition = inlineEditRegion && activeArtboard
+    ? {
+        x: activeArtboard.x + (activeArtboard.loaded?.offsetX ?? 0) + inlineEditRegion.bbox.x * inlineEditScale,
+        y: activeArtboard.y + (activeArtboard.loaded?.offsetY ?? 0) + inlineEditRegion.bbox.y * inlineEditScale,
+      }
+    : null
+  const startInlineEdit = useCallback(
+    (region: TextRegion) => {
+      if (isBrushActive) return
+      selectRegion(region.id)
+      setInlineEdit({ id: region.id, text: region.translatedText })
+    },
+    [isBrushActive, selectRegion],
+  )
+  const commitInlineEdit = useCallback((metrics?: InlineTextEditorCommitMetrics) => {
+    if (!inlineEdit || !activeEntry) return
+    const region = activeEntry.regions.find((item) => item.id === inlineEdit.id)
+    const bboxSize = metrics
+      ? getInlineTextEditorBboxSize({ metrics, scale: inlineEditScale })
+      : null
+    updateEntryRegion(activeEntry, inlineEdit.id, {
+      translatedText: inlineEdit.text,
+      ...(region && bboxSize ? { bbox: { ...region.bbox, ...bboxSize } } : {}),
+    })
+    setInlineEdit(null)
+  }, [activeEntry, inlineEdit, inlineEditScale])
+  const cancelInlineEdit = useCallback(() => {
+    setInlineEdit(null)
+  }, [])
   const selectedRegionLayout = selectedRegion ? normalizeTextLayoutMode(selectedRegion.textLayoutMode) : 'balloon_fit'
   const transformerAnchors = selectedRegionLayout === 'artistic'
     ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
@@ -419,6 +475,8 @@ export default function ArtboardWorkspace({
                 onReorderDrop={(x, y) => reorderFromDropPoint(artboard.entry.id, x, y)}
                 onRequestDelete={() => setPendingDeleteEntry(artboard.entry)}
                 onRegionUpdate={(regionId, updates) => updateEntryRegion(artboard.entry, regionId, updates)}
+                editingRegionId={inlineEdit?.id ?? null}
+                onStartInlineEdit={startInlineEdit}
                 brushPreview={{
                   color: activeTool === 'eraser' ? '#ff000080' : brushColor,
                   size: brushSize,
@@ -444,6 +502,33 @@ export default function ArtboardWorkspace({
                 return newBox
               }}
             />
+            {inlineEdit && inlineEditRegion && inlineEditPosition && inlineEditSize && inlineEditFont && (
+              <Html
+                groupProps={{
+                  x: inlineEditPosition.x,
+                  y: inlineEditPosition.y,
+                  rotation: inlineEditRegion.rotation,
+                }}
+                transform
+              >
+                <InlineTextEditor
+                  width={inlineEditSize.width}
+                  height={inlineEditSize.height}
+                  value={inlineEdit.text}
+                  fontFamily={inlineEditFont.family}
+                  fontWeight={inlineEditFont.weight}
+                  fontStyle={inlineEditFont.style}
+                  fontSize={inlineEditFontSize}
+                  padding={inlineEditLayoutMode === 'artistic' ? 0 : 8 * inlineEditScale}
+                  viewportZoom={zoom}
+                  color={inlineEditRegion.fontColor}
+                  align={inlineEditLayoutMode === 'artistic' ? 'left' : 'center'}
+                  onChange={(text) => setInlineEdit((current) => current ? { ...current, text } : current)}
+                  onCommit={commitInlineEdit}
+                  onCancel={cancelInlineEdit}
+                />
+              </Html>
+            )}
           </Layer>
         </Stage>
         <Modal
@@ -506,6 +591,8 @@ interface ArtboardNodeProps {
   onReorderDrop: (x: number, y: number) => void
   onRequestDelete: () => void
   onRegionUpdate: (id: string, updates: Partial<TextRegion>) => void
+  editingRegionId: string | null
+  onStartInlineEdit: (region: TextRegion) => void
 }
 
 function ArtboardNode({
@@ -520,6 +607,8 @@ function ArtboardNode({
   onReorderDrop,
   onRequestDelete,
   onRegionUpdate,
+  editingRegionId,
+  onStartInlineEdit,
 }: ArtboardNodeProps) {
   const { entry, loaded, scale } = artboard
   const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
@@ -712,6 +801,8 @@ function ArtboardNode({
           }}
           onUpdate={(updates) => onRegionUpdate(region.id, updates)}
           onLiveResize={(updates) => onRegionUpdate(region.id, updates)}
+          isEditing={editingRegionId === region.id}
+          onStartInlineEdit={() => onStartInlineEdit(region)}
         />
       ))}
     </Group>
@@ -727,6 +818,8 @@ function ArtboardText({
   onSelect,
   onUpdate,
   onLiveResize,
+  isEditing,
+  onStartInlineEdit,
 }: {
   region: TextRegion
   scale: number
@@ -736,6 +829,8 @@ function ArtboardText({
   onSelect: () => void
   onUpdate: (updates: Partial<TextRegion>) => void
   onLiveResize: (updates: Partial<TextRegion>) => void
+  isEditing: boolean
+  onStartInlineEdit: () => void
 }) {
   const font = resolveFont(region.suggestedFont, region.mood)
   const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
@@ -781,16 +876,26 @@ function ArtboardText({
         : {
             width: region.bbox.width * scale,
             height: region.bbox.height * scale,
-            wrap: 'char' as const,
+            padding: 8 * scale,
+            wrap: 'word' as const,
             align: 'center' as const,
             verticalAlign: 'middle' as const,
-          })}
+      })}
       draggable={isActiveArtboard}
       rotation={region.rotation}
+      opacity={isEditing ? 0.12 : 1}
       listening={isActiveArtboard}
       onClick={(event) => {
         event.cancelBubble = true
         onSelect()
+      }}
+      onDblClick={(event) => {
+        event.cancelBubble = true
+        onStartInlineEdit()
+      }}
+      onDblTap={(event) => {
+        event.cancelBubble = true
+        onStartInlineEdit()
       }}
       onTap={(event) => {
         event.cancelBubble = true

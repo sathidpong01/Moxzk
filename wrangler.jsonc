@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "mg-translater-worker",
+  "name": "mg-translater-api",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-04-15",
   "observability": {

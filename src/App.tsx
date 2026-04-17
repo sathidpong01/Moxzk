@@ -34,7 +34,7 @@ function App() {
   const [aiConfirmTarget, setAiConfirmTarget] = useState<'single' | 'batch' | null>(null)
   const [batchStopConfirmOpen, setBatchStopConfirmOpen] = useState(false)
   const [clearProjectConfirmOpen, setClearProjectConfirmOpen] = useState(false)
-  const albumTitle = albumStore.currentAlbum?.title?.trim() || 'ไม่ทราบ'
+  const albumTitle = albumStore.currentAlbum?.title?.trim() || 'โปรเจกต์ใหม่'
   const stepLabel = useMemo(() => getStepLabel(store.currentStep), [store.currentStep])
   const defaultBatchMode: ProcessingMode = store.settings.cleanupBackend === 'panelcleaner' ? 'gemma_vision_full' : 'full'
 
@@ -43,6 +43,14 @@ function App() {
   useEffect(() => {
     const cleanup = useAuthStore.getState().init()
     return () => { cleanup.then((unsub) => unsub()) }
+  }, [])
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('auth') !== 'success') return
+    window.history.replaceState({}, '', '/')
+    useAuthStore.getState().fetchProfile().catch((error) => {
+      console.warn('[auth] Failed to refresh Google session:', error)
+    })
   }, [])
 
   // Consolidated editor action callbacks

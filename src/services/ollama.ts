@@ -117,12 +117,15 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
-function buildThaiMangaRules(context?: TranslationStoryContext): string {
+export function buildThaiMangaRules(context?: TranslationStoryContext): string {
   const storyBlock = buildStoryContextBlock(context)
   return `Thai localization rules:
 - Translate for Thai manga readers, but preserve the full meaning of every source line.
 - Do not summarize away clauses, negations, questions, relationship words, names, or tone markers.
 - Keep translations concise enough for a speech balloon only after preserving meaning.
+- Do not hard-wrap translated text just to fit the balloon. Return each region as one editable string.
+- Use \\n only for intentional line breaks, separate SFX strokes, or meaningfully separate beats.
+- For Thai readability in narrow balloons, prefer concise phrases and natural clause spacing; never split Thai words unnaturally.
 - Preserve speaker relationship and pronouns consistently across pages.
 - Avoid inventing or changing relationships. This applies to family roles, siblings, partners, friends, rivals, hierarchy, seniority, workplace roles, school roles, customer/staff roles, and strangers.
 - When Thai requires a pronoun or address term, infer it from established context and image evidence. If uncertain, choose a neutral phrasing rather than forcing a wrong relationship.

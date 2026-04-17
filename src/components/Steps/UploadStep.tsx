@@ -12,12 +12,12 @@ export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpe
   const hasImages = images.length > 0
 
   return (
-    <div className="upload-canvas flex h-full items-center justify-center overflow-y-auto p-6">
-      <div className={`w-full space-y-6 ${hasImages ? 'max-w-4xl' : 'max-w-lg'} text-center`}>
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold">
+    <div className="upload-canvas flex h-full items-start justify-center overflow-y-auto px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
+      <div className={`w-full ${hasImages ? 'max-w-5xl space-y-5' : 'max-w-xl space-y-6'} text-center`}>
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold text-balance sm:text-3xl">
             {hasImages ? 'ตรวจรูปก่อนเข้า Editor' : 'เลือกรูปมังงะ'}
-          </h2>
+          </h1>
           <p className="text-sm text-[var(--mg-muted)]">
             {hasImages
               ? `${images.length} หน้า พร้อมเปิดเป็น artboard`
@@ -30,14 +30,15 @@ export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpe
           selectedImages={images}
         />
 
-        <div className="mx-auto flex w-full max-w-sm flex-col gap-2 sm:flex-row">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-2 sm:flex-row">
           <button
             className="mg-button mg-button-primary mg-button-lg flex-1"
             disabled={images.length === 0}
             onClick={onGoToEdit}
           >
             <ImageIcon size={18} />
-            {hasImages ? `เปิด ${images.length} หน้าใน Editor` : 'เปิดในหน้าแก้ไข'}
+            {hasImages ? 'เปิดใน Editor' : 'เปิดในหน้าแก้ไข'}
+            {hasImages && <span className="text-xs font-bold opacity-80">{images.length} หน้า</span>}
           </button>
           <button
             className="mg-button mg-button-soft mg-button-lg flex-1"

@@ -122,6 +122,7 @@ export interface ImageEntry {
   brushStrokes: BrushStroke[];
   status: ImageEntryStatus;
   error?: string;
+  lastErrorStage?: "clean" | "translate";
   pageNumber?: number;
   progress?: number;
   artboardX?: number;

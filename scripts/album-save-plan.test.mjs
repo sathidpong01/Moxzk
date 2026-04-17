@@ -5,6 +5,7 @@ import {
   getPersistedPageStatus,
   resolveAlbumSaveTarget,
 } from '../src/services/albumSavePlan.ts'
+import { resolveHydratedAlbumImageUrls } from '../src/services/albumImageUrls.ts'
 
 function page(id, pageNumber) {
   return {
@@ -50,4 +51,11 @@ test('getPersistedPageStatus keeps clean-only pages distinct from translated pag
   assert.equal(getPersistedPageStatus({ cleanedImageUrl: 'blob:cleaned', status: 'done' }), 'translated')
   assert.equal(getPersistedPageStatus({ cleanedImageUrl: 'blob:cleaned', status: 'clean_done' }), 'clean_done')
   assert.equal(getPersistedPageStatus({ cleanedImageUrl: null, status: 'pending' }), 'pending')
+})
+
+test('resolveHydratedAlbumImageUrls keeps the original and cleaned images separate', () => {
+  assert.deepEqual(
+    resolveHydratedAlbumImageUrls('blob:original', 'blob:cleaned'),
+    { originalUrl: 'blob:original', cleanedUrl: 'blob:cleaned' },
+  )
 })

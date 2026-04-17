@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ExportFormat } from '../../types'
 import type { ImageEntry } from '../../types'
+import {
+  getExportCompareOriginalUrl,
+  getExportThumbnailUrl,
+  getNextExportPreviewId,
+} from '../../services/exportPreview'
+import { renderImageEntryToBlob } from '../../services/exporter'
 import SplitView from '../Comparison/SplitView'
-import { ArrowLeft, Download } from 'lucide-react'
+import { ArrowLeft, Download, ImageIcon } from 'lucide-react'
 import { Button, Field, Panel, SelectField } from '../ui/primitives'
 
 interface ExportStepProps {
@@ -29,16 +35,86 @@ export default function ExportStep({
   onBack,
 }: ExportStepProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [activePreviewId, setActivePreviewId] = useState<string | null>(null)
+  const [renderedPreviewUrls, setRenderedPreviewUrls] = useState<Record<string, string>>({})
+  const [renderedPreviewErrors, setRenderedPreviewErrors] = useState<Record<string, string>>({})
+  const [isRenderingPreview, setIsRenderingPreview] = useState(false)
   const sortedEntries = useMemo(
     () => [...imageEntries].sort((a, b) => (a.pageNumber ?? 0) - (b.pageNumber ?? 0)),
     [imageEntries],
+  )
+  const selectedEntries = useMemo(
+    () => sortedEntries.filter((entry) => selectedIds.includes(entry.id)),
+    [selectedIds, sortedEntries],
   )
 
   useEffect(() => {
     setSelectedIds(sortedEntries.map((entry) => entry.id))
   }, [sortedEntries])
 
+  useEffect(() => {
+    const nextId = getNextExportPreviewId(selectedEntries, activePreviewId)
+    if (nextId !== activePreviewId) setActivePreviewId(nextId)
+  }, [activePreviewId, selectedEntries])
+
+  useEffect(() => {
+    if (sortedEntries.length <= 1 || selectedEntries.length === 0) {
+      setRenderedPreviewUrls({})
+      setRenderedPreviewErrors({})
+      setIsRenderingPreview(false)
+      return
+    }
+
+    let cancelled = false
+    const objectUrls: string[] = []
+    setIsRenderingPreview(true)
+    setRenderedPreviewUrls({})
+    setRenderedPreviewErrors({})
+
+    void Promise.all(
+      selectedEntries.map(async (entry) => {
+        try {
+          const blob = await renderImageEntryToBlob(entry, exportFormat, exportQuality / 100)
+          const url = URL.createObjectURL(blob)
+          if (cancelled) {
+            URL.revokeObjectURL(url)
+            return { id: entry.id, url: null, error: null }
+          }
+          objectUrls.push(url)
+          return { id: entry.id, url, error: null }
+        } catch (error) {
+          return {
+            id: entry.id,
+            url: null,
+            error: error instanceof Error ? error.message : 'Render preview ล้มเหลว',
+          }
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return
+      const urls: Record<string, string> = {}
+      const errors: Record<string, string> = {}
+      for (const result of results) {
+        if (result.url) urls[result.id] = result.url
+        if (result.error) errors[result.id] = result.error
+      }
+      setRenderedPreviewUrls(urls)
+      setRenderedPreviewErrors(errors)
+    }).finally(() => {
+      if (!cancelled) setIsRenderingPreview(false)
+    })
+
+    return () => {
+      cancelled = true
+      for (const url of objectUrls) URL.revokeObjectURL(url)
+    }
+  }, [exportFormat, exportQuality, selectedEntries, sortedEntries.length])
+
   const allSelected = sortedEntries.length > 0 && selectedIds.length === sortedEntries.length
+  const activeEntry = selectedEntries.find((entry) => entry.id === activePreviewId) ?? null
+  const activeOriginalUrl = activeEntry ? getExportCompareOriginalUrl(activeEntry) : null
+  const activeTranslatedUrl = activeEntry ? renderedPreviewUrls[activeEntry.id] : null
+  const activeRenderError = activeEntry ? renderedPreviewErrors[activeEntry.id] : null
   const toggleAll = () => {
     setSelectedIds(allSelected ? [] : sortedEntries.map((entry) => entry.id))
   }
@@ -51,11 +127,108 @@ export default function ExportStep({
   return (
     <div className="studio-canvas flex h-full gap-3 p-3">
       <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-        {originalImageUrl && translatedImageUrl && (
+        {sortedEntries.length > 1 ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex min-h-0 flex-1 flex-col gap-2">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-[var(--mg-text)]">หน้าที่จะ Export</h2>
+                  <p className="text-sm text-[var(--mg-muted)]">
+                    {activeEntry
+                      ? `กำลังดูหน้า ${activeEntry.pageNumber ?? '?'} จาก ${selectedEntries.length} หน้า`
+                      : 'เลือกหน้าอย่างน้อย 1 หน้าเพื่อดูตัวอย่าง'}
+                  </p>
+                </div>
+                <span className="rounded-[6px] border border-[var(--mg-border)] px-2 py-1 text-xs font-bold text-[var(--mg-muted)]">
+                  {exportFormat.toUpperCase()}
+                </span>
+              </div>
+
+              <div className="min-h-0 flex-1">
+                {activeEntry && activeOriginalUrl && activeTranslatedUrl ? (
+                  <SplitView
+                    originalImageUrl={activeOriginalUrl}
+                    translatedImageUrl={activeTranslatedUrl}
+                  />
+                ) : (
+                  <div className="flex h-full min-h-80 flex-col items-center justify-center rounded-[8px] border border-dashed border-[var(--mg-border)] bg-black/20 text-center text-[var(--mg-muted)]">
+                    <ImageIcon size={36} aria-hidden="true" />
+                    <p className="mt-3 text-sm font-bold">
+                      {isRenderingPreview
+                        ? 'กำลังสร้าง preview ที่มีตัวหนังสือ'
+                        : activeRenderError || 'ยังไม่มีหน้าที่พร้อมเปรียบเทียบ'}
+                    </p>
+                    <p className="mt-1 text-xs">
+                      {selectedEntries.length > 0
+                        ? 'ระบบจะใช้ภาพเดียวกับไฟล์ export จริง'
+                        : 'เลือกหน้าจากแผง Export ด้านขวา'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 overflow-x-auto rounded-[8px] border border-[var(--mg-border)] bg-black/20 p-2">
+              {selectedEntries.length > 0 ? (
+                <div className="flex min-w-max gap-2">
+                  {selectedEntries.map((entry) => {
+                    const previewUrl = getExportThumbnailUrl(entry, renderedPreviewUrls)
+                    const isActive = entry.id === activePreviewId
+                    return (
+                      <button
+                        type="button"
+                        key={entry.id}
+                        aria-pressed={isActive}
+                        onClick={() => setActivePreviewId(entry.id)}
+                        className={`w-28 overflow-hidden rounded-[8px] border bg-white/[0.03] text-left transition hover:border-white/30 ${
+                          isActive ? 'border-[var(--mg-accent)]' : 'border-[var(--mg-border)]'
+                        }`}
+                      >
+                        <div className="flex aspect-[2/3] items-center justify-center bg-black/35">
+                          {previewUrl ? (
+                            <img
+                              src={previewUrl}
+                              alt={`หน้า ${entry.pageNumber ?? '?'}`}
+                              className="h-full w-full object-contain"
+                              draggable={false}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--mg-muted)]">
+                              <ImageIcon size={28} aria-hidden="true" />
+                              <span className="text-xs font-bold">ไม่มี preview</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 border-t border-[var(--mg-border)] px-2 py-1.5 text-xs">
+                          <span className="font-bold text-[var(--mg-text)]">หน้า {entry.pageNumber ?? '?'}</span>
+                          <span className="truncate text-[var(--mg-muted)]">
+                            {renderedPreviewUrls[entry.id] ? 'พร้อม' : entry.status}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="flex min-h-32 flex-col items-center justify-center text-center text-[var(--mg-muted)]">
+                  <ImageIcon size={36} aria-hidden="true" />
+                  <p className="mt-3 text-sm font-bold">ยังไม่มีหน้าที่เลือก</p>
+                  <p className="mt-1 text-xs">เลือกหน้าจากแผง Export ด้านขวา</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : originalImageUrl && translatedImageUrl ? (
           <SplitView
             originalImageUrl={originalImageUrl}
             translatedImageUrl={translatedImageUrl}
           />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-[8px] border border-dashed border-[var(--mg-border)] bg-black/20 text-center text-[var(--mg-muted)]">
+            <ImageIcon size={36} aria-hidden="true" />
+            <p className="mt-3 text-sm font-bold">ยังไม่มี preview สำหรับ export</p>
+            <p className="mt-1 text-xs">กลับไป Editor แล้วลองบันทึกหรือเลือกหน้าอีกครั้ง</p>
+          </div>
         )}
       </div>
       <div className="flex w-72 shrink-0 flex-col gap-3">

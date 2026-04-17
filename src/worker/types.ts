@@ -18,6 +18,7 @@ export type ApiErrorCode =
   | 'CONFLICT'
   | 'VALIDATION_ERROR'
   | 'FEATURE_DISABLED'
+  | 'CONFIGURATION_ERROR'
   | 'SERVER_ERROR'
 
 export interface AuthUser {

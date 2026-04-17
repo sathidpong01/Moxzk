@@ -1,6 +1,9 @@
 import type { Album, AlbumPage, Profile } from '../types/database'
 
-const API_BASE = (import.meta.env.VITE_CLOUDFLARE_API_URL || '').trim().replace(/\/+$/, '')
+export function getCloudflareApiBase(): string {
+  if (import.meta.env.DEV) return ''
+  return (import.meta.env.VITE_CLOUDFLARE_API_URL || '').trim().replace(/\/+$/, '')
+}
 
 export interface AppUser {
   id: string
@@ -75,7 +78,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     headers.set('Content-Type', 'application/json')
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${getCloudflareApiBase()}${path}`, {
     ...init,
     headers,
     credentials: 'include',

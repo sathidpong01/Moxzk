@@ -49,7 +49,7 @@ export function parseCsv(value: string | undefined): string[] {
 }
 
 export function requiredEnv(value: string | undefined, name: string): string {
-  if (!value) throw new Error(`${name} is not configured`)
+  if (!value) throw new ApiError('CONFIGURATION_ERROR', `${name} is not configured`, 503)
   return value
 }
 

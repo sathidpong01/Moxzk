@@ -255,6 +255,20 @@ textarea {
   opacity: 0.48;
 }
 
+.mg-inline-text-editor {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.mg-inline-text-editor:focus,
+.mg-inline-text-editor:focus-visible {
+  outline: none !important;
+}
+
+.mg-inline-text-editor::-webkit-scrollbar {
+  display: none;
+}
+
 .mg-slider {
   width: 100%;
   accent-color: var(--mg-accent);

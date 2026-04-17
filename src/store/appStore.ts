@@ -6,6 +6,7 @@ import { loadSettings, saveSettings } from '../services/settingsStorage'
 import { DEFAULT_TRANSLATION_STYLE_GUIDE } from '../services/story-context'
 import { getAllFonts } from '../services/fontStorage'
 import { downloadImage } from '../services/storageService'
+import { resolveHydratedAlbumImageUrls } from '../services/albumImageUrls'
 import { parseApiError } from '../utils/parseApiError'
 import { toast } from 'sonner'
 
@@ -155,8 +156,7 @@ async function hydrateAlbumEntryImage(entry: ImageEntry): Promise<{
   }
 
   return {
-    originalUrl: cleanedUrl ?? originalUrl,
-    cleanedUrl,
+    ...resolveHydratedAlbumImageUrls(originalUrl, cleanedUrl),
     file,
   }
 }

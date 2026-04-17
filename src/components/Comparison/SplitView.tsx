@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   ReactCompareSlider,
   ReactCompareSliderImage,
@@ -12,6 +12,7 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { Badge, Button } from '../ui/primitives'
+import { clampViewerZoom, stepViewerZoom, wheelViewerZoom } from '../../services/viewerZoom'
 
 interface SplitViewProps {
   originalImageUrl: string
@@ -27,59 +28,31 @@ export default function SplitView({
   const [mode, setMode] = useState<ViewMode>('slider')
   const [overlayOpacity, setOverlayOpacity] = useState(50)
   const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const isPanning = useRef(false)
-  const lastPos = useRef({ x: 0, y: 0 })
-  const containerRef = useRef<HTMLDivElement>(null)
 
   const applyZoom = useCallback((newZoom: number) => {
-    const clamped = Math.max(0.25, Math.min(5, newZoom))
-    setZoom(clamped)
-    if (clamped <= 1) setPan({ x: 0, y: 0 })
+    setZoom(clampViewerZoom(newZoom))
   }, [])
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault()
-      const delta = e.deltaY > 0 ? 0.9 : 1.1
-      applyZoom(zoom * delta)
-    },
-    [zoom, applyZoom],
-  )
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (zoom <= 1) return
-    isPanning.current = true
-    lastPos.current = { x: e.clientX, y: e.clientY }
-  }, [zoom])
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isPanning.current) return
-    const dx = e.clientX - lastPos.current.x
-    const dy = e.clientY - lastPos.current.y
-    lastPos.current = { x: e.clientX, y: e.clientY }
-    setPan((p) => ({ x: p.x + dx, y: p.y + dy }))
-  }, [])
-
-  const handleMouseUp = useCallback(() => {
-    isPanning.current = false
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setZoom((current) => wheelViewerZoom(current, event.deltaY))
   }, [])
 
   const resetView = useCallback(() => {
     setZoom(1)
-    setPan({ x: 0, y: 0 })
   }, [])
 
-  const zoomStyle = {
-    transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-    transformOrigin: 'center center',
-    transition: isPanning.current ? 'none' : 'transform 0.15s ease-out',
+  const zoomPercent = Math.round(zoom * 100)
+  const zoomFrameStyle = {
+    width: `${zoomPercent}%`,
+    height: `${zoomPercent}%`,
+    minWidth: `${zoomPercent}%`,
+    minHeight: `${zoomPercent}%`,
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Toolbar: mode controls + zoom */}
-      <div className="flex items-center justify-between mb-2 shrink-0">
+      <div className="mb-2 flex shrink-0 items-center justify-between">
         <div role="tablist" className="inline-flex w-fit rounded-[8px] border border-[var(--mg-border)] bg-white/5 p-1">
           <button
             role="tab"
@@ -105,96 +78,95 @@ export default function SplitView({
         </div>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => applyZoom(zoom - 0.25)} title="Zoom out">
+          <Button variant="ghost" size="sm" onClick={() => applyZoom(stepViewerZoom(zoom, 'out'))} title="Zoom out">
             <ZoomOut size={14} />
           </Button>
-          <span className="text-xs font-mono w-10 text-center">{Math.round(zoom * 100)}%</span>
-          <Button variant="ghost" size="sm" onClick={() => applyZoom(zoom + 0.25)} title="Zoom in">
+          <span className="w-10 text-center font-mono text-xs">{zoomPercent}%</span>
+          <Button variant="ghost" size="sm" onClick={() => applyZoom(stepViewerZoom(zoom, 'in'))} title="Zoom in">
             <ZoomIn size={14} />
           </Button>
-          <Button variant="ghost" size="sm" onClick={resetView} title="Reset zoom">
+          <Button variant="ghost" size="sm" onClick={resetView} title="Fit view">
             <RotateCcw size={14} />
           </Button>
         </div>
       </div>
 
-      {/* Content area — scrollable, zoomable */}
       <div
-        ref={containerRef}
-        className="studio-canvas min-h-0 flex-1 overflow-hidden rounded-[8px] border border-[var(--mg-border)]"
+        className="studio-canvas min-h-0 flex-1 overflow-auto rounded-[8px] border border-[var(--mg-border)]"
         onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        style={{ cursor: zoom > 1 ? 'grab' : 'default' }}
       >
-        <div className="w-full h-full flex items-center justify-center overflow-hidden">
-          <div style={zoomStyle}>
-            {/* Slider mode */}
+        <div className={zoom > 1 ? 'min-h-full min-w-full' : 'flex h-full w-full items-center justify-center'}>
+          <div className="shrink-0" style={zoomFrameStyle}>
             {mode === 'slider' && (
               <ReactCompareSlider
                 itemOne={
-                  <ReactCompareSliderImage src={originalImageUrl} alt="Original" />
+                  <ReactCompareSliderImage
+                    src={originalImageUrl}
+                    alt="Original"
+                    style={{ objectFit: 'contain', objectPosition: 'center center' }}
+                  />
                 }
                 itemTwo={
-                  <ReactCompareSliderImage src={translatedImageUrl} alt="Translated" />
+                  <ReactCompareSliderImage
+                    src={translatedImageUrl}
+                    alt="Translated"
+                    style={{ objectFit: 'contain', objectPosition: 'center center' }}
+                  />
                 }
-                style={{ maxHeight: '100%', width: '100%' }}
+                style={{ height: '100%', width: '100%' }}
               />
             )}
 
-            {/* Side by side mode */}
             {mode === 'side-by-side' && (
-              <div className="grid grid-cols-2 gap-2 p-2">
-                <div className="space-y-1">
+              <div className="grid h-full w-full grid-cols-2 gap-2 p-2">
+                <div className="flex min-h-0 flex-col gap-1">
                   <Badge>Original</Badge>
-                  <img
-                    src={originalImageUrl}
-                    alt="Original"
-                    className="w-full rounded-lg"
-                    draggable={false}
-                  />
+                  <div className="min-h-0 flex-1 overflow-hidden rounded-[8px] bg-black/25">
+                    <img
+                      src={originalImageUrl}
+                      alt="Original"
+                      className="h-full w-full object-contain"
+                      draggable={false}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
+                <div className="flex min-h-0 flex-col gap-1">
                   <Badge>Translated</Badge>
-                  <img
-                    src={translatedImageUrl}
-                    alt="Translated"
-                    className="w-full rounded-lg"
-                    draggable={false}
-                  />
+                  <div className="min-h-0 flex-1 overflow-hidden rounded-[8px] bg-black/25">
+                    <img
+                      src={translatedImageUrl}
+                      alt="Translated"
+                      className="h-full w-full object-contain"
+                      draggable={false}
+                    />
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Overlay mode */}
             {mode === 'overlay' && (
-              <div>
-                <div className="relative">
-                  <img
-                    src={originalImageUrl}
-                    alt="Original"
-                    className="w-full block"
-                    draggable={false}
-                  />
-                  <img
-                    src={translatedImageUrl}
-                    alt="Translated"
-                    className="absolute inset-0 w-full h-full"
-                    style={{ opacity: overlayOpacity / 100 }}
-                    draggable={false}
-                  />
-                </div>
+              <div className="relative h-full w-full">
+                <img
+                  src={originalImageUrl}
+                  alt="Original"
+                  className="absolute inset-0 h-full w-full object-contain"
+                  draggable={false}
+                />
+                <img
+                  src={translatedImageUrl}
+                  alt="Translated"
+                  className="absolute inset-0 h-full w-full object-contain"
+                  style={{ opacity: overlayOpacity / 100 }}
+                  draggable={false}
+                />
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Overlay opacity slider (only in overlay mode) */}
       {mode === 'overlay' && (
-        <div className="flex items-center gap-3 mt-2 shrink-0">
+        <div className="mt-2 flex shrink-0 items-center gap-3">
           <span className="text-xs text-[var(--mg-muted)]">Original</span>
           <input
             type="range"

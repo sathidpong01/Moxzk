@@ -118,6 +118,7 @@ export async function googleStart(ctx: RequestContext): Promise<Response> {
   const state = randomToken()
   const nonce = randomToken()
   const now = Date.now()
+  const callbackUrl = googleCallbackUrl(ctx, redirectTarget)
   await ctx.db.insert(schema.oauthStates).values({
     stateHash: await hashToken(state),
     provider: 'google',
@@ -129,7 +130,7 @@ export async function googleStart(ctx: RequestContext): Promise<Response> {
 
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
   authUrl.searchParams.set('client_id', clientId)
-  authUrl.searchParams.set('redirect_uri', `${ctx.url.origin}/api/auth/google/callback`)
+  authUrl.searchParams.set('redirect_uri', callbackUrl)
   authUrl.searchParams.set('response_type', 'code')
   authUrl.searchParams.set('scope', 'openid email profile')
   authUrl.searchParams.set('state', state)
@@ -211,6 +212,14 @@ async function createSession(ctx: RequestContext, userId: string): Promise<{ tok
 }
 
 async function exchangeGoogleCode(ctx: RequestContext, code: string): Promise<{ id_token: string }> {
+  const state = ctx.url.searchParams.get('state')
+  const oauthState = state
+    ? await ctx.db.select({ redirectTarget: schema.oauthStates.redirectTarget })
+      .from(schema.oauthStates)
+      .where(eq(schema.oauthStates.stateHash, await hashToken(state)))
+      .get()
+    : null
+
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -218,7 +227,7 @@ async function exchangeGoogleCode(ctx: RequestContext, code: string): Promise<{ 
       code,
       client_id: requiredEnv(ctx.env.GOOGLE_CLIENT_ID, 'GOOGLE_CLIENT_ID'),
       client_secret: requiredEnv(ctx.env.GOOGLE_CLIENT_SECRET, 'GOOGLE_CLIENT_SECRET'),
-      redirect_uri: `${ctx.url.origin}/api/auth/google/callback`,
+      redirect_uri: oauthState ? googleCallbackUrl(ctx, oauthState.redirectTarget) : `${ctx.url.origin}/api/auth/google/callback`,
       grant_type: 'authorization_code',
     }),
   })
@@ -308,6 +317,18 @@ function sessionCookieName(ctx: RequestContext): string {
 
 function isAllowedRedirect(ctx: RequestContext, redirectTarget: string): boolean {
   return parseCsv(ctx.env.OAUTH_REDIRECT_ALLOWLIST).includes(redirectTarget)
+}
+
+function googleCallbackUrl(ctx: RequestContext, redirectTarget: string): string {
+  try {
+    const target = new URL(redirectTarget)
+    if (target.protocol === 'http:' || target.protocol === 'https:') {
+      return `${target.origin}/api/auth/google/callback`
+    }
+  } catch {
+    // Fall back to the Worker origin below.
+  }
+  return `${ctx.url.origin}/api/auth/google/callback`
 }
 
 function defaultWebRedirect(ctx: RequestContext): string {

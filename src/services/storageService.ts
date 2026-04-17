@@ -7,7 +7,7 @@
  *   Download: Check IndexedDB cache → if miss/stale → Worker API → R2 stream → cache
  */
 
-import { apiFetch } from './cloudflareApi'
+import { apiFetch, getCloudflareApiBase } from './cloudflareApi'
 import { getCached, putCache, isStale, removeCache } from './imageCache'
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ export async function downloadImage(key: string): Promise<string> {
 
 /** Fetch a blob from R2 via the Worker API */
 async function fetchFromR2(key: string): Promise<Blob> {
-  const apiBase = (import.meta.env.VITE_CLOUDFLARE_API_URL || '').trim().replace(/\/+$/, '')
+  const apiBase = getCloudflareApiBase()
   const response = await fetch(`${apiBase}/api/storage/object/${encodeURIComponent(key)}`, {
     credentials: 'include',
   })
