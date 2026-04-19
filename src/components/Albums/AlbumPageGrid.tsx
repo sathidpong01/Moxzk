@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AlbumPage } from '../../types/database'
 import { FileImage, Trash2, CheckCircle2, Loader2, AlertCircle, Paintbrush, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
+import { downloadImage } from '../../services/storageService'
 
 interface AlbumPageGridProps {
   pages: AlbumPage[]
@@ -21,6 +22,7 @@ const STATUS_CONFIG: Record<AlbumPage['status'], { icon: typeof FileImage; color
 function LazyThumbnail({ src, alt }: { src: string | null; alt: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [isVisible, setIsVisible] = useState(false)
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null)
 
   useEffect(() => {
     const el = ref.current
@@ -38,12 +40,32 @@ function LazyThumbnail({ src, alt }: { src: string | null; alt: string }) {
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    if (!isVisible || !src) return
+    if (src.startsWith('data:') || src.startsWith('blob:') || /^https?:\/\//.test(src)) {
+      setResolvedSrc(src)
+      return
+    }
+    let cancelled = false
+    downloadImage(src)
+      .then((url) => {
+        if (!cancelled) setResolvedSrc(url)
+      })
+      .catch((error) => {
+        console.warn('[album] thumbnail download failed:', error)
+        if (!cancelled) setResolvedSrc(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isVisible, src])
+
   return (
     <div ref={ref} className="flex aspect-[2/3] items-center justify-center overflow-hidden bg-[#0b0b0b]">
       {!isVisible ? (
         <div className="h-full w-full animate-pulse bg-white/10" />
-      ) : src ? (
-        <img src={src} alt={alt} className="h-full w-full object-contain" loading="lazy" />
+      ) : resolvedSrc ? (
+        <img src={resolvedSrc} alt={alt} className="h-full w-full object-contain" loading="lazy" />
       ) : (
         <FileImage size={24} className="text-[var(--mg-dim)]" />
       )}
@@ -138,7 +160,7 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
             >
               {/* Thumbnail — lazy loaded */}
               <LazyThumbnail
-                src={page.thumbnail_key && (page.thumbnail_key as string).startsWith('data:') ? (page.thumbnail_key as string) : null}
+                src={page.thumbnail_key as string | null}
                 alt={`หน้า ${page.page_number}`}
               />
 

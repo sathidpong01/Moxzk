@@ -2,6 +2,9 @@ import {
   Dialog,
   DialogPanel,
   DialogTitle,
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
   Listbox,
   ListboxButton,
   ListboxOption,
@@ -109,6 +112,38 @@ export function Panel({
   return <div className={cn('mg-panel', className)}>{children}</div>
 }
 
+export function DisclosureSection({
+  title,
+  children,
+  defaultOpen = true,
+  className,
+}: {
+  title: ReactNode
+  children: ReactNode
+  defaultOpen?: boolean
+  className?: string
+}) {
+  return (
+    <Disclosure defaultOpen={defaultOpen}>
+      {({ open }) => (
+        <section className={cn('rounded-[8px] border border-[var(--mg-border)] bg-white/[0.025]', className)}>
+          <DisclosureButton className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
+            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">{title}</span>
+            <ChevronDown
+              size={14}
+              className={cn('shrink-0 text-[var(--mg-dim)] transition-transform', open && 'rotate-180')}
+              aria-hidden="true"
+            />
+          </DisclosureButton>
+          <DisclosurePanel className="space-y-3 border-t border-[var(--mg-border)] px-3 py-3">
+            {children}
+          </DisclosurePanel>
+        </section>
+      )}
+    </Disclosure>
+  )
+}
+
 export function Badge({ className, children }: { className?: string; children: ReactNode }) {
   return <span className={cn('mg-pill', className)}>{children}</span>
 }
@@ -213,7 +248,7 @@ export function Modal({
           <DialogPanel className={cn('mg-panel w-full max-w-lg p-5', className)}>
             <div className="mb-4 flex items-center justify-between gap-4">
               <DialogTitle className="text-lg font-bold">{title}</DialogTitle>
-              <IconButton label="Close" onClick={onClose}>
+              <IconButton label="ปิด" onClick={onClose}>
                 <X size={16} />
               </IconButton>
             </div>

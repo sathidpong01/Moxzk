@@ -54,16 +54,15 @@ textarea {
   color: var(--mg-text);
 }
 
-.studio-canvas {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 42%),
-    var(--mg-canvas);
-}
-
+.studio-canvas,
 .upload-canvas {
   background:
-    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.04), transparent 34rem),
-    var(--mg-bg);
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 42%),
+    var(--mg-canvas);
+  background-position: 0 0, 0 0, 0 0;
+  background-size: 28px 28px, 28px 28px, auto;
 }
 
 .studio-chrome {
@@ -83,6 +82,10 @@ textarea {
 
 .floating-panel-sm {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+}
+
+.mg-header-panel {
+  background: var(--mg-surface-2);
 }
 
 .mg-button {
@@ -267,6 +270,22 @@ textarea {
 
 .mg-inline-text-editor::-webkit-scrollbar {
   display: none;
+}
+
+.mg-inline-text-confirm {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.mg-inline-text-confirm:hover {
+  background: #1d4ed8 !important;
+  border-color: rgba(191, 219, 254, 0.64) !important;
+}
+
+.mg-inline-text-confirm:active {
+  transform: translateY(1px);
 }
 
 .mg-slider {

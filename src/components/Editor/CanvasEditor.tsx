@@ -1,17 +1,23 @@
-import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Stage, Layer, Image as KonvaImage, Text, Transformer, Line } from 'react-konva'
 import { Html } from 'react-konva-utils'
 import Konva from 'konva'
 import type { TextRegion, BrushStroke } from '../../types'
-import { resolveFont } from '../../config/fonts'
+import { resolveRegionFont } from '../../config/fonts'
 import { useAppStore } from '../../store/appStore'
-import { calculateBalloonFitFontSize, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { layoutTextInBox, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { computeBrushFeather } from '../../services/brushStrokes'
+import { getEditorToolCursor } from '../../services/editorCursor'
+import { shouldStartBrushStroke } from '../../services/konvaInteraction'
 import {
   getInlineTextEditorBboxSize,
   getInlineTextEditorLayerSize,
+  getTextTransformerAnchors,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
+import type { RegionUpdateOptions } from '../../store/appStore'
 import InlineTextEditor from './InlineTextEditor'
+import CanvasGrid from './CanvasGrid'
 import { Hand, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -22,7 +28,7 @@ export interface CanvasEditorHandle {
 interface CanvasEditorProps {
   imageUrl: string
   regions: TextRegion[]
-  onRegionUpdate: (id: string, updates: Partial<TextRegion>) => void
+  onRegionUpdate: (id: string, updates: Partial<TextRegion>, options?: RegionUpdateOptions) => void
   onSelectedRegion: (id: string | null) => void
   stageRef?: React.RefObject<Konva.Stage | null>
   onScaleChange?: (scale: number) => void
@@ -47,6 +53,7 @@ export default function CanvasEditor({
   const internalStageRef = useRef<Konva.Stage>(null)
   const stageRef = externalStageRef ?? internalStageRef
   const transformerRef = useRef<Konva.Transformer>(null)
+  const textTransformStartRef = useRef<Record<string, TextRegion[]>>({})
 
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
@@ -246,8 +253,9 @@ export default function CanvasEditor({
 
   // Paint: mouse down — store points in IMAGE-SPACE (divide by scale)
   const handlePaintStart = useCallback(
-    (_e: Konva.KonvaEventObject<MouseEvent>) => {
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!isBrushActive) return
+      if (!shouldStartBrushStroke(e.target)) return
       const stage = stageRef.current
       if (!stage) return
       const pointer = stage.getPointerPosition()
@@ -336,6 +344,13 @@ export default function CanvasEditor({
     (region: TextRegion, e: Konva.KonvaEventObject<Event>) => {
       const node = e.target as Konva.Text
       const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+      const font = resolveRegionFont(region)
+      const historyBefore = textTransformStartRef.current[region.id]
+      delete textTransformStartRef.current[region.id]
+      const historyOptions: RegionUpdateOptions = {
+        historyBefore,
+        historyKey: `transform:${region.id}`,
+      }
 
       if (layoutMode === 'artistic') {
         const textScaleX = node.scaleX()
@@ -352,21 +367,28 @@ export default function CanvasEditor({
           textScaleX,
           textScaleY,
           rotation: node.rotation(),
-        })
+        }, historyOptions)
         return
       }
 
       const resized = applyLiveTextBoxResize(node)
+      const nextBbox = {
+        x: node.x() / scale,
+        y: node.y() / scale,
+        width: resized.width / scale,
+        height: resized.height / scale,
+      }
+      const fitted = layoutTextInBox(region.translatedText || ' ', nextBbox, region.fontSize, {
+        fontFamily: font.family,
+        fontWeight: font.weight,
+        fontStyle: font.style,
+      })
 
       onRegionUpdate(region.id, {
-        bbox: {
-          x: node.x() / scale,
-          y: node.y() / scale,
-          width: resized.width / scale,
-          height: resized.height / scale,
-        },
+        bbox: nextBbox,
+        fontSize: fitted.fontSize,
         rotation: node.rotation(),
-      })
+      }, historyOptions)
     },
     [applyLiveTextBoxResize, scale, onRegionUpdate],
   )
@@ -441,39 +463,20 @@ export default function CanvasEditor({
     [],
   )
 
-  // Feather compensation: reduce strokeWidth, use shadowBlur to fill gap
-  const computeFeather = (size: number, feather: number) => ({
-    strokeWidth: Math.max(1, size - 2 * feather),
-    shadowBlur: feather,
-  })
-
-  // Custom cursor based on active tool
-  const getCursor = (): string => {
-    if (isPanning) return 'grab'
-    if (isEyedropper) {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m2 22 1-1h3l9-9'/><path d='M3 21v-3l9-9'/><path d='m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4'/></svg>`
-      return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 2 22, crosshair`
-    }
-    if (isBrushActive) {
-      const sz = Math.max(4, Math.round(brushSize * scale * zoom))
-      const half = sz / 2
-      const color = activeTool === 'eraser' ? 'rgba(255,0,0,0.5)' : brushColor
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${sz + 2}' height='${sz + 2}'><circle cx='${half + 1}' cy='${half + 1}' r='${half}' fill='none' stroke='${color}' stroke-width='1'/><line x1='${half + 1}' y1='0' x2='${half + 1}' y2='${sz + 2}' stroke='${color}' stroke-width='0.5'/><line x1='0' y1='${half + 1}' x2='${sz + 2}' y2='${half + 1}' stroke='${color}' stroke-width='0.5'/></svg>`
-      return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${half + 1} ${half + 1}, crosshair`
-    }
-    return 'default'
-  }
-
   const selectedRegion = selectedId ? regions.find((region) => region.id === selectedId) : null
   const selectedLayoutMode = normalizeTextLayoutMode(selectedRegion?.textLayoutMode)
   const inlineEditRegion = inlineEdit ? regions.find((region) => region.id === inlineEdit.id) : null
   const inlineEditLayoutMode = normalizeTextLayoutMode(inlineEditRegion?.textLayoutMode)
-  const inlineEditFont = inlineEditRegion ? resolveFont(inlineEditRegion.suggestedFont, inlineEditRegion.mood) : null
+  const inlineEditFont = inlineEditRegion ? resolveRegionFont(inlineEditRegion) : null
   const inlineEditFontSize = inlineEditRegion
     ? (
         inlineEditLayoutMode === 'artistic'
           ? Math.max(8, inlineEditRegion.fontSize * scale)
-          : calculateBalloonFitFontSize(inlineEdit?.text ?? '', inlineEditRegion.bbox, inlineEditRegion.fontSize) * scale
+          : layoutTextInBox(inlineEdit?.text ?? '', inlineEditRegion.bbox, inlineEditRegion.fontSize, {
+              fontFamily: inlineEditFont?.family,
+              fontWeight: inlineEditFont?.weight,
+              fontStyle: inlineEditFont?.style,
+            }).fontSize * scale
       )
     : 14
   const inlineEditSize = inlineEditRegion
@@ -498,43 +501,36 @@ export default function CanvasEditor({
     const bboxSize = metrics
       ? getInlineTextEditorBboxSize({ metrics, scale })
       : null
+    const layoutMode = normalizeTextLayoutMode(region?.textLayoutMode)
+    const font = region ? resolveRegionFont(region) : null
+    const nextBbox = region && bboxSize ? { ...region.bbox, ...bboxSize } : null
+    const nextFontSize = region && font && nextBbox && layoutMode === 'balloon_fit'
+      ? layoutTextInBox(inlineEdit.text || ' ', nextBbox, region.fontSize, {
+          fontFamily: font.family,
+          fontWeight: font.weight,
+          fontStyle: font.style,
+        }).fontSize
+      : undefined
     onRegionUpdate(inlineEdit.id, {
       translatedText: inlineEdit.text,
-      ...(region && bboxSize ? { bbox: { ...region.bbox, ...bboxSize } } : {}),
+      ...(nextBbox ? { bbox: nextBbox } : {}),
+      ...(nextFontSize !== undefined ? { fontSize: nextFontSize } : {}),
     })
     setInlineEdit(null)
   }, [inlineEdit, onRegionUpdate, regions, scale])
   const cancelInlineEdit = useCallback(() => {
     setInlineEdit(null)
   }, [])
-  const transformerAnchors = selectedLayoutMode === 'artistic'
-    ? [
-        'top-left',
-        'top-center',
-        'top-right',
-        'middle-left',
-        'middle-right',
-        'bottom-left',
-        'bottom-center',
-        'bottom-right',
-      ]
-    : [
-        'top-left',
-        'top-right',
-        'bottom-left',
-        'bottom-right',
-        'middle-left',
-        'middle-right',
-      ]
+  const transformerAnchors = getTextTransformerAnchors(selectedLayoutMode)
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-[8px] border border-[var(--mg-border)] bg-black/45 p-1 backdrop-blur">
+    <div className="studio-canvas flex h-full min-h-0 flex-col">
+      <div className="absolute left-3 top-16 z-20 flex items-center gap-1.5 rounded-[8px] border border-[var(--mg-border)] bg-black/45 p-1 backdrop-blur">
         <div className="flex items-center rounded-[7px] border border-[var(--mg-border)]">
           <button
             className="mg-icon-button h-7 w-7"
             onClick={() => applyZoom(zoom - 0.1)}
-            aria-label="Zoom out"
+            aria-label="ซูมออก"
           >
             <ZoomOut size={14} />
           </button>
@@ -542,7 +538,7 @@ export default function CanvasEditor({
             <input
               className="w-10 bg-transparent text-center font-mono text-xs text-[var(--mg-text)]"
               value={zoomInput}
-              aria-label="Zoom percent"
+              aria-label="เปอร์เซ็นต์ซูม"
               onChange={(e) => setZoomInput(e.target.value)}
               onBlur={handleZoomInputCommit}
               onKeyDown={(e) => e.key === 'Enter' && handleZoomInputCommit()}
@@ -552,7 +548,7 @@ export default function CanvasEditor({
           <button
             className="mg-icon-button h-7 w-7"
             onClick={() => applyZoom(zoom + 0.1)}
-            aria-label="Zoom in"
+            aria-label="ซูมเข้า"
           >
             <ZoomIn size={14} />
           </button>
@@ -560,8 +556,11 @@ export default function CanvasEditor({
 
         <button
           className={`mg-icon-button h-7 w-7 ${isPanning ? 'mg-tool-active' : ''}`}
-          onClick={() => useAppStore.getState().setActiveTool(isPanning ? 'select' : 'pan')}
-          aria-label="Pan mode"
+          onClick={() => {
+            useAppStore.getState().setActiveTool(isPanning ? 'select' : 'pan')
+            if (!isPanning) handleSelect(null)
+          }}
+          aria-label="โหมดเลื่อนผ้าใบ"
         >
           <Hand size={14} />
         </button>
@@ -569,13 +568,13 @@ export default function CanvasEditor({
         <button
           className="mg-icon-button h-7 w-7"
           onClick={handleResetView}
-          aria-label="Reset view"
+          aria-label="รีเซ็ตมุมมอง"
         >
           <RotateCcw size={14} />
         </button>
 
         <span className="px-1 text-[10px] text-[var(--mg-muted)]">
-          {Math.round(zoom * 100)}% · {activeTool}
+          {Math.round(zoom * 100)}% · {getToolLabel(activeTool)}
         </span>
       </div>
 
@@ -605,8 +604,13 @@ export default function CanvasEditor({
           onMouseUp={handlePaintEnd}
           onMouseLeave={handlePaintEnd}
           onDragEnd={handleStageDragEnd}
-          style={{ cursor: getCursor() }}
+          style={{ cursor: getEditorToolCursor(activeTool) }}
         >
+          {/* Layer 0: Zoom-aware workspace grid */}
+          <Layer listening={false}>
+            <CanvasGrid stageSize={stageSize} stagePos={stagePos} zoom={zoom} />
+          </Layer>
+
           {/* Layer 1: Background image */}
           <Layer>
             {image && (
@@ -621,7 +625,7 @@ export default function CanvasEditor({
           {/* Layer 2: Paint strokes */}
           <Layer>
             {brushStrokes.map((stroke) => {
-              const f = computeFeather(stroke.width, stroke.shadowBlur)
+              const f = computeBrushFeather(stroke.width, stroke.shadowBlur)
               return (
                 <Line
                   key={stroke.id}
@@ -642,7 +646,7 @@ export default function CanvasEditor({
             })}
             {/* Currently drawing line */}
             {drawingLine && drawingLine.length >= 2 && (() => {
-              const f = computeFeather(brushSize, brushShadowBlur)
+              const f = computeBrushFeather(brushSize, brushShadowBlur)
               return (
                 <Line
                   points={drawingLine.map((p) => p * scale)}
@@ -663,63 +667,84 @@ export default function CanvasEditor({
           {/* Layer 3: Text regions + Transformer */}
           <Layer visible={showTextOverlay}>
             {regions.map((region) => {
-              const font = resolveFont(region.suggestedFont, region.mood)
+              const font = resolveRegionFont(region)
               const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
               const isArtistic = layoutMode === 'artistic'
               const text = region.translatedText || ' '
+              const textLayout = isArtistic
+                ? null
+                : layoutTextInBox(text, region.bbox, region.fontSize, {
+                    fontFamily: font.family,
+                    fontWeight: font.weight,
+                    fontStyle: font.style,
+                  })
               const fontSize = isArtistic
                 ? Math.max(8, region.fontSize * scale)
-                : calculateBalloonFitFontSize(text, region.bbox, region.fontSize) * scale
+                : textLayout!.fontSize * scale
               return (
-                <Text
-                  key={`${region.id}-${layoutMode}`}
-                  id={region.id}
-                  x={region.bbox.x * scale}
-                  y={region.bbox.y * scale}
-                  text={text}
-                  fontSize={fontSize}
-                  fontFamily={font.family}
-                  fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
-                  fill={region.fontColor}
-                  stroke={region.strokeWidth > 0 ? region.strokeColor : undefined}
-                  strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
-                  fillAfterStrokeEnabled
-                  lineJoin={region.strokeJoin ?? 'round'}
-                  lineHeight={1.18}
-                  {...(isArtistic
-                    ? {
-                        wrap: 'none' as const,
-                        align: 'left' as const,
-                        scaleX: region.textScaleX ?? 1,
-                        scaleY: region.textScaleY ?? 1,
+                <Fragment key={`${region.id}-${layoutMode}`}>
+                  <Text
+                    id={region.id}
+                    x={region.bbox.x * scale}
+                    y={region.bbox.y * scale}
+                    text={isArtistic ? text : textLayout!.lines.join('\n')}
+                    fontSize={fontSize}
+                    fontFamily={font.family}
+                    fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
+                    fill={region.fontColor}
+                    stroke={region.strokeWidth > 0 ? region.strokeColor : undefined}
+                    strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
+                    fillAfterStrokeEnabled
+                    lineJoin={region.strokeJoin ?? 'round'}
+                    lineHeight={1.18}
+                    {...(isArtistic
+                      ? {
+                          wrap: 'none' as const,
+                          align: 'left' as const,
+                          scaleX: region.textScaleX ?? 1,
+                          scaleY: region.textScaleY ?? 1,
+                        }
+                      : {
+                          width: region.bbox.width * scale,
+                          height: region.bbox.height * scale,
+                          padding: Math.max(textLayout!.paddingX, textLayout!.paddingY) * scale,
+                          wrap: 'none' as const,
+                          align: 'center' as const,
+                          verticalAlign: 'middle' as const,
+                        })}
+                    draggable={!isPanning && !isBrushActive && !isEyedropper}
+                    rotation={region.rotation}
+                    opacity={inlineEdit?.id === region.id ? 0.12 : 1}
+                    onClick={() => {
+                      if (!isBrushActive && !isEyedropper) handleSelect(region.id)
+                    }}
+                    onDblClick={() => startInlineEdit(region)}
+                    onDblTap={() => startInlineEdit(region)}
+                    onDragEnd={(e) => handleDragEnd(region.id, e)}
+                    onTransformStart={() => {
+                      textTransformStartRef.current[region.id] = cloneRegions(regions)
+                    }}
+                    onTransform={(e) => {
+                      const node = e.target as Konva.Text
+                      if (layoutMode === 'balloon_fit') {
+                        applyLiveTextBoxResize(node)
+                      } else {
+                        node.getLayer()?.batchDraw()
                       }
-                    : {
-                        width: region.bbox.width * scale,
-                        height: region.bbox.height * scale,
-                        padding: 8 * scale,
-                        wrap: 'word' as const,
-                        align: 'center' as const,
-                        verticalAlign: 'middle' as const,
-                      })}
-                  draggable={!isPanning && !isBrushActive && !isEyedropper}
-                  rotation={region.rotation}
-                  opacity={inlineEdit?.id === region.id ? 0.12 : 1}
-                  onClick={() => {
-                    if (!isBrushActive && !isEyedropper) handleSelect(region.id)
-                  }}
-                  onDblClick={() => startInlineEdit(region)}
-                  onDblTap={() => startInlineEdit(region)}
-                  onDragEnd={(e) => handleDragEnd(region.id, e)}
-                  onTransform={(e) => {
-                    const node = e.target as Konva.Text
-                    if (layoutMode === 'balloon_fit') {
-                      applyLiveTextBoxResize(node)
-                    } else {
-                      node.getLayer()?.batchDraw()
-                    }
-                  }}
-                  onTransformEnd={(e) => handleTransformEnd(region, e)}
-                />
+                    }}
+                    onTransformEnd={(e) => handleTransformEnd(region, e)}
+                  />
+                  {!isArtistic && textLayout!.overflow && selectedId === region.id && (
+                    <Text
+                      x={region.bbox.x * scale}
+                      y={(region.bbox.y - 20) * scale}
+                      text="ข้อความล้นกรอบ"
+                      fontSize={11 * scale}
+                      fill="#fca5a5"
+                      listening={false}
+                    />
+                  )}
+                </Fragment>
               )
             })}
 
@@ -763,6 +788,7 @@ export default function CanvasEditor({
                   viewportZoom={zoom}
                   color={inlineEditRegion.fontColor}
                   align={inlineEditLayoutMode === 'artistic' ? 'left' : 'center'}
+                  layoutMode={inlineEditLayoutMode}
                   onChange={(text) => setInlineEdit((current) => current ? { ...current, text } : current)}
                   onCommit={commitInlineEdit}
                   onCancel={cancelInlineEdit}
@@ -788,4 +814,19 @@ export default function CanvasEditor({
       </div>
     </div>
   )
+}
+
+function cloneRegions(regions: TextRegion[]): TextRegion[] {
+  return regions.map((region) => ({
+    ...region,
+    bbox: { ...region.bbox },
+  }))
+}
+
+function getToolLabel(tool: string): string {
+  if (tool === 'brush') return 'แปรง'
+  if (tool === 'eraser') return 'ยางลบ'
+  if (tool === 'eyedropper') return 'ดูดสี'
+  if (tool === 'pan') return 'เลื่อนผ้าใบ'
+  return 'เลือก'
 }

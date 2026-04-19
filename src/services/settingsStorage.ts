@@ -4,11 +4,8 @@ import { LEGACY_FATHER_SON_STYLE_GUIDE } from './story-context'
 const SETTINGS_KEY = 'mg-translater-settings'
 
 interface SerializedSettings {
-  cleanupBackend?: string
-  translatorApiUrl: string
   panelCleanerBridgeUrl?: string
   panelCleanerExecutablePath?: string
-  panelCleanerUseOcrFallback?: boolean
   sourceLang: string
   fontMoodMap: FontMoodMap
   theme?: string
@@ -22,11 +19,8 @@ interface SerializedSettings {
 export function saveSettings(settings: AppSettings): void {
   try {
     const serialized: SerializedSettings = {
-      cleanupBackend: settings.cleanupBackend,
-      translatorApiUrl: settings.translatorApiUrl,
       panelCleanerBridgeUrl: settings.panelCleanerBridgeUrl,
       panelCleanerExecutablePath: settings.panelCleanerExecutablePath,
-      panelCleanerUseOcrFallback: settings.panelCleanerUseOcrFallback,
       sourceLang: settings.sourceLang,
       fontMoodMap: settings.fontMoodMap,
       theme: settings.theme,
@@ -48,14 +42,9 @@ export function loadSettings(defaults: AppSettings): AppSettings {
     if (!raw) return defaults
 
     const parsed: SerializedSettings = JSON.parse(raw)
-    const cleanupBackend: AppSettings['cleanupBackend'] =
-      parsed.cleanupBackend === 'legacy-manga-translator' ? 'legacy-manga-translator' : defaults.cleanupBackend
     return {
-      cleanupBackend,
-      translatorApiUrl: parsed.translatorApiUrl || defaults.translatorApiUrl,
       panelCleanerBridgeUrl: parsed.panelCleanerBridgeUrl || defaults.panelCleanerBridgeUrl,
       panelCleanerExecutablePath: parsed.panelCleanerExecutablePath || defaults.panelCleanerExecutablePath,
-      panelCleanerUseOcrFallback: parsed.panelCleanerUseOcrFallback ?? defaults.panelCleanerUseOcrFallback,
       sourceLang: (parsed.sourceLang as AppSettings['sourceLang']) || defaults.sourceLang,
       fontMoodMap: parsed.fontMoodMap || defaults.fontMoodMap,
       theme: normalizeTheme(parsed.theme, defaults.theme),

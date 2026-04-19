@@ -11,10 +11,14 @@ export async function uploadObject(ctx: RequestContext, user: AuthUser): Promise
   const pageId = form.get('pageId')
   const pageNumberRaw = form.get('pageNumber')
   const kindRaw = form.get('kind')
+  const sha256Raw = form.get('sha256')
 
   if (!(file instanceof File)) return jsonError('VALIDATION_ERROR', 'file is required', 422)
   if (typeof albumId !== 'string') return jsonError('VALIDATION_ERROR', 'albumId is required', 422)
   if (!isObjectKind(kindRaw)) return jsonError('VALIDATION_ERROR', 'kind is invalid', 422)
+  const sha256 = typeof sha256Raw === 'string' && /^[a-f0-9]{64}$/i.test(sha256Raw)
+    ? sha256Raw.toLowerCase()
+    : null
 
   const album = await getOwnedAlbum(ctx, user.id, albumId)
   if (!album) return jsonError('NOT_FOUND', 'Album not found', 404)
@@ -30,7 +34,23 @@ export async function uploadObject(ctx: RequestContext, user: AuthUser): Promise
 
   const key = `users/${user.id}/albums/${album.id}/${String(pageNumber).padStart(4, '0')}_${kindRaw}.webp`
   const contentType = file.type || 'image/webp'
-  await ctx.env.IMAGES.put(key, file.stream(), { httpMetadata: { contentType } })
+  const existing = await ctx.db.select().from(schema.objects)
+    .where(and(eq(schema.objects.key, key), eq(schema.objects.userId, user.id)))
+    .get()
+  const skipped = Boolean(
+    existing &&
+    sha256 &&
+    existing.sha256 === sha256 &&
+    existing.sizeBytes === file.size &&
+    existing.contentType === contentType,
+  )
+
+  if (!skipped) {
+    await ctx.env.IMAGES.put(key, file.stream(), {
+      httpMetadata: { contentType },
+      customMetadata: sha256 ? { sha256 } : undefined,
+    })
+  }
 
   const now = Date.now()
   await ctx.db.insert(schema.objects).values({
@@ -41,6 +61,7 @@ export async function uploadObject(ctx: RequestContext, user: AuthUser): Promise
     kind: kindRaw,
     contentType,
     sizeBytes: file.size,
+    sha256,
     createdAt: now,
   }).onConflictDoUpdate({
     target: schema.objects.key,
@@ -51,6 +72,7 @@ export async function uploadObject(ctx: RequestContext, user: AuthUser): Promise
       kind: kindRaw,
       contentType,
       sizeBytes: file.size,
+      sha256,
       createdAt: now,
     },
   }).run()
@@ -62,7 +84,7 @@ export async function uploadObject(ctx: RequestContext, user: AuthUser): Promise
     }
   }
 
-  return json({ key, size: file.size })
+  return json({ key, size: file.size, sha256, skipped })
 }
 
 export async function getObject(ctx: RequestContext, user: AuthUser, key: string): Promise<Response> {

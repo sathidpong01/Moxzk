@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Konva from 'konva'
 import { useAppStore } from './store/appStore'
-import type { AppStep, ExportFormat } from './types'
+import type { ExportFormat } from './types'
 import { useAutoSave } from './hooks/useAutoSave'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useEditorActions } from './hooks/useEditorActions'
@@ -17,12 +17,17 @@ import ExportStep from './components/Steps/ExportStep'
 import PanelToggleBar from './components/Layout/PanelToggleBar'
 import SettingsPanel from './components/Settings/SettingsPanel'
 import FontConfigPage from './components/Settings/FontConfigPage'
-import { Badge, Button, DropdownItem, DropdownMenu, IconButton, Modal } from './components/ui/primitives'
+import { Button, DropdownItem, DropdownMenu, IconButton, Modal, SelectField } from './components/ui/primitives'
 import { Toaster } from 'sonner'
-import { BookOpen, Download, FolderOpen, ImagePlus, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
+import { BookOpen, Download, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
 import type { ProcessingMode } from './types'
 
 // ── Main App ─────────────────────────────────────────────────────────
+
+const AI_MODE_OPTIONS: Array<{ value: ProcessingMode; label: string }> = [
+  { value: 'gemma_vision_full', label: 'Gemma อ่าน+แปล' },
+  { value: 'clean_only', label: 'คลีนอย่างเดียว' },
+]
 
 function App() {
   const store = useAppStore()
@@ -32,11 +37,19 @@ function App() {
   const addImagesInputRef = useRef<HTMLInputElement>(null)
   const [canvasScale, setCanvasScale] = useState(1)
   const [aiConfirmTarget, setAiConfirmTarget] = useState<'single' | 'batch' | null>(null)
+  const [processingMode, setProcessingMode] = useState<ProcessingMode>('gemma_vision_full')
   const [batchStopConfirmOpen, setBatchStopConfirmOpen] = useState(false)
   const [clearProjectConfirmOpen, setClearProjectConfirmOpen] = useState(false)
   const albumTitle = albumStore.currentAlbum?.title?.trim() || 'โปรเจกต์ใหม่'
-  const stepLabel = useMemo(() => getStepLabel(store.currentStep), [store.currentStep])
-  const defaultBatchMode: ProcessingMode = store.settings.cleanupBackend === 'panelcleaner' ? 'gemma_vision_full' : 'full'
+  const activePageIndex = Math.max(0, store.imageEntries.findIndex((entry) => entry.id === store.activeImageId))
+  const headerStatus = getHeaderStatus({
+    step: store.currentStep,
+    queuedImages: store.images.length,
+    pageCount: store.imageEntries.length,
+    activePageIndex,
+    regions: store.regions.length,
+    strokes: store.brushStrokes.length,
+  })
 
   // Init: restore custom fonts + auth
   useEffect(() => { store.init() }, [])
@@ -52,7 +65,6 @@ function App() {
       console.warn('[auth] Failed to refresh Google session:', error)
     })
   }, [])
-
   // Consolidated editor action callbacks
   const {
     retryCount,
@@ -102,31 +114,23 @@ function App() {
     if (aiConfirmTarget === 'single') {
       handleStartAI()
     } else if (aiConfirmTarget === 'batch') {
-      handleStartBatchAI(defaultBatchMode)
+      handleStartBatchAI(processingMode)
     }
     setAiConfirmTarget(null)
   }
 
   return (
-    <div className="studio-shell flex h-screen flex-col overflow-hidden">
-      <div className="studio-chrome z-30 flex h-11 shrink-0 items-center justify-between gap-2 border-b px-2 sm:px-4">
-        <div className="flex min-w-0 max-w-[180px] items-center gap-1.5 text-sm font-bold sm:max-w-none sm:gap-2">
+    <div className="studio-shell relative h-screen overflow-hidden">
+      <header className="pointer-events-none fixed left-3 right-3 top-3 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
+        <div className="floating-panel-sm mg-header-panel pointer-events-auto flex w-fit max-w-full min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
           <BookOpen size={16} className="hidden shrink-0 text-[var(--mg-muted)] sm:block" />
-          <span className="truncate text-[var(--mg-muted)]" title={albumTitle}>{albumTitle}</span>
-          <span className="hidden text-[var(--mg-dim)] sm:inline">/</span>
-          <div className="hidden items-center gap-1 sm:flex" aria-label={`Current step: ${stepLabel}`}>
-            {(['upload', 'edit', 'export'] as AppStep[]).map((step) => (
-              <Badge
-                key={step}
-                className={step === store.currentStep ? 'border-blue-300/50 text-blue-100' : 'text-[var(--mg-dim)]'}
-              >
-                {getStepLabel(step)}
-              </Badge>
-            ))}
+          <div className="min-w-0">
+            <div className="truncate text-sm font-bold text-[var(--mg-text)]" title={albumTitle}>{albumTitle}</div>
+            <div className="hidden truncate text-[11px] font-bold text-[var(--mg-muted)] min-[420px]:block">{headerStatus}</div>
           </div>
         </div>
 
-        <div className="flex min-w-0 shrink-0 items-center gap-1 sm:gap-2">
+        <div className="floating-panel-sm mg-header-panel pointer-events-auto flex min-w-0 max-w-full shrink-0 items-center justify-self-end gap-1 px-2 py-2 sm:gap-2">
           {store.currentStep === 'edit' && (
             <>
               <input
@@ -142,29 +146,22 @@ function App() {
                 onClick={() => addImagesInputRef.current?.click()}
               >
                 <ImagePlus size={14} />
-                <span className="hidden sm:inline">เพิ่มรูปภาพ</span>
-              </button>
-              <IconButton
-                label="Open albums"
-                onClick={handleOpenAlbums}
-              >
-                <FolderOpen size={15} />
-              </IconButton>
-              <button
-                className="mg-button mg-button-ghost mg-button-sm gap-1"
-                onClick={() => setClearProjectConfirmOpen(true)}
-                title="ล้างโปรเจกต์ปัจจุบันและกลับไปหน้าอัปโหลด"
-              >
-                <RotateCcw size={14} />
-                <span className="hidden sm:inline">ล้างโปรเจกต์</span>
+                <span className="hidden sm:inline">เพิ่มหน้า</span>
               </button>
               <button className="mg-button mg-button-soft mg-button-sm mg-mobile-hidden gap-1" onClick={handleSaveToAlbum}>
-                <Save size={14} /> Save
+                <Save size={14} /> บันทึก
               </button>
+              <SelectField
+                value={processingMode}
+                onChange={setProcessingMode}
+                buttonClassName="h-8 min-h-8 w-40 py-0 text-xs"
+                className="hidden lg:block"
+                options={AI_MODE_OPTIONS}
+              />
               <DropdownMenu
                 trigger={(
-                  <button className="mg-button mg-button-ai mg-button-sm mg-mobile-hidden gap-1" disabled={store.isProcessing || isBatchProcessing}>
-                    <Wand2 size={14} /> AI
+                  <button className="mg-button mg-button-ai mg-button-sm gap-1" disabled={store.isProcessing || isBatchProcessing}>
+                    <Wand2 size={14} /> <span className="hidden sm:inline">AI อ่าน+แปล</span>
                   </button>
                 )}
               >
@@ -184,27 +181,63 @@ function App() {
               )}
               <button className="mg-button mg-button-primary mg-button-sm gap-1 px-2 sm:px-3" onClick={handleContinueToExport}>
                 <Download size={14} />
-                <span className="hidden sm:inline">Export</span>
+                <span className="hidden sm:inline">ส่งออก</span>
               </button>
+              <DropdownMenu
+                trigger={(
+                  <button className="mg-button mg-button-ghost mg-button-sm gap-1">
+                    <MoreHorizontal size={14} />
+                    <span className="hidden lg:inline">เพิ่มเติม</span>
+                  </button>
+                )}
+              >
+                <DropdownItem onClick={handleOpenAlbums}>
+                  <FolderOpen size={14} /> เปิดอัลบั้ม
+                </DropdownItem>
+                <DropdownItem onClick={() => store.toggleFontConfig(true)}>
+                  <Type size={14} /> ฟอนต์
+                </DropdownItem>
+                <DropdownItem onClick={() => store.toggleSettings(true)}>
+                  <Settings size={14} /> ตั้งค่า
+                </DropdownItem>
+                {AI_MODE_OPTIONS.map((option) => (
+                  <DropdownItem key={option.value} onClick={() => setProcessingMode(option.value)}>
+                    <Wand2 size={14} /> {processingMode === option.value ? 'ใช้โหมด: ' : 'โหมด: '}{option.label}
+                  </DropdownItem>
+                ))}
+                <DropdownItem className="text-red-200" onClick={() => setClearProjectConfirmOpen(true)}>
+                  <RotateCcw size={14} /> ล้างโปรเจกต์
+                </DropdownItem>
+              </DropdownMenu>
             </>
           )}
-          <IconButton
-            label="Fonts"
-            onClick={() => store.toggleFontConfig(true)}
-          >
-            <Type size={14} />
-          </IconButton>
-          <IconButton
-            label="Settings"
-            onClick={() => store.toggleSettings(true)}
-          >
-            <Settings size={14} />
-          </IconButton>
+          {store.currentStep !== 'edit' && (
+            <>
+              <IconButton
+                label="เปิดอัลบั้ม"
+                onClick={handleOpenAlbums}
+              >
+                <FolderOpen size={15} />
+              </IconButton>
+              <IconButton
+                label="ฟอนต์"
+                onClick={() => store.toggleFontConfig(true)}
+              >
+                <Type size={14} />
+              </IconButton>
+              <IconButton
+                label="ตั้งค่า"
+                onClick={() => store.toggleSettings(true)}
+              >
+                <Settings size={14} />
+              </IconButton>
+            </>
+          )}
           <UserMenu />
         </div>
-      </div>
+      </header>
 
-      <main className="relative flex-1 overflow-hidden">
+      <main className="relative h-full overflow-hidden">
         {store.currentStep === 'upload' && (
           <UploadStep
             images={store.images}
@@ -222,6 +255,7 @@ function App() {
             onRetryFailedBatchAI={handleRetryFailedBatchAI}
             onRetryAI={handleRetryAI}
             onCancelAI={handleCancelAI}
+            processingMode={processingMode}
             retryCount={retryCount}
             isBatchProcessing={isBatchProcessing}
             batchStatus={batchStatus}
@@ -332,15 +366,34 @@ function App() {
           </div>
         </div>
       </Modal>
-      <Toaster position="top-right" theme="dark" richColors closeButton />
+      <Toaster position="top-right" theme="dark" richColors closeButton toastOptions={{ className: 'mt-12' }} />
     </div>
   )
 }
 
-function getStepLabel(step: AppStep): string {
-  if (step === 'upload') return 'อัปโหลด'
-  if (step === 'edit') return 'แก้ไข'
-  return 'ส่งออก'
+function getHeaderStatus({
+  step,
+  queuedImages,
+  pageCount,
+  activePageIndex,
+  regions,
+  strokes,
+}: {
+  step: 'upload' | 'edit' | 'export'
+  queuedImages: number
+  pageCount: number
+  activePageIndex: number
+  regions: number
+  strokes: number
+}): string {
+  if (step === 'upload') {
+    return queuedImages > 0 ? `${queuedImages} หน้าในคิว` : 'ลากรูป วางจากคลิปบอร์ด หรือเปิดจากอัลบั้ม'
+  }
+  if (step === 'export') {
+    return `${Math.max(pageCount, 1)} หน้า · ตรวจไฟล์ก่อนดาวน์โหลด`
+  }
+  const pageText = pageCount > 1 ? `หน้า ${activePageIndex + 1}/${pageCount}` : 'หน้าเดียว'
+  return `${pageText} · ${regions} กล่องข้อความ · ${strokes} สโตรกแปรง`
 }
 
 export default App

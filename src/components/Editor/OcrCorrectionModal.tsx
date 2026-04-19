@@ -60,7 +60,7 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
         count++
       }
     }
-    if (count > 0) toast.success(`แก้ไข OCR ${count} regions`)
+    if (count > 0) toast.success(`แก้ไข OCR ${count} กล่อง`)
     onClose()
   }, [editTexts, regions, updateRegion, onClose])
 
@@ -85,7 +85,7 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
       }
     }
     setTranslating(false)
-    toast.success(`แปลเสร็จ ${done}/${ids.length} regions`)
+    toast.success(`แปลเสร็จ ${done}/${ids.length} กล่อง`)
   }, [selected, regions, editTexts, settings, updateRegion])
 
   const lowConfCount = regions.filter((region) => {
@@ -99,9 +99,9 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
       onClose={onClose}
       title={(
         <span className="flex items-center gap-2">
-          ตรวจสอบ OCR ({regions.length} regions)
+          ตรวจสอบ OCR ({regions.length} กล่อง)
           {lowConfCount > 0 && (
-            <Badge className="text-yellow-300"><AlertTriangle size={10} /> {lowConfCount} confidence ต่ำ</Badge>
+            <Badge className="text-yellow-300"><AlertTriangle size={10} /> {lowConfCount} ความมั่นใจต่ำ</Badge>
           )}
         </span>
       )}
@@ -117,12 +117,12 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
                     type="checkbox"
                     checked={selected.size === regions.length && regions.length > 0}
                     onChange={selectAll}
-                    aria-label="Select all OCR regions"
+                    aria-label="เลือก OCR ทั้งหมด"
                   />
                 </th>
                 <th className="w-8 px-2 py-2">#</th>
-                <th className="px-2 py-2">OCR Text</th>
-                <th className="w-20 px-2 py-2">Conf.</th>
+                <th className="px-2 py-2">ข้อความ OCR</th>
+                <th className="w-20 px-2 py-2">มั่นใจ</th>
                 <th className="w-24 px-2 py-2">แปลแล้ว</th>
               </tr>
             </thead>
@@ -137,7 +137,7 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
                         type="checkbox"
                         checked={selected.has(region.id)}
                         onChange={() => toggleSelect(region.id)}
-                        aria-label={`Select OCR region ${index + 1}`}
+                        aria-label={`เลือก OCR กล่อง ${index + 1}`}
                       />
                     </td>
                     <td className="px-2 py-2 text-[var(--mg-dim)]">{index + 1}</td>

@@ -39,9 +39,33 @@ export function buildStorageKey(
 
 // ── Upload ───────────────────────────────────────────────────────────
 
+export interface PreparedImageUpload {
+  blob: Blob
+  sha256: string
+  size: number
+}
+
 interface UploadResult {
   key: string
   size: number
+  sha256: string
+  skipped: boolean
+}
+
+export async function hashBlob(blob: Blob): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+export async function prepareImageUpload(blob: Blob): Promise<PreparedImageUpload> {
+  const webpBlob = await convertToWebP(blob)
+  return {
+    blob: webpBlob,
+    sha256: await hashBlob(webpBlob),
+    size: webpBlob.size,
+  }
 }
 
 /**
@@ -52,14 +76,21 @@ export async function uploadImage(
   blob: Blob,
   key: string,
 ): Promise<UploadResult> {
-  const webpBlob = await convertToWebP(blob)
+  return uploadPreparedImage(await prepareImageUpload(blob), key)
+}
+
+export async function uploadPreparedImage(
+  prepared: PreparedImageUpload,
+  key: string,
+): Promise<UploadResult> {
   const keyParts = parseStorageKey(key)
 
   const formData = new FormData()
-  formData.append('file', webpBlob, key)
+  formData.append('file', prepared.blob, key)
   formData.append('albumId', keyParts.albumId)
   formData.append('pageNumber', String(keyParts.pageNumber))
   formData.append('kind', keyParts.kind)
+  formData.append('sha256', prepared.sha256)
 
   const result = await apiFetch<UploadResult>('/api/storage/upload', {
     method: 'POST',
@@ -67,9 +98,14 @@ export async function uploadImage(
   })
 
   // Cache locally after successful upload
-  await putCache(key, webpBlob)
+  await putCache(key, prepared.blob)
 
-  return { key: result.key ?? key, size: webpBlob.size }
+  return {
+    key: result.key ?? key,
+    size: result.size ?? prepared.size,
+    sha256: result.sha256 ?? prepared.sha256,
+    skipped: Boolean(result.skipped),
+  }
 }
 
 // ── Download ─────────────────────────────────────────────────────────

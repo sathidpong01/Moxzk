@@ -11,7 +11,7 @@ import {
   GripVertical,
 } from 'lucide-react'
 import type { ActiveTool } from '../../types'
-import { IconButton, ToolButton } from '../ui/primitives'
+import { DisclosureSection, IconButton, ToolButton } from '../ui/primitives'
 
 const PRESET_COLORS = [
   '#ffffff', '#000000', '#f5f5f5', '#d4d4d4',
@@ -19,9 +19,9 @@ const PRESET_COLORS = [
 ]
 
 const BRUSH_TOOLS: { tool: ActiveTool; label: string; icon: typeof Paintbrush }[] = [
-  { tool: 'brush', label: 'Brush', icon: Paintbrush },
-  { tool: 'eraser', label: 'Eraser', icon: Eraser },
-  { tool: 'eyedropper', label: 'Eyedropper', icon: Pipette },
+  { tool: 'brush', label: 'แปรง', icon: Paintbrush },
+  { tool: 'eraser', label: 'ยางลบ', icon: Eraser },
+  { tool: 'eyedropper', label: 'ดูดสี', icon: Pipette },
 ]
 
 interface BrushToolbarProps {
@@ -32,11 +32,18 @@ export default function BrushToolbar({ onClose }: BrushToolbarProps) {
   const store = useAppStore()
   const { panelStyle, dragHandleProps } = useFloatingPanel({
     id: 'brush-toolbar',
-    defaultPosition: { x: 60, y: 200 },
+    defaultPosition: { x: 72, y: 260 },
     defaultVisible: true,
   })
 
   const isBrushTool = ['brush', 'eraser', 'eyedropper'].includes(store.activeTool)
+  const undoEntries = store._editorUndoStack.filter((entry) => entry.activeImageId === store.activeImageId)
+  const redoEntries = store._editorRedoStack.filter((entry) => entry.activeImageId === store.activeImageId)
+  const setTool = (tool: ActiveTool) => {
+    const nextTool = store.activeTool === tool ? 'select' : tool
+    store.setActiveTool(nextTool)
+    if (nextTool !== 'select') store.selectRegion(null)
+  }
 
   return (
     <div style={panelStyle} className="floating-panel panel-enter w-56 p-3">
@@ -44,11 +51,11 @@ export default function BrushToolbar({ onClose }: BrushToolbarProps) {
         <div {...dragHandleProps} className="flex items-center gap-1 drag-handle flex-1">
           <GripVertical size={14} className="text-[var(--mg-dim)]" />
           <span className="text-xs font-bold uppercase tracking-wider text-[var(--mg-muted)]">
-            Brush Tools
+            แปรงและยางลบ
           </span>
         </div>
         <IconButton
-          label="Close brush tools"
+          label="ปิดแผงแปรง"
           onClick={() => onClose?.()}
         >
           <X size={12} />
@@ -61,7 +68,7 @@ export default function BrushToolbar({ onClose }: BrushToolbarProps) {
             key={tool}
             label={label}
             active={store.activeTool === tool}
-            onClick={() => store.setActiveTool(store.activeTool === tool ? 'select' : tool)}
+            onClick={() => setTool(tool)}
           >
             <Icon size={16} />
           </ToolButton>
@@ -81,10 +88,10 @@ export default function BrushToolbar({ onClose }: BrushToolbarProps) {
 
       {/* Color picker + presets */}
       {isBrushTool && store.activeTool !== 'eyedropper' && (
-        <>
-          <div className="mb-2">
+        <DisclosureSection title="สีและหัวแปรง">
+          <div>
             <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">
-              Color
+              สี
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -112,9 +119,9 @@ export default function BrushToolbar({ onClose }: BrushToolbarProps) {
           </div>
 
           {/* Brush size */}
-          <div className="mb-2">
+          <div>
             <label className="mb-1 flex justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">
-              <span>Size</span>
+              <span>ขนาด</span>
               <span>{store.brushSize}px</span>
             </label>
             <input
@@ -128,9 +135,9 @@ export default function BrushToolbar({ onClose }: BrushToolbarProps) {
           </div>
 
           {/* Opacity */}
-          <div className="mb-2">
+          <div>
             <label className="mb-1 flex justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">
-              <span>Opacity</span>
+              <span>ความทึบ</span>
               <span>{Math.round(store.brushOpacity * 100)}%</span>
             </label>
             <input
@@ -145,47 +152,47 @@ export default function BrushToolbar({ onClose }: BrushToolbarProps) {
 
           {/* Feather (always available for brush) */}
           {store.activeTool === 'brush' && (
-            <div className="mb-2">
+            <div>
               <label className="mb-1 flex justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">
-                <span>Feather</span>
+                <span>ขอบฟุ้ง</span>
                 <span>{store.brushShadowBlur}px</span>
               </label>
               <input
                 type="range"
                 className="mg-slider"
                 min={0}
-                max={Math.floor(store.brushSize / 2)}
-                value={Math.min(store.brushShadowBlur, Math.floor(store.brushSize / 2))}
+                max={32}
+                value={Math.min(store.brushShadowBlur, 32)}
                 onChange={(e) => store.setBrushShadowBlur(Number(e.target.value))}
               />
             </div>
           )}
-        </>
+        </DisclosureSection>
       )}
 
       {/* Undo / Redo / Clear */}
       <div className="flex items-center gap-1 border-t border-[var(--mg-border)] pt-2">
         <button
           className="mg-button mg-button-ghost mg-button-sm flex-1"
-          onClick={store.undoBrushStroke}
-          disabled={store.brushStrokes.length === 0}
-          title="Undo (Ctrl+Z)"
+          onClick={() => store.undoEditorEdit()}
+          disabled={undoEntries.length === 0}
+          title="เลิกทำ (Ctrl+Z)"
         >
-          <Undo2 size={12} /> Undo
+          <Undo2 size={12} /> เลิกทำ
         </button>
         <button
           className="mg-button mg-button-ghost mg-button-sm flex-1"
-          onClick={store.redoBrushStroke}
-          disabled={store._brushRedoStack.length === 0}
-          title="Redo (Ctrl+Y)"
+          onClick={() => store.redoEditorEdit()}
+          disabled={redoEntries.length === 0}
+          title="ทำซ้ำ (Ctrl+Y)"
         >
-          <Redo2 size={12} /> Redo
+          <Redo2 size={12} /> ทำซ้ำ
         </button>
         <button
           className="mg-icon-button h-7 w-7 text-[var(--mg-danger)]"
           onClick={store.clearBrushStrokes}
           disabled={store.brushStrokes.length === 0}
-          title="Clear all strokes"
+          title="ล้างสโตรกแปรงทั้งหมด"
         >
           <Trash2 size={12} />
         </button>

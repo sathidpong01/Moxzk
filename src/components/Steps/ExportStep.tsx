@@ -86,7 +86,7 @@ export default function ExportStep({
           return {
             id: entry.id,
             url: null,
-            error: error instanceof Error ? error.message : 'Render preview ล้มเหลว',
+            error: error instanceof Error ? error.message : 'สร้างตัวอย่างล้มเหลว',
           }
         }
       }),
@@ -125,14 +125,14 @@ export default function ExportStep({
   }
 
   return (
-    <div className="studio-canvas flex h-full gap-3 p-3">
+    <div className="studio-canvas flex h-full gap-3 p-3 pt-20">
       <div className="flex-1 min-w-0 min-h-0 flex flex-col">
         {sortedEntries.length > 1 ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex min-h-0 flex-1 flex-col gap-2">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-[var(--mg-text)]">หน้าที่จะ Export</h2>
+                  <h2 className="text-lg font-bold text-[var(--mg-text)]">หน้าที่จะส่งออก</h2>
                   <p className="text-sm text-[var(--mg-muted)]">
                     {activeEntry
                       ? `กำลังดูหน้า ${activeEntry.pageNumber ?? '?'} จาก ${selectedEntries.length} หน้า`
@@ -155,13 +155,13 @@ export default function ExportStep({
                     <ImageIcon size={36} aria-hidden="true" />
                     <p className="mt-3 text-sm font-bold">
                       {isRenderingPreview
-                        ? 'กำลังสร้าง preview ที่มีตัวหนังสือ'
+                        ? 'กำลังสร้างตัวอย่างที่มีตัวหนังสือ'
                         : activeRenderError || 'ยังไม่มีหน้าที่พร้อมเปรียบเทียบ'}
                     </p>
                     <p className="mt-1 text-xs">
                       {selectedEntries.length > 0
-                        ? 'ระบบจะใช้ภาพเดียวกับไฟล์ export จริง'
-                        : 'เลือกหน้าจากแผง Export ด้านขวา'}
+                        ? 'ระบบจะใช้ภาพเดียวกับไฟล์ส่งออกจริง'
+                        : 'เลือกหน้าจากแผงส่งออกด้านขวา'}
                     </p>
                   </div>
                 )}
@@ -195,7 +195,7 @@ export default function ExportStep({
                           ) : (
                             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--mg-muted)]">
                               <ImageIcon size={28} aria-hidden="true" />
-                              <span className="text-xs font-bold">ไม่มี preview</span>
+                              <span className="text-xs font-bold">ไม่มีตัวอย่าง</span>
                             </div>
                           )}
                         </div>
@@ -213,7 +213,7 @@ export default function ExportStep({
                 <div className="flex min-h-32 flex-col items-center justify-center text-center text-[var(--mg-muted)]">
                   <ImageIcon size={36} aria-hidden="true" />
                   <p className="mt-3 text-sm font-bold">ยังไม่มีหน้าที่เลือก</p>
-                  <p className="mt-1 text-xs">เลือกหน้าจากแผง Export ด้านขวา</p>
+                  <p className="mt-1 text-xs">เลือกหน้าจากแผงส่งออกด้านขวา</p>
                 </div>
               )}
             </div>
@@ -226,27 +226,27 @@ export default function ExportStep({
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-[8px] border border-dashed border-[var(--mg-border)] bg-black/20 text-center text-[var(--mg-muted)]">
             <ImageIcon size={36} aria-hidden="true" />
-            <p className="mt-3 text-sm font-bold">ยังไม่มี preview สำหรับ export</p>
-            <p className="mt-1 text-xs">กลับไป Editor แล้วลองบันทึกหรือเลือกหน้าอีกครั้ง</p>
+            <p className="mt-3 text-sm font-bold">ยังไม่มีตัวอย่างสำหรับส่งออก</p>
+            <p className="mt-1 text-xs">กลับไปหน้าแก้ไข แล้วลองบันทึกหรือเลือกหน้าอีกครั้ง</p>
           </div>
         )}
       </div>
       <div className="flex w-72 shrink-0 flex-col gap-3">
         <Panel className="p-4">
-            <h2 className="mb-3 text-lg font-bold">Export</h2>
-            <Field label="Format">
+            <h2 className="mb-3 text-lg font-bold">ตั้งค่าส่งออก</h2>
+            <Field label="รูปแบบไฟล์">
               <SelectField
                 value={exportFormat}
                 onChange={onExportFormatChange}
                 options={[
-                  { value: 'png', label: 'PNG (lossless)' },
-                  { value: 'jpg', label: 'JPG (smaller file)' },
-                  { value: 'webp', label: 'WebP (best balance)' },
+                  { value: 'png', label: 'PNG (คมชัด ไม่บีบอัด)' },
+                  { value: 'jpg', label: 'JPG (ไฟล์เล็ก)' },
+                  { value: 'webp', label: 'WebP (สมดุลที่สุด)' },
                 ]}
               />
             </Field>
             {exportFormat !== 'png' && (
-              <Field label={`Quality: ${exportQuality}%`} className="mt-3">
+              <Field label={`คุณภาพ: ${exportQuality}%`} className="mt-3">
                 <input
                   type="range"
                   className="mg-slider"
@@ -258,7 +258,7 @@ export default function ExportStep({
               </Field>
             )}
             {sortedEntries.length > 1 && (
-              <Field label="Pages" className="mt-3">
+              <Field label="หน้า" className="mt-3">
                 <div className="max-h-64 overflow-auto rounded-[8px] border border-[var(--mg-border)] bg-black/20 p-2">
                   <label className="mb-2 flex items-center gap-2 border-b border-[var(--mg-border)] pb-2 text-xs font-bold text-[var(--mg-text)]">
                     <input
@@ -297,7 +297,7 @@ export default function ExportStep({
               onClick={() => onExport(sortedEntries.length > 1 ? selectedIds : undefined)}
               disabled={sortedEntries.length > 1 && selectedIds.length === 0}
             >
-              <Download size={16} /> Download
+              <Download size={16} /> ดาวน์โหลด
             </Button>
         </Panel>
         <Button
@@ -305,7 +305,7 @@ export default function ExportStep({
           size="sm"
           onClick={onBack}
         >
-          <ArrowLeft size={14} /> Back to Editor
+          <ArrowLeft size={14} /> กลับไปแก้ไข
         </Button>
       </div>
     </div>

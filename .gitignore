@@ -23,6 +23,8 @@
 /.vercel
 /output
 /.venv-panelcleaner
+/.agents/private/*
+!/.agents/private/.gitkeep
 
 # local sample images
 /Wrong sauna 01.jpg

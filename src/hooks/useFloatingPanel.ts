@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FloatingPanelPosition } from '../types'
 
 const STORAGE_PREFIX = 'mg-panel-'
+const PANEL_MARGIN = 12
 
 interface UseFloatingPanelOptions {
   id: string
@@ -60,8 +61,8 @@ export function useFloatingPanel({
   useEffect(() => {
     const handleResize = () => {
       setPosition((prev) => ({
-        x: Math.max(0, Math.min(window.innerWidth - 60, prev.x)),
-        y: Math.max(0, Math.min(window.innerHeight - 40, prev.y)),
+        x: Math.max(PANEL_MARGIN, Math.min(window.innerWidth - 80, prev.x)),
+        y: Math.max(PANEL_MARGIN, Math.min(window.innerHeight - 56, prev.y)),
       }))
     }
     window.addEventListener('resize', handleResize)
@@ -87,8 +88,8 @@ export function useFloatingPanel({
 
       const handleMouseMove = (ev: MouseEvent) => {
         if (!isDragging.current) return
-        const newX = Math.max(0, Math.min(window.innerWidth - 60, ev.clientX - dragOffset.current.x))
-        const newY = Math.max(0, Math.min(window.innerHeight - 40, ev.clientY - dragOffset.current.y))
+        const newX = Math.max(PANEL_MARGIN, Math.min(window.innerWidth - 80, ev.clientX - dragOffset.current.x))
+        const newY = Math.max(PANEL_MARGIN, Math.min(window.innerHeight - 56, ev.clientY - dragOffset.current.y))
         setPosition({ x: newX, y: newY })
       }
 
@@ -115,6 +116,8 @@ export function useFloatingPanel({
     top: position.y,
     zIndex: 50,
     display: visible ? undefined : 'none',
+    maxWidth: `calc(100vw - ${PANEL_MARGIN * 2}px)`,
+    maxHeight: `calc(100vh - ${PANEL_MARGIN * 2}px)`,
   }
 
   return { position, visible, toggleVisible, dragHandleProps, panelStyle }

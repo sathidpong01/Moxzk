@@ -56,6 +56,10 @@ interface OllamaTranslationResponse {
 const DEFAULT_OLLAMA_URL = 'http://localhost:11434'
 const DEFAULT_OLLAMA_MODEL = 'gemma4'
 const MOODS: MoodType[] = ['normal', 'shouting', 'whisper', 'comedy', 'narration', 'sfx']
+const TEXT_DETECTION_SCOPE_RULES = `Default text scope:
+- Prioritize speech balloons and narration boxes.
+- Skip decorative SFX, tiny background effects, signs, watermarks, and incidental text outside balloons unless it is essential to the story.
+- If a pre-detected region is only decorative effect text or too small to translate reliably, return that index with empty original and translated strings.`
 
 export function normalizeOllamaBaseUrl(apiUrl?: string): string {
   const trimmed = (apiUrl || DEFAULT_OLLAMA_URL).trim().replace(/\/+$/, '')
@@ -153,6 +157,7 @@ function buildVisionPrompt(
 
 ${langInstruction}
 ${buildThaiMangaRules(context)}
+${TEXT_DETECTION_SCOPE_RULES}
 
 OCR regions:
 ${regions.join('\n')}
@@ -219,6 +224,7 @@ function buildBoxedVisionPrompt(
 ${langInstruction}
 ${imageSizeInstruction}
 ${buildThaiMangaRules(context)}
+${TEXT_DETECTION_SCOPE_RULES}
 
 Read and translate only the text inside these pre-detected regions:
 ${regions.join('\n')}
@@ -262,6 +268,7 @@ function buildVisionOnlyPrompt(
 ${langInstruction}
 ${sizeInstruction}
 ${buildThaiMangaRules(context)}
+${TEXT_DETECTION_SCOPE_RULES}
 
 Detect every visible manga text region in the image, translate each region into natural Thai, and choose mood/font metadata.
 
@@ -281,49 +288,11 @@ Return JSON only, with this exact shape:
 
 Rules:
 - Use absolute pixel coordinates.
-- Include every speech bubble, narration box, and SFX text you can read.
-- Return one item per speech balloon, narration box, or SFX block. Do not split one balloon into separate lines.
+- Include speech bubbles and narration boxes. Skip small decorative SFX/effects by default.
+- Return one item per speech balloon or narration box. Do not split one balloon into separate lines.
 - Order items top-to-bottom, then left-to-right within the same row.
 - If text is unreadable, omit that region instead of guessing.
 - Keep source transcription as complete as possible. Do not omit words just because they wrap across lines.
-- mood must be one of: normal, shouting, whisper, comedy, narration, sfx.
-- suggestedFont must be one of: normal, normal_bold, normal_italic, shouting, comedy, comedy_bold, whisper, narration, sfx, cute.
-- Output JSON only.`
-}
-
-function buildOcrOnlyPrompt(sourceLang: string, imageSize?: { width: number; height: number }): string {
-  const langInstruction = sourceLang === 'auto'
-    ? 'Detect the source language from the manga page automatically.'
-    : `The source language is ${sourceLang}.`
-  const sizeInstruction = imageSize
-    ? `The image size is ${imageSize.width}x${imageSize.height} pixels. Return absolute pixel coordinates in that coordinate space.`
-    : 'Return absolute pixel coordinates for each detected text region.'
-
-  return `You are a manga OCR engine.
-
-${langInstruction}
-${sizeInstruction}
-
-Detect every visible manga text region in the image and transcribe only the source text.
-
-Return JSON only, with this exact shape:
-{
-  "translations": [
-    {
-      "index": 0,
-      "bbox": { "x": 10, "y": 20, "width": 100, "height": 50 },
-      "original": "source text",
-      "mood": "normal",
-      "suggestedFont": "normal"
-    }
-  ]
-}
-
-Rules:
-- Use absolute pixel coordinates.
-- Include every speech bubble, narration box, and SFX text you can read.
-- If text is unreadable, omit that region instead of guessing.
-- Do not translate.
 - mood must be one of: normal, shouting, whisper, comedy, narration, sfx.
 - suggestedFont must be one of: normal, normal_bold, normal_italic, shouting, comedy, comedy_bold, whisper, narration, sfx, cute.
 - Output JSON only.`
@@ -621,24 +590,6 @@ export async function translateWithOllamaVision(
   )
 
   return regions
-}
-
-export async function detectOcrWithOllamaVision(
-  imageFile: File,
-  sourceLang: string = 'auto',
-  options: OllamaOptions = {},
-): Promise<TextRegion[]> {
-  const [base64, imageSize] = await Promise.all([
-    fileToBase64(imageFile),
-    readImageSize(imageFile),
-  ])
-  const content = await postOllamaChat(
-    [{ role: 'user', content: buildOcrOnlyPrompt(sourceLang, imageSize), images: [base64] }],
-    options,
-    'json',
-  )
-  const parsed = parseOllamaTranslationJson(content)
-  return toVisionTextRegions(parsed, false)
 }
 
 export async function translateWithOllamaText(

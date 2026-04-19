@@ -19,11 +19,8 @@ const batchProcessing = loadBatchProcessing()
 
 function settings() {
   return {
-    cleanupBackend: 'panelcleaner',
-    translatorApiUrl: 'http://localhost:5003',
     panelCleanerBridgeUrl: 'http://localhost:5055',
     panelCleanerExecutablePath: '',
-    panelCleanerUseOcrFallback: true,
     sourceLang: 'auto',
     fontMoodMap: {},
     theme: 'studio-dark',
@@ -63,7 +60,6 @@ function services(overrides = {}) {
       throw new Error('Boxed translation should not run without boxes')
     },
     translateVision: async () => [],
-    detectOcrVision: async () => [],
     readImageUrlAsBlob: async () => new Blob(['cleaned'], { type: 'image/png' }),
     ...overrides,
   }

@@ -22,14 +22,14 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('konva')) return 'vendor-konva'
-              if (id.includes('lucide-react')) return 'vendor-lucide'
-              return 'vendor-core'
-            }
+          codeSplitting: {
+            groups: [
+              { test: /node_modules\/konva/, name: 'vendor-konva' },
+              { test: /node_modules\/lucide-react/, name: 'vendor-lucide' },
+              { test: /node_modules/, name: 'vendor-core' },
+            ],
           },
         },
       },

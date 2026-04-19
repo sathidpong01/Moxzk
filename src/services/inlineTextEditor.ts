@@ -1,4 +1,17 @@
-import type { BoundingBox } from '../types'
+import type { BoundingBox, TextLayoutMode } from '../types'
+
+export const TEXT_TRANSFORMER_ANCHORS = [
+  'top-left',
+  'top-center',
+  'top-right',
+  'middle-left',
+  'middle-right',
+  'bottom-left',
+  'bottom-center',
+  'bottom-right',
+] as const
+
+export type TextTransformerAnchor = typeof TEXT_TRANSFORMER_ANCHORS[number]
 
 export interface InlineTextEditorLayerSizeInput {
   bbox: BoundingBox
@@ -22,6 +35,9 @@ export interface InlineTextEditorTheme {
 export interface InlineTextEditorCommitMetrics {
   width: number
   height: number
+  scrollWidth?: number
+  scrollHeight?: number
+  layoutMode?: TextLayoutMode
 }
 
 export interface InlineTextEditorBboxSizeInput {
@@ -50,10 +66,20 @@ export function getInlineTextEditorBboxSize({
   minHeight = 16,
 }: InlineTextEditorBboxSizeInput): { width: number; height: number } {
   const denominator = Math.max(0.0001, scale)
+  const measuredWidth = metrics.layoutMode === 'artistic'
+    ? Math.max(metrics.width, metrics.scrollWidth ?? 0)
+    : metrics.width
+  const measuredHeight = metrics.layoutMode === 'artistic'
+    ? Math.max(metrics.height, metrics.scrollHeight ?? 0)
+    : metrics.height
   return {
-    width: Math.max(minWidth, metrics.width / denominator),
-    height: Math.max(minHeight, metrics.height / denominator),
+    width: Math.max(minWidth, measuredWidth / denominator),
+    height: Math.max(minHeight, measuredHeight / denominator),
   }
+}
+
+export function getTextTransformerAnchors(_layoutMode?: TextLayoutMode): TextTransformerAnchor[] {
+  return [...TEXT_TRANSFORMER_ANCHORS]
 }
 
 export function getInlineTextEditorTheme(sourceTextColor: string): InlineTextEditorTheme {

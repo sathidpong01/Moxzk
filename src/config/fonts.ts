@@ -1,4 +1,4 @@
-import type { FontDefinition, FontMoodMap, MoodType } from '../types'
+import type { FontDefinition, FontMoodMap, MoodType, TextRegion } from '../types'
 import { saveFont, fileToArrayBuffer, type StoredFont } from '../services/fontStorage'
 
 export const BUILT_IN_FONTS: FontDefinition[] = [
@@ -56,6 +56,17 @@ export function resolveFont(suggestedFont: string, mood: MoodType, moodMap: Font
   }
   // 4. Fall back to mood-based default
   return getMoodFont(mood, moodMap)
+}
+
+export function getRegionFontKey(region: Pick<TextRegion, 'fontId' | 'suggestedFont' | 'mood'>): string {
+  return region.fontId || region.suggestedFont || region.mood
+}
+
+export function resolveRegionFont(
+  region: Pick<TextRegion, 'fontId' | 'suggestedFont' | 'mood'>,
+  moodMap: FontMoodMap = DEFAULT_MOOD_MAP,
+): FontDefinition {
+  return resolveFont(getRegionFontKey(region), region.mood, moodMap)
 }
 
 export function fontToCss(font: FontDefinition): string {

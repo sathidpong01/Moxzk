@@ -13,6 +13,7 @@
     "worker:check": "wrangler deploy --dry-run",
     "worker:deploy:dry": "wrangler deploy --dry-run",
     "worker:deploy": "wrangler deploy",
+    "context:refresh": "python scripts/update_repo_context.py --max-depth 5",
     "test": "node --test scripts/*.test.mjs",
     "preview": "vite preview"
   },
@@ -21,13 +22,13 @@
     "drizzle-orm": "^0.45.2",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
-    "konva": "^10.2.0",
-    "lucide-react": "^0.575.0",
-    "react": "^19.2.4",
+    "konva": "^10.2.5",
+    "lucide-react": "^1.8.0",
+    "react": "^19.2.5",
     "react-compare-slider": "^3.1.0",
-    "react-dom": "^19.2.4",
+    "react-dom": "^19.2.5",
     "react-dropzone": "^15.0.0",
-    "react-konva": "^19.2.2",
+    "react-konva": "^19.2.3",
     "react-konva-utils": "^2.0.0",
     "sonner": "^2.0.7",
     "zustand": "^5.0.11"
@@ -38,14 +39,14 @@
     "@types/file-saver": "^2.0.7",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^6.0.1",
     "drizzle-kit": "^0.31.10",
-    "tailwindcss": "^4.2.0",
+    "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
-    "vite": "^7.3.1",
+    "vite": "^8.0.8",
     "wrangler": "^4.83.0"
   },
   "overrides": {
-    "minimatch": "^10.2.2"
+    "minimatch": "^10.2.5"
   }
 }

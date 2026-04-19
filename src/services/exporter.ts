@@ -1,10 +1,11 @@
 import Konva from 'konva'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
-import type { BrushStroke, ExportFormat, ImageEntry, TextRegion } from '../types'
+import type { ExportFormat, ImageEntry, TextRegion } from '../types'
 import type { AlbumPage } from '../types/database'
-import { resolveFont } from '../config/fonts'
-import { calculateBalloonFitFontSize, estimateWrappedLineCount, normalizeTextLayoutMode } from '../utils/textLayout'
+import { resolveRegionFont } from '../config/fonts'
+import { layoutTextInBox, normalizeTextLayoutMode } from '../utils/textLayout'
+import { drawBrushOverlay } from './brushStrokes'
 
 const MIME_TYPES: Record<ExportFormat, string> = {
   png: 'image/png',
@@ -154,7 +155,7 @@ export async function renderImageEntryToBlob(
   if (!ctx) throw new Error('Canvas is not available')
 
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
-  drawBrushStrokes(ctx, entry.brushStrokes)
+  drawBrushOverlay(ctx, canvas.width, canvas.height, entry.brushStrokes)
   drawTextRegions(ctx, entry.regions)
 
   return new Promise((resolve, reject) => {
@@ -177,40 +178,23 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([array], { type: mime })
 }
 
-function drawBrushStrokes(ctx: CanvasRenderingContext2D, strokes: BrushStroke[]) {
-  for (const stroke of strokes) {
-    if (stroke.points.length < 2) continue
-    ctx.save()
-    ctx.globalAlpha = stroke.opacity
-    ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over'
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.strokeStyle = stroke.color
-    ctx.lineWidth = Math.max(1, stroke.width - 2 * stroke.shadowBlur)
-    ctx.shadowBlur = stroke.shadowBlur
-    ctx.shadowColor = stroke.tool === 'eraser' ? 'transparent' : stroke.color
-    ctx.beginPath()
-    ctx.moveTo(stroke.points[0], stroke.points[1])
-    for (let i = 2; i < stroke.points.length; i += 2) {
-      ctx.lineTo(stroke.points[i], stroke.points[i + 1])
-    }
-    ctx.stroke()
-    ctx.restore()
-  }
-}
-
 function drawTextRegions(ctx: CanvasRenderingContext2D, regions: TextRegion[]) {
   for (const region of regions) {
     const text = region.translatedText || ''
     if (!text.trim()) continue
-    const font = resolveFont(region.suggestedFont, region.mood)
+    const font = resolveRegionFont(region)
     const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
-    const size = layoutMode === 'artistic'
-      ? Math.max(8, region.fontSize)
-      : calculateBalloonFitFontSize(text, region.bbox, region.fontSize)
     const weight = font.weight >= 700 ? '700' : '400'
     const style = font.style === 'italic' ? 'italic ' : ''
     const fontFamily = font.family.includes(' ') ? `"${font.family}"` : font.family
+    const layout = layoutMode === 'artistic'
+      ? null
+      : layoutTextInBox(text, region.bbox, region.fontSize, {
+          fontFamily: font.family,
+          fontWeight: weight,
+          fontStyle: font.style,
+        })
+    const size = layoutMode === 'artistic' ? Math.max(8, region.fontSize) : layout!.fontSize
 
     ctx.save()
     ctx.translate(region.bbox.x + region.bbox.width / 2, region.bbox.y + region.bbox.height / 2)
@@ -223,7 +207,7 @@ function drawTextRegions(ctx: CanvasRenderingContext2D, regions: TextRegion[]) {
     ctx.textBaseline = 'middle'
     ctx.textAlign = layoutMode === 'artistic' ? 'left' : 'center'
 
-    const lines = wrapText(text, region.bbox.width, size)
+    const lines = layout?.lines ?? text.split(/\r?\n/)
     const lineHeight = size * 1.18
     const totalHeight = lines.length * lineHeight
     const startY = -totalHeight / 2 + lineHeight / 2
@@ -235,19 +219,6 @@ function drawTextRegions(ctx: CanvasRenderingContext2D, regions: TextRegion[]) {
     }
     ctx.restore()
   }
-}
-
-function wrapText(text: string, width: number, fontSize: number): string[] {
-  const targetLines = estimateWrappedLineCount(text, width, fontSize)
-  const charsPerLine = Math.max(1, Math.ceil([...text].length / Math.max(1, targetLines)))
-  const lines: string[] = []
-  for (const paragraph of text.split(/\r?\n/)) {
-    const chars = [...paragraph]
-    for (let i = 0; i < chars.length; i += charsPerLine) {
-      lines.push(chars.slice(i, i + charsPerLine).join(''))
-    }
-  }
-  return lines.length ? lines : ['']
 }
 
 function loadHtmlImage(src: string): Promise<HTMLImageElement> {

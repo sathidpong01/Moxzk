@@ -50,8 +50,8 @@ interface ApiPage {
   thumbnailKey: string | null
   artboardX: number | null
   artboardY: number | null
-  regionsJson: string
-  brushStrokesJson: string
+  regionsJson?: string
+  brushStrokesJson?: string
   status: AlbumPage['status']
   processingMode: AlbumPage['processing_mode']
   errorMessage: string | null
@@ -171,6 +171,12 @@ export async function fetchPages(albumId: string): Promise<AlbumPage[]> {
   return data.map(toPage)
 }
 
+export async function fetchPageSummaries(albumId: string): Promise<AlbumPage[]> {
+  const params = new URLSearchParams({ detail: 'summary' })
+  const { data } = await apiFetch<{ data: ApiPage[] }>(`/api/albums/${encodeURIComponent(albumId)}/pages?${params.toString()}`)
+  return data.map(toPage)
+}
+
 export async function createPage(albumId: string, input: { pageNumber: number }): Promise<AlbumPage> {
   const { data } = await apiFetch<{ data: ApiPage }>(`/api/albums/${encodeURIComponent(albumId)}/pages`, {
     method: 'POST',
@@ -261,8 +267,8 @@ function toPage(row: ApiPage): AlbumPage {
     thumbnail_key: row.thumbnailKey,
     artboard_x: row.artboardX,
     artboard_y: row.artboardY,
-    regions: parseJson(row.regionsJson, []),
-    brush_strokes: parseJson(row.brushStrokesJson, []),
+    regions: parseJson(row.regionsJson ?? '[]', []),
+    brush_strokes: parseJson(row.brushStrokesJson ?? '[]', []),
     status: row.status,
     processing_mode: row.processingMode,
     error_message: row.errorMessage,

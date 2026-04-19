@@ -1,5 +1,4 @@
 import type { AppSettings, ProcessingMode } from '../types'
-import { processImage as processLegacyImage } from './translator-api'
 import type { StreamProgress, TranslatorResponse } from './translator-api'
 import { processImageWithPanelCleaner } from './panelcleaner-api'
 
@@ -19,11 +18,6 @@ export async function processImageWithCleanupProvider({
   signal,
   onProgress,
 }: CleanupProviderRequest): Promise<TranslatorResponse> {
-  if (settings.cleanupBackend === 'legacy-manga-translator') {
-    onProgress?.({ status: 'progress', message: 'Legacy manga-image-translator: starting cleanup' })
-    return processLegacyImage(file, undefined, onProgress, settings.translatorApiUrl, signal)
-  }
-
   onProgress?.({ status: 'progress', message: 'PanelCleaner: starting cleanup' })
   return processImageWithPanelCleaner(
     file,

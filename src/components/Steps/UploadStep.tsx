@@ -12,15 +12,15 @@ export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpe
   const hasImages = images.length > 0
 
   return (
-    <div className="upload-canvas flex h-full items-start justify-center overflow-y-auto px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
+    <div className="upload-canvas flex h-full items-start justify-center overflow-y-auto px-4 pb-10 pt-24 sm:px-6 sm:pb-14 lg:pb-20">
       <div className={`w-full ${hasImages ? 'max-w-5xl space-y-5' : 'max-w-xl space-y-6'} text-center`}>
         <div className="space-y-1.5">
           <h1 className="text-2xl font-bold text-balance sm:text-3xl">
-            {hasImages ? 'ตรวจรูปก่อนเข้า Editor' : 'เลือกรูปมังงะ'}
+            {hasImages ? 'ตรวจรูปก่อนเข้าแก้ไข' : 'เลือกรูปมังงะ'}
           </h1>
           <p className="text-sm text-[var(--mg-muted)]">
             {hasImages
-              ? `${images.length} หน้า พร้อมเปิดเป็น artboard`
+              ? `${images.length} หน้า พร้อมเปิดเป็นพื้นที่จัดหน้า`
               : 'ลากรูปมาวาง วางจากคลิปบอร์ด หรือเลือกไฟล์เพื่อเริ่มแปล'}
           </p>
         </div>
@@ -37,7 +37,7 @@ export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpe
             onClick={onGoToEdit}
           >
             <ImageIcon size={18} />
-            {hasImages ? 'เปิดใน Editor' : 'เปิดในหน้าแก้ไข'}
+            {hasImages ? 'เริ่มแก้ไข' : 'เปิดในหน้าแก้ไข'}
             {hasImages && <span className="text-xs font-bold opacity-80">{images.length} หน้า</span>}
           </button>
           <button

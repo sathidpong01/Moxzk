@@ -28,10 +28,10 @@ interface SettingsPanelProps {
 type SettingsTab = 'general' | 'cleanup' | 'ai' | 'appearance'
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
-  { id: 'general', label: 'General', icon: Settings },
-  { id: 'cleanup', label: 'Cleanup', icon: Server },
+  { id: 'general', label: 'ทั่วไป', icon: Settings },
+  { id: 'cleanup', label: 'คลีนภาพ', icon: Server },
   { id: 'ai', label: 'Ollama', icon: Cpu },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'appearance', label: 'หน้าตา', icon: Palette },
 ]
 
 export default function SettingsPanel({
@@ -113,7 +113,7 @@ export default function SettingsPanel({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Settings" className="max-w-3xl p-0">
+    <Modal isOpen={isOpen} onClose={onClose} title="ตั้งค่า" className="max-w-3xl p-0">
       <div className="flex h-[70vh] max-h-[620px] min-h-0">
         <aside className="w-44 shrink-0 border-r border-[var(--mg-border)] p-3">
           <nav className="space-y-1">
@@ -130,23 +130,23 @@ export default function SettingsPanel({
             ))}
           </nav>
           <Button variant="primary" size="sm" className="mt-4 w-full" onClick={handleSave}>
-            <Save size={12} /> Save
+            <Save size={12} /> บันทึก
           </Button>
         </aside>
 
         <section className="min-w-0 flex-1 overflow-y-auto p-5">
           {tab === 'general' && (
             <div className="space-y-5">
-              <h4 className="text-lg font-bold">General</h4>
-              <Field label="Source Language">
+              <h4 className="text-lg font-bold">ทั่วไป</h4>
+              <Field label="ภาษาต้นฉบับ">
                 <SelectField
                   value={draft.sourceLang}
                   onChange={(sourceLang) => setDraft({ ...draft, sourceLang })}
                   options={[
-                    { value: 'auto', label: 'Auto Detect' },
-                    { value: 'ja', label: 'Japanese' },
-                    { value: 'zh', label: 'Chinese' },
-                    { value: 'en', label: 'English' },
+                    { value: 'auto', label: 'ตรวจอัตโนมัติ' },
+                    { value: 'ja', label: 'ญี่ปุ่น' },
+                    { value: 'zh', label: 'จีน' },
+                    { value: 'en', label: 'อังกฤษ' },
                   ]}
                 />
               </Field>
@@ -155,79 +155,47 @@ export default function SettingsPanel({
 
           {tab === 'cleanup' && (
             <div className="space-y-5">
-              <h4 className="text-lg font-bold">Cleanup Backend</h4>
+              <h4 className="text-lg font-bold">ระบบคลีนภาพ</h4>
               <div className="mg-notice">
                 <Server size={14} />
                 <span>Web phase ต้องใช้ local bridge เพราะ browser เรียก Python/CLI โดยตรงไม่ได้ ให้รัน npm run backend:panelcleaner ก่อนเริ่มประมวลผล</span>
               </div>
-              <Field label="Cleanup Backend" hint="Legacy ยังอยู่ชั่วคราวสำหรับ fallback ระหว่าง migration">
-                <SelectField
-                  value={draft.cleanupBackend}
-                  onChange={(cleanupBackend) => setDraft({ ...draft, cleanupBackend })}
-                  options={[
-                    { value: 'panelcleaner', label: 'PanelCleaner' },
-                    { value: 'legacy-manga-translator', label: 'Legacy manga-image-translator' },
-                  ]}
+              <Field label="PanelCleaner Bridge URL" hint="ค่าเริ่มต้น: http://localhost:5055">
+                <TextInput
+                  type="url"
+                  placeholder="http://localhost:5055"
+                  value={draft.panelCleanerBridgeUrl}
+                  onChange={(e) => setDraft({ ...draft, panelCleanerBridgeUrl: e.target.value })}
                 />
               </Field>
-
-              {draft.cleanupBackend === 'panelcleaner' ? (
-                <>
-                  <Field label="PanelCleaner Bridge URL" hint="ค่าเริ่มต้น: http://localhost:5055">
-                    <TextInput
-                      type="url"
-                      placeholder="http://localhost:5055"
-                      value={draft.panelCleanerBridgeUrl}
-                      onChange={(e) => setDraft({ ...draft, panelCleanerBridgeUrl: e.target.value })}
-                    />
-                  </Field>
-                  <Field label="PanelCleaner Executable Path" hint="เว้นว่างเพื่อค้นหา pcleaner / pcleaner-cli จาก PATH">
-                    <TextInput
-                      type="text"
-                      placeholder="เว้นว่างเพื่อค้นหา pcleaner / pcleaner-cli จาก PATH"
-                      value={draft.panelCleanerExecutablePath}
-                      onChange={(e) => setDraft({ ...draft, panelCleanerExecutablePath: e.target.value })}
-                    />
-                  </Field>
-                  <label className="flex cursor-pointer items-center gap-3 text-sm text-[var(--mg-muted)]">
-                    <input
-                      type="checkbox"
-                      checked={draft.panelCleanerUseOcrFallback}
-                      onChange={(e) => setDraft({ ...draft, panelCleanerUseOcrFallback: e.target.checked })}
-                    />
-                    ใช้ PanelCleaner OCR เป็น fallback เมื่อ Gemma คืน bbox ไม่พอ
-                  </label>
-                  <Button variant="soft" size="sm" onClick={handleCheckPanelCleaner} disabled={checkingPanelCleaner}>
-                    {checkingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                    ตรวจ PanelCleaner
-                  </Button>
-                  {panelCleanerStatus && (
-                    <div className="mg-notice">
-                      {panelCleanerStatus.ok ? <CheckCircle2 size={14} className="text-[var(--mg-success)]" /> : <AlertCircle size={14} className="text-[var(--mg-warning)]" />}
-                      <span>
-                        {panelCleanerStatus.ok
-                          ? `PanelCleaner พร้อมใช้งาน${panelCleanerStatus.version ? ` (${panelCleanerStatus.version})` : ''}${panelCleanerStatus.command ? ` - ${panelCleanerStatus.command}` : ''}`
-                          : `${panelCleanerStatus.error ?? 'เช็ค PanelCleaner ไม่สำเร็จ'}${panelCleanerStatus.installHint ? ` - ${panelCleanerStatus.installHint}` : ''}`}
-                      </span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <Field label="manga-image-translator Server URL" hint="ใช้เมื่อเลือก legacy fallback เท่านั้น">
-                  <TextInput
-                    type="url"
-                    placeholder="http://localhost:5003"
-                    value={draft.translatorApiUrl}
-                    onChange={(e) => setDraft({ ...draft, translatorApiUrl: e.target.value })}
-                  />
-                </Field>
+              <Field label="ตำแหน่งไฟล์ PanelCleaner" hint="เว้นว่างเพื่อค้นหา pcleaner / pcleaner-cli จาก PATH">
+                <TextInput
+                  type="text"
+                  placeholder="เว้นว่างเพื่อค้นหา pcleaner / pcleaner-cli จาก PATH"
+                  value={draft.panelCleanerExecutablePath}
+                  onChange={(e) => setDraft({ ...draft, panelCleanerExecutablePath: e.target.value })}
+                />
+              </Field>
+              <Button variant="soft" size="sm" onClick={handleCheckPanelCleaner} disabled={checkingPanelCleaner}>
+                {checkingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                ตรวจ PanelCleaner
+              </Button>
+              {panelCleanerStatus && (
+                <div className="mg-notice">
+                  {panelCleanerStatus.ok ? <CheckCircle2 size={14} className="text-[var(--mg-success)]" /> : <AlertCircle size={14} className="text-[var(--mg-warning)]" />}
+                  <span>
+                    {panelCleanerStatus.ok
+                      ? `PanelCleaner พร้อมใช้งาน${panelCleanerStatus.version ? ` (${panelCleanerStatus.version})` : ''}${panelCleanerStatus.command ? ` - ${panelCleanerStatus.command}` : ''}`
+                      : `${panelCleanerStatus.error ?? 'เช็ค PanelCleaner ไม่สำเร็จ'}${panelCleanerStatus.installHint ? ` - ${panelCleanerStatus.installHint}` : ''}`}
+                  </span>
+                </div>
               )}
             </div>
           )}
 
           {tab === 'ai' && (
             <div className="space-y-5">
-              <h4 className="text-lg font-bold">Ollama Translation</h4>
+              <h4 className="text-lg font-bold">Ollama แปลภาษา</h4>
               <div className="mg-notice">
                 <Globe size={14} />
                 <span>Phase นี้เป็น web app จึงตรวจ path ของ ollama.exe หรือสั่ง start service โดยตรงไม่ได้ ให้เปิด Ollama app หรือรัน ollama serve ก่อนใช้งาน local endpoint</span>
@@ -240,7 +208,7 @@ export default function SettingsPanel({
                   onChange={(e) => setDraft({ ...draft, ollamaUrl: e.target.value })}
                 />
               </Field>
-              <Field label="Ollama Model" hint="เช่น gemma4:31b-cloud, qwen3-vl:235b-instruct-cloud หรือโมเดล vision ที่คุณติดตั้งเอง">
+              <Field label="โมเดล Ollama" hint="เช่น gemma4:31b-cloud, qwen3-vl:235b-instruct-cloud หรือโมเดล vision ที่คุณติดตั้งเอง">
                 <TextInput
                   type="text"
                   placeholder="gemma4:31b-cloud"
@@ -270,13 +238,13 @@ export default function SettingsPanel({
                   onChange={(e) => setDraft({ ...draft, translationContextEnabled: e.target.checked })}
                 />
                 <span>
-                  <span className="block font-bold text-[var(--mg-text)]">Story context across pages</span>
+                  <span className="block font-bold text-[var(--mg-text)]">ใช้บริบทข้ามหน้า</span>
                   <span className="mt-1 block text-xs leading-relaxed text-[var(--mg-muted)]">
                     ส่งบทพูดหน้าก่อน ๆ เข้า Ollama ตอนแปลหลายหน้า เพื่อรักษาคำเรียก ความสัมพันธ์ และสำนวนให้ต่อเนื่อง
                   </span>
                 </span>
               </label>
-              <Field label="Translation Style Guide" hint="ใช้กำกับทั้งอัลบั้ม เช่น ชื่อตัวละคร ความสัมพันธ์ คำเรียกแทนตัว และโทนภาษา">
+              <Field label="ไกด์โทนคำแปล" hint="ใช้กำกับทั้งอัลบั้ม เช่น ชื่อตัวละคร ความสัมพันธ์ คำเรียกแทนตัว และโทนภาษา">
                 <TextareaField
                   rows={6}
                   className="resize-none font-mono text-xs"
@@ -309,7 +277,7 @@ export default function SettingsPanel({
 
           {tab === 'appearance' && (
             <div className="space-y-4">
-              <h4 className="text-lg font-bold">Appearance</h4>
+              <h4 className="text-lg font-bold">หน้าตา</h4>
               <div className="rounded-[8px] border border-[var(--mg-border)] bg-white/[0.03] p-4">
                 <p className="font-bold">Studio Dark</p>
                 <p className="mt-1 text-sm text-[var(--mg-muted)]">ธีมภายในใหม่ที่แทน daisyUI themes ทั้งหมดใน phase นี้</p>

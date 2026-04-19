@@ -74,15 +74,15 @@ export default function FontConfigPage({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={<span className="flex items-center gap-2"><Type size={18} /> Font Configuration</span>} className="max-w-3xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={<span className="flex items-center gap-2"><Type size={18} /> ตั้งค่าฟอนต์</span>} className="max-w-3xl">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="text-xs uppercase text-[var(--mg-muted)]">
             <tr>
-              <th className="px-2 py-2">Mood</th>
-              <th className="px-2 py-2">Description</th>
-              <th className="px-2 py-2">Font</th>
-              <th className="px-2 py-2">Preview</th>
+              <th className="px-2 py-2">อารมณ์</th>
+              <th className="px-2 py-2">คำอธิบาย</th>
+              <th className="px-2 py-2">ฟอนต์</th>
+              <th className="px-2 py-2">ตัวอย่าง</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--mg-border)]">
@@ -109,7 +109,7 @@ export default function FontConfigPage({
       </div>
 
       <div className="my-4 h-px bg-[var(--mg-border)]" />
-      <Field label="Upload custom font (.ttf / .otf / .woff2)">
+      <Field label="อัปโหลดฟอนต์เอง (.ttf / .otf / .woff2)">
         <input
           type="file"
           className="mg-control"
@@ -117,12 +117,12 @@ export default function FontConfigPage({
           onChange={handleUploadFont}
           disabled={uploading}
         />
-        {uploading && <span className="mt-2 text-xs text-[var(--mg-muted)]">Uploading...</span>}
+        {uploading && <span className="mt-2 text-xs text-[var(--mg-muted)]">กำลังอัปโหลด...</span>}
       </Field>
 
       {customFonts.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1 text-xs text-[var(--mg-muted)]">Custom fonts loaded:</p>
+          <p className="mb-1 text-xs text-[var(--mg-muted)]">ฟอนต์ที่โหลดไว้:</p>
           <div className="flex flex-wrap gap-1">
             {customFonts.map((font) => (
               <Badge key={font.name}>
@@ -145,13 +145,13 @@ export default function FontConfigPage({
 
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="ghost" onClick={() => setDraft({ ...moodMap })}>
-          <RotateCcw size={14} /> Reset
+          <RotateCcw size={14} /> รีเซ็ต
         </Button>
         <Button variant="ghost" onClick={onClose}>
-          <XIcon size={14} /> Cancel
+          <XIcon size={14} /> ยกเลิก
         </Button>
         <Button variant="primary" onClick={handleSave}>
-          <Save size={14} /> Save
+          <Save size={14} /> บันทึก
         </Button>
       </div>
     </Modal>

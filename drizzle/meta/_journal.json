@@ -15,6 +15,13 @@
       "when": 1776277181949,
       "tag": "0001_artboard_layout",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776535620839,
+      "tag": "0002_bizarre_zodiak",
+      "breakpoints": true
     }
   ]
 }

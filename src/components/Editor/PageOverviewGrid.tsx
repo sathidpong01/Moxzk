@@ -26,14 +26,14 @@ export default function PageOverviewGrid({
 }: PageOverviewGridProps) {
   if (entries.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center bg-[var(--mg-bg)]">
+      <div className="studio-canvas flex h-full items-center justify-center">
         <p className="text-sm text-[var(--mg-muted)]">ไม่มีรูปภาพ</p>
       </div>
     )
   }
 
   return (
-    <div className="h-full overflow-auto bg-[var(--mg-bg)] px-4 py-6 sm:px-6">
+    <div className="studio-canvas h-full overflow-auto px-4 py-6 sm:px-6">
       <div className="mx-auto grid max-w-[1520px] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {entries.map((entry, index) => {
           const isActive = entry.id === activeImageId

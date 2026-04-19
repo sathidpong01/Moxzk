@@ -54,6 +54,36 @@ export async function deleteAlbum(ctx: RequestContext, user: AuthUser, albumId: 
 export async function listPages(ctx: RequestContext, user: AuthUser, albumId: string): Promise<Response> {
   const album = await getOwnedAlbum(ctx, user.id, albumId)
   if (!album) return jsonError('NOT_FOUND', 'Album not found', 404)
+  const url = new URL(ctx.request.url)
+  const summaryOnly = url.searchParams.get('detail') === 'summary'
+  if (summaryOnly) {
+    const rows = await ctx.db.select({
+      id: schema.albumPages.id,
+      albumId: schema.albumPages.albumId,
+      pageNumber: schema.albumPages.pageNumber,
+      originalKey: schema.albumPages.originalKey,
+      cleanedKey: schema.albumPages.cleanedKey,
+      thumbnailKey: schema.albumPages.thumbnailKey,
+      artboardX: schema.albumPages.artboardX,
+      artboardY: schema.albumPages.artboardY,
+      status: schema.albumPages.status,
+      processingMode: schema.albumPages.processingMode,
+      errorMessage: schema.albumPages.errorMessage,
+      createdAt: schema.albumPages.createdAt,
+      updatedAt: schema.albumPages.updatedAt,
+    }).from(schema.albumPages)
+      .where(eq(schema.albumPages.albumId, album.id))
+      .orderBy(schema.albumPages.pageNumber)
+      .all()
+    return json({
+      data: rows.map((row) => ({
+        ...row,
+        regionsJson: '[]',
+        brushStrokesJson: '[]',
+      })),
+    })
+  }
+
   const rows = await ctx.db.select().from(schema.albumPages)
     .where(eq(schema.albumPages.albumId, album.id))
     .orderBy(schema.albumPages.pageNumber)

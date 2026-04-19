@@ -43,7 +43,7 @@ export default function ImageStrip({ isOpen = true, onToggle }: ImageStripProps)
               onClick={() => {
                 if (!isActive) switchImage(entry.id)
               }}
-              title={`หน้า ${pageNumber}${isUnloaded ? ' (click to load)' : ''}`}
+              title={`หน้า ${pageNumber}${isUnloaded ? ' (คลิกเพื่อโหลด)' : ''}`}
             >
               {entry.originalUrl ? (
                 <img
@@ -82,8 +82,8 @@ export default function ImageStrip({ isOpen = true, onToggle }: ImageStripProps)
         type="button"
         className="ml-1 flex h-10 w-5 items-center justify-center rounded-[6px] border border-[var(--mg-border)] bg-black/65 text-[var(--mg-text)] backdrop-blur transition hover:border-white/30 hover:bg-white/10"
         onClick={onToggle}
-        aria-label={isOpen ? 'ซ่อน Filmstrip' : 'แสดง Filmstrip'}
-        title={isOpen ? 'ซ่อน Filmstrip' : 'แสดง Filmstrip'}
+        aria-label={isOpen ? 'ซ่อนแถบหน้า' : 'แสดงแถบหน้า'}
+        title={isOpen ? 'ซ่อนแถบหน้า' : 'แสดงแถบหน้า'}
       >
         <span
           className="block h-0 w-0 border-y-[6px] border-l-[9px] border-y-transparent border-l-[var(--mg-text)] transition-transform duration-200 ease-out"

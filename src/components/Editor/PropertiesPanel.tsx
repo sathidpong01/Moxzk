@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import type { TextRegion, MoodType, TextLayoutMode, TextStrokeJoin } from '../../types'
-import { MOOD_LABELS } from '../../config/fonts'
+import { MOOD_LABELS, resolveRegionFont } from '../../config/fonts'
 import { useAppStore } from '../../store/appStore'
-import { normalizeTextLayoutMode } from '../../utils/textLayout'
+import { layoutTextInBox, normalizeTextLayoutMode } from '../../utils/textLayout'
 import { translateSingleRegion } from '../../services/ollama'
 import FontSelector from './FontSelector'
 import { Trash2, RotateCcw, Languages, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, Field, SelectField, TextareaField, TextInput } from '../ui/primitives'
+import { Button, DisclosureSection, Field, SelectField, TextareaField } from '../ui/primitives'
 
 interface PropertiesPanelProps {
   region: TextRegion | null
@@ -17,18 +17,10 @@ interface PropertiesPanelProps {
 
 const MOODS: MoodType[] = ['normal', 'shouting', 'whisper', 'comedy', 'narration', 'sfx']
 const STROKE_JOINS: Array<{ value: TextStrokeJoin; label: string }> = [
-  { value: 'round', label: 'Round corners' },
-  { value: 'bevel', label: 'Bevel corners' },
-  { value: 'miter', label: 'Sharp corners' },
+  { value: 'round', label: 'มน' },
+  { value: 'bevel', label: 'ปาดมุม' },
+  { value: 'miter', label: 'คม' },
 ]
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">
-      {children}
-    </h3>
-  )
-}
 
 function SliderRow({
   label,
@@ -56,6 +48,7 @@ export default function PropertiesPanel({
   onDelete,
 }: PropertiesPanelProps) {
   const [translating, setTranslating] = useState(false)
+  const editorHistoryShortcutProps = { 'data-editor-history-shortcuts': 'true' }
 
   if (!region) {
     return (
@@ -95,12 +88,23 @@ export default function PropertiesPanel({
     }
   }
 
+  const getCurrentBalloonFontSize = () => {
+    const font = resolveRegionFont(region)
+    return layoutTextInBox(region.translatedText || ' ', region.bbox, region.fontSize, {
+      fontFamily: font.family,
+      fontWeight: font.weight,
+      fontStyle: font.style,
+    }).fontSize
+  }
+
   return (
     <div className="space-y-4 text-sm">
-      <section className="space-y-3">
+      <p className="rounded-[7px] border border-[var(--mg-border)] bg-white/[0.035] px-2.5 py-2 text-xs leading-relaxed text-[var(--mg-muted)]">
+        ดับเบิลคลิกข้อความบนภาพเพื่อแก้ตรงตำแหน่งนั้น · กด Esc เพื่อยกเลิก · Ctrl/Cmd+Enter เพื่อบันทึก
+      </p>
+      <DisclosureSection title="รูปแบบกล่อง">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <SectionTitle>Type</SectionTitle>
             <p className="mt-1 text-[11px] leading-snug text-[var(--mg-dim)]">{modeHint}</p>
           </div>
           <Button
@@ -109,48 +113,48 @@ export default function PropertiesPanel({
             disabled={layoutMode === 'balloon_fit'}
             onClick={() => onUpdate(region.id, { textLayoutMode: 'balloon_fit', textScaleX: 1, textScaleY: 1 })}
           >
-            Auto fit
+            จัดเข้ากรอบ
           </Button>
         </div>
 
-        <Field label="Layout">
+        <Field label="เลย์เอาต์">
           <SelectField
             value={layoutMode}
             onChange={(nextMode: TextLayoutMode) => {
               onUpdate(region.id, {
                 textLayoutMode: nextMode,
+                ...(layoutMode === 'balloon_fit' && nextMode === 'artistic'
+                  ? { fontSize: getCurrentBalloonFontSize() }
+                  : {}),
                 ...(nextMode === 'balloon_fit' ? { textScaleX: 1, textScaleY: 1 } : {}),
               })
             }}
             options={[
-              { value: 'balloon_fit', label: 'Balloon fit' },
-              { value: 'artistic', label: 'Artistic transform' },
+              { value: 'balloon_fit', label: 'พอดีบอลลูน' },
+              { value: 'artistic', label: 'ยืด/หมุนอิสระ' },
             ]}
           />
         </Field>
 
-        <Field label="Font">
+        <Field label="ฟอนต์">
           <FontSelector
-            currentFont={region.suggestedFont}
+            currentFont={region.fontId ?? region.suggestedFont ?? region.mood}
             mood={region.mood}
-            onSelect={(fontId) => onUpdate(region.id, { suggestedFont: fontId })}
+            onSelect={(fontId) => onUpdate(region.id, { fontId })}
           />
         </Field>
 
-        <Field label="Mood">
+        <Field label="อารมณ์ข้อความ">
           <SelectField
             value={region.mood}
             onChange={(mood) => onUpdate(region.id, { mood })}
             options={MOODS.map((m) => ({ value: m, label: `${MOOD_LABELS[m]} (${m})` }))}
           />
         </Field>
-      </section>
+      </DisclosureSection>
 
-      <div className="mg-divider" />
-
-      <section className="space-y-3">
+      <DisclosureSection title="ข้อความ">
         <div className="flex items-center justify-between gap-2">
-          <SectionTitle>Text</SectionTitle>
           <Button
             variant="ghost"
             size="sm"
@@ -162,8 +166,9 @@ export default function PropertiesPanel({
           </Button>
         </div>
 
-        <Field label="Translation">
+        <Field label="ข้อความแปล">
           <TextareaField
+            {...editorHistoryShortcutProps}
             rows={4}
             className="resize-none"
             value={region.translatedText}
@@ -171,27 +176,21 @@ export default function PropertiesPanel({
           />
         </Field>
 
-        <details className="group rounded-[7px] border border-[var(--mg-border)] bg-black/20">
-          <summary className="cursor-pointer px-2.5 py-2 text-xs font-bold text-[var(--mg-muted)]">
-            Original text
-          </summary>
-          <p className="border-t border-[var(--mg-border)] p-2.5 font-mono text-xs leading-relaxed text-[var(--mg-muted)]">
+        <DisclosureSection title="ข้อความต้นฉบับ" defaultOpen={false} className="bg-black/20">
+          <p className="font-mono text-xs leading-relaxed text-[var(--mg-muted)]">
             {region.originalText || 'ไม่มีข้อความต้นฉบับ'}
           </p>
-        </details>
-      </section>
+        </DisclosureSection>
+      </DisclosureSection>
 
-      <div className="mg-divider" />
-
-      <section className="space-y-3">
-        <SectionTitle>Appearance</SectionTitle>
-
+      <DisclosureSection title="หน้าตาข้อความ">
         <div className="grid grid-cols-[1fr_auto] items-end gap-3">
           <SliderRow
-            label={layoutMode === 'balloon_fit' ? 'Max size' : 'Size'}
+            label={layoutMode === 'balloon_fit' ? 'ขนาดสูงสุด' : 'ขนาด'}
             value={`${Math.round(region.fontSize)}px`}
           >
             <input
+              {...editorHistoryShortcutProps}
               type="range"
               className="mg-slider"
               min={8}
@@ -201,20 +200,22 @@ export default function PropertiesPanel({
             />
           </SliderRow>
           <div className="space-y-1">
-            <span className="block text-xs font-bold text-[var(--mg-muted)]">Color</span>
+            <span className="block text-xs font-bold text-[var(--mg-muted)]">สีตัวอักษร</span>
             <input
+              {...editorHistoryShortcutProps}
               type="color"
               className="h-8 w-9 cursor-pointer rounded-[6px] border border-[var(--mg-border)] bg-transparent"
               value={region.fontColor}
               onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
-              aria-label="Text color"
+              aria-label="สีตัวอักษร"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-          <SliderRow label="Stroke" value={`${region.strokeWidth}px`}>
+          <SliderRow label="เส้นขอบ" value={`${region.strokeWidth}px`}>
             <input
+              {...editorHistoryShortcutProps}
               type="range"
               className="mg-slider"
               min={0}
@@ -225,18 +226,19 @@ export default function PropertiesPanel({
             />
           </SliderRow>
           <div className="space-y-1">
-            <span className="block text-xs font-bold text-[var(--mg-muted)]">Stroke</span>
+            <span className="block text-xs font-bold text-[var(--mg-muted)]">สีขอบ</span>
             <input
+              {...editorHistoryShortcutProps}
               type="color"
               className="h-8 w-9 cursor-pointer rounded-[6px] border border-[var(--mg-border)] bg-transparent"
               value={region.strokeColor}
               onChange={(e) => onUpdate(region.id, { strokeColor: e.target.value })}
-              aria-label="Stroke color"
+              aria-label="สีขอบ"
             />
           </div>
         </div>
 
-        <Field label="Stroke corner">
+        <Field label="มุมเส้นขอบ">
           <SelectField
             value={region.strokeJoin ?? 'round'}
             onChange={(strokeJoin: TextStrokeJoin) => onUpdate(region.id, { strokeJoin })}
@@ -244,9 +246,10 @@ export default function PropertiesPanel({
           />
         </Field>
 
-        <SliderRow label="Rotation" value={`${Math.round(region.rotation)}°`}>
+        <SliderRow label="หมุน" value={`${Math.round(region.rotation)}°`}>
           <div className="flex items-center gap-2">
             <input
+              {...editorHistoryShortcutProps}
               type="range"
               className="mg-slider"
               min={-180}
@@ -260,32 +263,14 @@ export default function PropertiesPanel({
               className="shrink-0 px-2"
               disabled={region.rotation === 0}
               onClick={() => onUpdate(region.id, { rotation: 0 })}
-              title="Reset rotation"
+              title="รีเซ็ตการหมุน"
             >
               <RotateCcw size={11} />
             </Button>
           </div>
         </SliderRow>
 
-        <Field label="Hex">
-          <div className="grid grid-cols-2 gap-2">
-            <TextInput
-              type="text"
-              className="font-mono"
-              value={region.fontColor}
-              onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
-              aria-label="Text color hex"
-            />
-            <TextInput
-              type="text"
-              className="font-mono"
-              value={region.strokeColor}
-              onChange={(e) => onUpdate(region.id, { strokeColor: e.target.value })}
-              aria-label="Stroke color hex"
-            />
-          </div>
-        </Field>
-      </section>
+      </DisclosureSection>
 
       {onDelete && (
         <>
@@ -297,7 +282,7 @@ export default function PropertiesPanel({
             onClick={() => onDelete(region.id)}
           >
             <Trash2 size={14} />
-            Delete region
+            ลบกล่องข้อความ
           </Button>
         </>
       )}

@@ -8,14 +8,18 @@ import { getAllFonts } from '../services/fontStorage'
 import { downloadImage } from '../services/storageService'
 import { resolveHydratedAlbumImageUrls } from '../services/albumImageUrls'
 import { parseApiError } from '../utils/parseApiError'
+import {
+  appendBrushStroke,
+  clearBrushStrokes,
+  redoBrushStroke,
+  syncActiveEntryBrushStrokes,
+  undoBrushStroke,
+} from '../services/brushStrokes'
 import { toast } from 'sonner'
 
 const DEFAULT_SETTINGS: AppSettings = {
-  cleanupBackend: 'panelcleaner',
-  translatorApiUrl: import.meta.env.VITE_TRANSLATOR_API_URL ?? 'http://localhost:5003',
   panelCleanerBridgeUrl: import.meta.env.VITE_PANELCLEANER_BRIDGE_URL ?? 'http://localhost:5055',
   panelCleanerExecutablePath: '',
-  panelCleanerUseOcrFallback: true,
   sourceLang: 'auto',
   fontMoodMap: DEFAULT_MOOD_MAP,
   theme: 'studio-dark',
@@ -28,6 +32,32 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export type PanelId = 'brush' | 'properties' | 'resource' | 'logs'
 type ProcessKind = 'ai' | 'loading' | null
+export type RegionUpdateOptions = {
+  trackHistory?: boolean
+  historyBefore?: TextRegion[]
+  historyKey?: string
+}
+
+export interface TextHistoryEntry {
+  activeImageId: string | null
+  before: TextRegion[]
+  after: TextRegion[]
+  selectedRegionId: string | null
+  key?: string
+}
+
+export type EditorHistoryEntry =
+  | ({
+      kind: 'text'
+    } & TextHistoryEntry)
+  | {
+      kind: 'brush'
+      activeImageId: string | null
+      before: BrushStroke[]
+      after: BrushStroke[]
+      selectedRegionId: string | null
+      key?: string
+    }
 
 interface AppStore {
   // Navigation
@@ -58,10 +88,18 @@ interface AppStore {
   // Regions
   regions: TextRegion[]
   setRegions: (regions: TextRegion[]) => void
-  updateRegion: (id: string, updates: Partial<TextRegion>) => void
+  updateRegion: (id: string, updates: Partial<TextRegion>, options?: RegionUpdateOptions) => void
   deleteRegion: (id: string) => void
   selectedRegionId: string | null
   selectRegion: (id: string | null) => void
+  undoTextEdit: (steps?: number) => boolean
+  redoTextEdit: (steps?: number) => boolean
+  _textUndoStack: TextHistoryEntry[]
+  _textRedoStack: TextHistoryEntry[]
+  undoEditorEdit: (steps?: number) => boolean
+  redoEditorEdit: (steps?: number) => boolean
+  _editorUndoStack: EditorHistoryEntry[]
+  _editorRedoStack: EditorHistoryEntry[]
 
   // Active tool
   activeTool: ActiveTool
@@ -175,6 +213,14 @@ export function getDefaultArtboardPosition(index: number) {
   }
 }
 
+export function getDefaultArtboardCoordinates(index: number) {
+  const position = getDefaultArtboardPosition(index)
+  return {
+    artboardX: position.x,
+    artboardY: position.y,
+  }
+}
+
 function compareArtboardOrder(a: ImageEntry, b: ImageEntry): number {
   const fallbackA = getDefaultArtboardPosition((a.pageNumber ?? 1) - 1)
   const fallbackB = getDefaultArtboardPosition((b.pageNumber ?? 1) - 1)
@@ -196,6 +242,145 @@ const DEFAULT_PANELS: Record<PanelId, boolean> = {
   logs: false,
 }
 
+const MAX_TEXT_HISTORY = 80
+
+function syncActiveEntryRegions(
+  entries: ImageEntry[],
+  activeImageId: string | null,
+  regions: TextRegion[],
+): ImageEntry[] {
+  if (!activeImageId) return entries
+  return entries.map((entry) =>
+    entry.id === activeImageId ? { ...entry, regions } : entry,
+  )
+}
+
+function regionListsEqual(a: TextRegion[], b: TextRegion[]): boolean {
+  if (a.length !== b.length) return false
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function cloneTextRegions(regions: TextRegion[]): TextRegion[] {
+  return regions.map((region) => ({
+    ...region,
+    bbox: { ...region.bbox },
+  }))
+}
+
+function cloneBrushStrokes(strokes: BrushStroke[]): BrushStroke[] {
+  return strokes.map((stroke) => ({
+    ...stroke,
+    points: [...stroke.points],
+  }))
+}
+
+function pushTextHistory(
+  stack: TextHistoryEntry[],
+  entry: TextHistoryEntry,
+): TextHistoryEntry[] {
+  if (regionListsEqual(entry.before, entry.after)) return stack
+  const clonedEntry = {
+    ...entry,
+    before: cloneTextRegions(entry.before),
+    after: cloneTextRegions(entry.after),
+  }
+  const last = stack[stack.length - 1]
+  if (
+    clonedEntry.key &&
+    last?.key === clonedEntry.key &&
+    last.activeImageId === clonedEntry.activeImageId
+  ) {
+    return [
+      ...stack.slice(0, -1),
+      {
+        ...clonedEntry,
+        before: last.before,
+      },
+    ].slice(-MAX_TEXT_HISTORY)
+  }
+  return [...stack, clonedEntry].slice(-MAX_TEXT_HISTORY)
+}
+
+function cloneEditorHistoryEntry(entry: EditorHistoryEntry): EditorHistoryEntry {
+  if (entry.kind === 'text') {
+    return {
+      ...entry,
+      before: cloneTextRegions(entry.before),
+      after: cloneTextRegions(entry.after),
+    }
+  }
+  return {
+    ...entry,
+    before: cloneBrushStrokes(entry.before),
+    after: cloneBrushStrokes(entry.after),
+  }
+}
+
+function pushEditorHistory(
+  stack: EditorHistoryEntry[],
+  entry: EditorHistoryEntry,
+): EditorHistoryEntry[] {
+  if (JSON.stringify(entry.before) === JSON.stringify(entry.after)) return stack
+
+  const clonedEntry = cloneEditorHistoryEntry(entry)
+  const last = stack[stack.length - 1]
+  if (
+    clonedEntry.kind === 'text' &&
+    clonedEntry.key &&
+    last?.kind === 'text' &&
+    last.key === clonedEntry.key &&
+    last.activeImageId === clonedEntry.activeImageId
+  ) {
+    return [
+      ...stack.slice(0, -1),
+      {
+        ...clonedEntry,
+        before: last.before,
+      },
+    ].slice(-MAX_TEXT_HISTORY)
+  }
+  return [...stack, clonedEntry].slice(-MAX_TEXT_HISTORY)
+}
+
+function applyEditorHistoryEntry(
+  state: AppStore,
+  entry: EditorHistoryEntry,
+  direction: 'undo' | 'redo',
+): Pick<AppStore, 'regions' | 'brushStrokes' | 'imageEntries' | 'selectedRegionId' | '_brushRedoStack'> {
+  if (entry.kind === 'text') {
+    const regions = direction === 'undo' ? entry.before : entry.after
+    return {
+      regions,
+      brushStrokes: state.brushStrokes,
+      imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, regions),
+      selectedRegionId: entry.selectedRegionId,
+      _brushRedoStack: state._brushRedoStack,
+    }
+  }
+
+  const brushStrokes = direction === 'undo' ? entry.before : entry.after
+  const redoSlice = direction === 'undo'
+    ? entry.after.slice(entry.before.length)
+    : []
+  return {
+    regions: state.regions,
+    brushStrokes,
+    imageEntries: syncActiveEntryBrushStrokes(state.imageEntries, state.activeImageId, brushStrokes),
+    selectedRegionId: entry.selectedRegionId,
+    _brushRedoStack: redoSlice,
+  }
+}
+
+function findLastActiveHistoryIndex(
+  stack: EditorHistoryEntry[],
+  activeImageId: string | null,
+): number {
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    if (stack[index].activeImageId === activeImageId) return index
+  }
+  return -1
+}
+
 export const useAppStore = create<AppStore>((set, get) => ({
   // Navigation
   currentStep: 'upload',
@@ -215,17 +400,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setActiveImage: (id) => set({ activeImageId: id }),
   addImageEntries: (files) => {
     set((state) => {
-      const newEntries: ImageEntry[] = files.map((file, index) => ({
-        id: generateEntryId(),
-        file,
-        originalUrl: URL.createObjectURL(file),
-        cleanedImageUrl: null,
-        regions: [],
-        brushStrokes: [],
-        status: 'pending',
-        pageNumber: state.imageEntries.length + index + 1,
-        ...getDefaultArtboardPosition(state.imageEntries.length + index),
-      }))
+      const newEntries: ImageEntry[] = files.map((file, index) => {
+        const entryIndex = state.imageEntries.length + index
+        return {
+          id: generateEntryId(),
+          file,
+          originalUrl: URL.createObjectURL(file),
+          cleanedImageUrl: null,
+          regions: [],
+          brushStrokes: [],
+          status: 'pending',
+          pageNumber: entryIndex + 1,
+          ...getDefaultArtboardCoordinates(entryIndex),
+        }
+      })
       const entries = [...state.imageEntries, ...newEntries]
       return {
         imageEntries: entries,
@@ -241,7 +429,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       if (entry?.originalUrl?.startsWith('blob:')) URL.revokeObjectURL(entry.originalUrl)
       const entries = state.imageEntries
         .filter((e) => e.id !== id)
-        .map((e, index) => ({ ...e, pageNumber: index + 1, ...getDefaultArtboardPosition(index) }))
+        .map((e, index) => ({ ...e, pageNumber: index + 1, ...getDefaultArtboardCoordinates(index) }))
       const nextActiveId = state.activeImageId === id ? (entries[0]?.id ?? null) : state.activeImageId
       const nextActive = entries.find((e) => e.id === nextActiveId) ?? null
       if (state.activeImageId === id && nextActive?.imageLoaded === false && nextActive.originalR2Key) {
@@ -259,6 +447,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
               brushStrokes: nextActive?.brushStrokes ?? [],
               selectedRegionId: null,
               _brushRedoStack: [],
+              _textUndoStack: [],
+              _textRedoStack: [],
+              _editorUndoStack: [],
+              _editorRedoStack: [],
             }
           : {}),
       }
@@ -274,13 +466,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
         imageEntries: entries.map((entry, index) => ({
           ...entry,
           pageNumber: index + 1,
-          ...getDefaultArtboardPosition(index),
+          ...getDefaultArtboardCoordinates(index),
         })),
       }
     }),
   updateImageEntry: (id, updates) =>
     set((state) => ({
-      imageEntries: state.imageEntries.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+      imageEntries: state.imageEntries.map((e) => {
+        if (e.id !== id) return e
+        const nextUpdates = { ...updates }
+        if ('file' in updates && !('originalHash' in updates)) nextUpdates.originalHash = undefined
+        if ('cleanedImageUrl' in updates && !('cleanedHash' in updates)) {
+          nextUpdates.cleanedHash = undefined
+          nextUpdates.thumbnailHash = undefined
+        }
+        return { ...e, ...nextUpdates }
+      }),
       ...(state.activeImageId === id
         ? {
             regions: updates.regions ?? state.regions,
@@ -312,7 +513,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       )
       nextEntries = [...moved]
         .sort(compareArtboardOrder)
-        .map((entry, index) => ({ ...entry, pageNumber: index + 1 }))
+        .map((entry, index) => ({ ...entry, pageNumber: index + 1, ...getDefaultArtboardCoordinates(index) }))
       return { imageEntries: nextEntries }
     })
     return nextEntries
@@ -321,43 +522,187 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set((state) => ({
       imageEntries: state.imageEntries.map((entry, index) => ({
         ...entry,
-        ...getDefaultArtboardPosition(index),
+        ...getDefaultArtboardCoordinates(index),
       })),
     })),
 
   // Regions
   regions: [],
-  setRegions: (regions) => set({ regions }),
-  updateRegion: (id, updates) =>
-    set((state) => ({
-      regions: state.regions.map((r) => (r.id === id ? { ...r, ...updates } : r)),
-      imageEntries: state.activeImageId
-        ? state.imageEntries.map((entry) =>
-            entry.id === state.activeImageId
-              ? {
-                  ...entry,
-                  regions: entry.regions.map((region) =>
-                    region.id === id ? { ...region, ...updates } : region,
-                  ),
-                }
-              : entry,
-          )
-        : state.imageEntries,
-    })),
+  setRegions: (regions) => set({
+    regions,
+    _textUndoStack: [],
+    _textRedoStack: [],
+    _editorUndoStack: [],
+    _editorRedoStack: [],
+  }),
+  updateRegion: (id, updates, options) =>
+    set((state) => {
+      const before = state.regions
+      const nextRegions = before.map((r) => (r.id === id ? { ...r, ...updates } : r))
+      const trackHistory = options?.trackHistory ?? true
+      const historyBefore = options?.historyBefore ?? before
+      return {
+        regions: nextRegions,
+        imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, nextRegions),
+        ...(trackHistory
+          ? {
+              _textUndoStack: pushTextHistory(state._textUndoStack, {
+                activeImageId: state.activeImageId,
+                before: historyBefore,
+                after: nextRegions,
+                selectedRegionId: state.selectedRegionId,
+                key: options?.historyKey,
+              }),
+              _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+                kind: 'text',
+                activeImageId: state.activeImageId,
+                before: historyBefore,
+                after: nextRegions,
+                selectedRegionId: state.selectedRegionId,
+                key: options?.historyKey,
+              }),
+              _textRedoStack: [],
+              _editorRedoStack: [],
+            }
+          : {}),
+      }
+    }),
   deleteRegion: (id) =>
-    set((state) => ({
-      regions: state.regions.filter((r) => r.id !== id),
-      imageEntries: state.activeImageId
-        ? state.imageEntries.map((entry) =>
-            entry.id === state.activeImageId
-              ? { ...entry, regions: entry.regions.filter((region) => region.id !== id) }
-              : entry,
-          )
-        : state.imageEntries,
-      selectedRegionId: state.selectedRegionId === id ? null : state.selectedRegionId,
-    })),
+    set((state) => {
+      const before = state.regions
+      const nextRegions = before.filter((r) => r.id !== id)
+      const nextSelectedRegionId = state.selectedRegionId === id ? null : state.selectedRegionId
+      return {
+        regions: nextRegions,
+        imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, nextRegions),
+        selectedRegionId: nextSelectedRegionId,
+        _textUndoStack: pushTextHistory(state._textUndoStack, {
+          activeImageId: state.activeImageId,
+          before,
+          after: nextRegions,
+          selectedRegionId: state.selectedRegionId,
+        }),
+        _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+          kind: 'text',
+          activeImageId: state.activeImageId,
+          before,
+          after: nextRegions,
+          selectedRegionId: state.selectedRegionId,
+        }),
+        _textRedoStack: [],
+        _editorRedoStack: [],
+      }
+    }),
   selectedRegionId: null,
   selectRegion: (id) => set({ selectedRegionId: id }),
+  _textUndoStack: [],
+  _textRedoStack: [],
+  _editorUndoStack: [],
+  _editorRedoStack: [],
+  undoTextEdit: (steps = 1) => {
+    const current = get()
+    const count = Math.max(1, Math.floor(steps))
+    const targetIndex = current._textUndoStack.length - count
+    const entry = current._textUndoStack[targetIndex]
+    if (!entry || entry.activeImageId !== current.activeImageId) return false
+    const undone = current._textUndoStack.slice(targetIndex)
+    set((state) => ({
+      regions: entry.before,
+      imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, entry.before),
+      selectedRegionId: entry.selectedRegionId,
+      _textUndoStack: state._textUndoStack.slice(0, targetIndex),
+      _textRedoStack: [...state._textRedoStack, ...undone.slice().reverse()].slice(-MAX_TEXT_HISTORY),
+    }))
+    return true
+  },
+  redoTextEdit: (steps = 1) => {
+    const current = get()
+    const count = Math.max(1, Math.floor(steps))
+    const targetIndex = current._textRedoStack.length - count
+    const entry = current._textRedoStack[targetIndex]
+    if (!entry || entry.activeImageId !== current.activeImageId) return false
+    const redone = current._textRedoStack.slice(targetIndex)
+    set((state) => ({
+      regions: entry.after,
+      imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, entry.after),
+      selectedRegionId: entry.selectedRegionId,
+      _textUndoStack: [...state._textUndoStack, ...redone.slice().reverse()].slice(-MAX_TEXT_HISTORY),
+      _textRedoStack: state._textRedoStack.slice(0, targetIndex),
+    }))
+    return true
+  },
+  undoEditorEdit: (steps = 1) => {
+    const current = get()
+    const count = Math.max(1, Math.floor(steps))
+    const available = current._editorUndoStack.filter((entry) => entry.activeImageId === current.activeImageId)
+    if (available.length < count) return false
+    set((state) => {
+      let nextState = state
+      const undoStack = [...state._editorUndoStack]
+      const redoStack = [...state._editorRedoStack]
+      let applied = 0
+
+      while (applied < count) {
+        const index = findLastActiveHistoryIndex(undoStack, state.activeImageId)
+        if (index < 0) break
+        const [entry] = undoStack.splice(index, 1)
+        const appliedState = applyEditorHistoryEntry(nextState, entry, 'undo')
+        nextState = {
+          ...nextState,
+          ...appliedState,
+        }
+        redoStack.push(entry)
+        applied += 1
+      }
+
+      return {
+        regions: nextState.regions,
+        brushStrokes: nextState.brushStrokes,
+        imageEntries: nextState.imageEntries,
+        selectedRegionId: nextState.selectedRegionId,
+        _brushRedoStack: nextState._brushRedoStack,
+        _editorUndoStack: undoStack,
+        _editorRedoStack: redoStack.slice(-MAX_TEXT_HISTORY),
+      }
+    })
+    return true
+  },
+  redoEditorEdit: (steps = 1) => {
+    const current = get()
+    const count = Math.max(1, Math.floor(steps))
+    const available = current._editorRedoStack.filter((entry) => entry.activeImageId === current.activeImageId)
+    if (available.length < count) return false
+    set((state) => {
+      let nextState = state
+      const undoStack = [...state._editorUndoStack]
+      const redoStack = [...state._editorRedoStack]
+      let applied = 0
+
+      while (applied < count) {
+        const index = findLastActiveHistoryIndex(redoStack, state.activeImageId)
+        if (index < 0) break
+        const [entry] = redoStack.splice(index, 1)
+        const appliedState = applyEditorHistoryEntry(nextState, entry, 'redo')
+        nextState = {
+          ...nextState,
+          ...appliedState,
+        }
+        undoStack.push(entry)
+        applied += 1
+      }
+
+      return {
+        regions: nextState.regions,
+        brushStrokes: nextState.brushStrokes,
+        imageEntries: nextState.imageEntries,
+        selectedRegionId: nextState.selectedRegionId,
+        _brushRedoStack: nextState._brushRedoStack,
+        _editorUndoStack: undoStack.slice(-MAX_TEXT_HISTORY),
+        _editorRedoStack: redoStack,
+      }
+    })
+    return true
+  },
 
   // Active tool
   activeTool: 'select',
@@ -371,26 +716,62 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setBrushColor: (color) => set({ brushColor: color }),
   setBrushSize: (size) => set({ brushSize: Math.max(1, Math.min(50, size)) }),
   setBrushOpacity: (opacity) => set({ brushOpacity: Math.max(0, Math.min(1, opacity)) }),
-  setBrushShadowBlur: (blur) => set({ brushShadowBlur: Math.max(0, Math.min(20, blur)) }),
+  setBrushShadowBlur: (blur) => set({ brushShadowBlur: Math.max(0, Math.min(40, blur)) }),
   brushStrokes: [],
   _brushRedoStack: [],
   addBrushStroke: (stroke) =>
-    set((state) => ({ brushStrokes: [...state.brushStrokes, stroke], _brushRedoStack: [] })),
+    set((state) => {
+      const next = appendBrushStroke({
+        brushStrokes: state.brushStrokes,
+        redoStack: state._brushRedoStack,
+      }, stroke)
+      return {
+        brushStrokes: next.brushStrokes,
+        _brushRedoStack: next.redoStack,
+        imageEntries: syncActiveEntryBrushStrokes(state.imageEntries, state.activeImageId, next.brushStrokes),
+        _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+          kind: 'brush',
+          activeImageId: state.activeImageId,
+          before: state.brushStrokes,
+          after: next.brushStrokes,
+          selectedRegionId: state.selectedRegionId,
+        }),
+        _editorRedoStack: [],
+      }
+    }),
   undoBrushStroke: () =>
     set((state) => {
-      if (state.brushStrokes.length === 0) return state
-      const strokes = [...state.brushStrokes]
-      const removed = strokes.pop()!
-      return { brushStrokes: strokes, _brushRedoStack: [...state._brushRedoStack, removed] }
+      const next = undoBrushStroke({
+        brushStrokes: state.brushStrokes,
+        redoStack: state._brushRedoStack,
+      })
+      return {
+        brushStrokes: next.brushStrokes,
+        _brushRedoStack: next.redoStack,
+        imageEntries: syncActiveEntryBrushStrokes(state.imageEntries, state.activeImageId, next.brushStrokes),
+      }
     }),
   redoBrushStroke: () =>
     set((state) => {
-      if (state._brushRedoStack.length === 0) return state
-      const redo = [...state._brushRedoStack]
-      const restored = redo.pop()!
-      return { brushStrokes: [...state.brushStrokes, restored], _brushRedoStack: redo }
+      const next = redoBrushStroke({
+        brushStrokes: state.brushStrokes,
+        redoStack: state._brushRedoStack,
+      })
+      return {
+        brushStrokes: next.brushStrokes,
+        _brushRedoStack: next.redoStack,
+        imageEntries: syncActiveEntryBrushStrokes(state.imageEntries, state.activeImageId, next.brushStrokes),
+      }
     }),
-  clearBrushStrokes: () => set({ brushStrokes: [], _brushRedoStack: [] }),
+  clearBrushStrokes: () =>
+    set((state) => {
+      const next = clearBrushStrokes()
+      return {
+        brushStrokes: next.brushStrokes,
+        _brushRedoStack: next.redoStack,
+        imageEntries: syncActiveEntryBrushStrokes(state.imageEntries, state.activeImageId, next.brushStrokes),
+      }
+    }),
 
   // Text overlay visibility
   showTextOverlay: true,
@@ -478,6 +859,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       brushStrokes: firstEntry?.brushStrokes ?? [],
       cleanedImageUrl: firstEntry?.cleanedImageUrl ?? null,
       processError: null,
+      _textUndoStack: [],
+      _textRedoStack: [],
+      _editorUndoStack: [],
+      _editorRedoStack: [],
     })
   },
 
@@ -505,6 +890,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       brushStrokes: target.brushStrokes,
       selectedRegionId: null,
       _brushRedoStack: [],
+      _textUndoStack: [],
+      _textRedoStack: [],
+      _editorUndoStack: [],
+      _editorRedoStack: [],
     })
 
     // Lazy load full image from R2 if not yet loaded
@@ -566,6 +955,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       translatedImageUrl: null,
       regions: [],
       selectedRegionId: null,
+      _textUndoStack: [],
+      _textRedoStack: [],
+      _editorUndoStack: [],
+      _editorRedoStack: [],
       brushStrokes: [],
       _brushRedoStack: [],
       logs: [],
@@ -632,11 +1025,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       processAbortController: null,
       brushStrokes: [],
       _brushRedoStack: [],
+      _textUndoStack: [],
+      _textRedoStack: [],
+      _editorUndoStack: [],
+      _editorRedoStack: [],
     })
     if (activeImageId) {
       get().updateImageEntry(activeImageId, {
         cleanedImageUrl: cleanedUrl,
         regions,
+        brushStrokes: [],
         status: 'done',
         progress: 100,
       })
@@ -666,6 +1064,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           ? (page.thumbnail_key as string)
           : ''
 
+      const fallback = getDefaultArtboardPosition(page.page_number - 1)
       return {
         id: `album-${Date.now()}-${nextId++}`,
         file: null,
@@ -681,7 +1080,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
               ? 'error'
               : 'pending',
         pageNumber: page.page_number,
-        ...getDefaultArtboardPosition(page.page_number - 1),
+        artboardX: page.artboard_x ?? fallback.x,
+        artboardY: page.artboard_y ?? fallback.y,
         albumPageId: page.id,
         originalR2Key: (page.original_key as string) ?? undefined,
         cleanedR2Key: (page.cleaned_key as string) ?? undefined,
@@ -704,6 +1104,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       brushStrokes: activeEntry.brushStrokes,
       selectedRegionId: null,
       _brushRedoStack: [],
+      _textUndoStack: [],
+      _textRedoStack: [],
+      _editorUndoStack: [],
+      _editorRedoStack: [],
       logs: [],
       processError: null,
       isProcessing: true,
@@ -740,8 +1144,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
 
     void (async () => {
+      const activeIndex = entries.findIndex((entry) => entry.id === activeEntry.id)
+      const prefetchIds = new Set([
+        entries[activeIndex - 1]?.id,
+        entries[activeIndex + 1]?.id,
+      ].filter((id): id is string => Boolean(id)))
       for (const entry of entries) {
-        if (entry.id === activeEntry.id || entry.imageLoaded !== false || !entry.originalR2Key) continue
+        if (!prefetchIds.has(entry.id) || entry.imageLoaded !== false || !entry.originalR2Key) continue
         try {
           const hydrated = await hydrateAlbumEntryImage(entry)
           set((state) => ({

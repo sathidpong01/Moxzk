@@ -73,6 +73,8 @@ test('D1 migration keeps album/page/object constraints explicit', () => {
   assert.ok(has('CREATE INDEX `objects_user_idx`'), 'objects must be queryable by user')
   assert.ok(has('CREATE INDEX `objects_album_idx`'), 'objects must be queryable by album')
   assert.ok(has('CREATE INDEX `objects_page_idx`'), 'objects must be queryable by page')
+  assert.ok(has('`sha256` text'), 'objects must persist content hashes for upload dedupe')
+  assert.ok(has('CREATE INDEX `objects_user_hash_idx`'), 'object hashes must be queryable per user')
 })
 
 test('D1 migration uses hard references instead of soft-delete scaffolding', () => {

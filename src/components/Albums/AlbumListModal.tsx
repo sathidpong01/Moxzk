@@ -21,7 +21,7 @@ import {
   Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { uploadImage, buildStorageKey, fileToBlob, dataUrlToBlob, generateThumbnail, imageUrlToBlob } from '../../services/storageService'
+import { buildStorageKey, fileToBlob, generateThumbnail, imageUrlToBlob, prepareImageUpload, uploadPreparedImage } from '../../services/storageService'
 import { exportAlbumPages } from '../../services/exporter'
 import { getNextAlbumPageNumber, getPersistedPageStatus, resolveAlbumSaveTarget } from '../../services/albumSavePlan'
 
@@ -92,7 +92,7 @@ export default function AlbumListModal() {
 
       setSaving(true)
       // Fetch current pages to know next page_number
-      await fetchPages(album.id)
+      await fetchPages(album.id, 'summary')
       const existingPages = useAlbumStore.getState().currentPages
       let nextPageNum = getNextAlbumPageNumber(existingPages)
 
@@ -104,11 +104,15 @@ export default function AlbumListModal() {
           let originalKey = entry.originalR2Key ?? (target.existingPage?.original_key as string | null) ?? undefined
           let cleanedKey = entry.cleanedR2Key ?? (target.existingPage?.cleaned_key as string | null) ?? undefined
           let thumbnailKey = (target.existingPage?.thumbnail_key as string | null) ?? undefined
+          let originalHash = entry.originalHash
+          let cleanedHash = entry.cleanedHash
+          let thumbnailHash = entry.thumbnailHash
           let cleanedBlobForThumbnail: Blob | null = null
 
           // Generate a thumbnail from the cleaned image when available; otherwise use the original.
           let localThumbnailDataUrl: string | undefined
           let thumbnailSource: Blob | null = null
+          let thumbnailBlob: Blob | null = null
           if (entry.cleanedImageUrl) {
             cleanedBlobForThumbnail = await imageUrlToBlob(entry.cleanedImageUrl)
             thumbnailSource = cleanedBlobForThumbnail
@@ -121,41 +125,49 @@ export default function AlbumListModal() {
               thumbnailSource = null
             }
           }
-          if (thumbnailSource) {
-            const thumbBlob = await generateThumbnail(thumbnailSource)
+          if (thumbnailSource && (!thumbnailKey || !thumbnailHash)) {
+            thumbnailBlob = await generateThumbnail(thumbnailSource)
             localThumbnailDataUrl = await new Promise<string>((res, rej) => {
               const reader = new FileReader()
               reader.onload = () => res(reader.result as string)
               reader.onerror = rej
-              reader.readAsDataURL(thumbBlob)
+              reader.readAsDataURL(thumbnailBlob!)
             })
           }
 
           // ── Try R2 upload (optional) ──
           try {
-            if (!originalKey && entry.file) {
+            if (entry.file && (!originalKey || !originalHash)) {
               const origKey = buildStorageKey(userId, album.id, pageNumber, 'original')
-              const origResult = await uploadImage(fileToBlob(entry.file), origKey)
-              originalKey = origResult.key
+              const prepared = await prepareImageUpload(fileToBlob(entry.file))
+              if (!originalKey || originalHash !== prepared.sha256) {
+                const origResult = await uploadPreparedImage(prepared, origKey)
+                originalKey = origResult.key
+              }
+              originalHash = prepared.sha256
             }
-            if (entry.cleanedImageUrl && !cleanedKey) {
+            if (entry.cleanedImageUrl && (!cleanedKey || !cleanedHash)) {
               const cleanKey = buildStorageKey(userId, album.id, pageNumber, 'cleaned')
               const cleanedBlob = cleanedBlobForThumbnail ?? await imageUrlToBlob(entry.cleanedImageUrl)
-              const cleanResult = await uploadImage(cleanedBlob, cleanKey)
-              cleanedKey = cleanResult.key
+              const prepared = await prepareImageUpload(cleanedBlob)
+              if (!cleanedKey || cleanedHash !== prepared.sha256) {
+                const cleanResult = await uploadPreparedImage(prepared, cleanKey)
+                cleanedKey = cleanResult.key
+              }
+              cleanedHash = prepared.sha256
             }
-            if (entry.file && localThumbnailDataUrl) {
+            if (thumbnailSource && (!thumbnailKey || !thumbnailHash)) {
               const thumbKey = buildStorageKey(userId, album.id, pageNumber, 'thumbnail')
-              const thumbBlob = dataUrlToBlob(localThumbnailDataUrl)
-              const thumbResult = await uploadImage(thumbBlob, thumbKey)
-              thumbnailKey = thumbResult.key
+              const prepared = await prepareImageUpload(thumbnailBlob ?? await generateThumbnail(thumbnailSource))
+              if (!thumbnailKey || thumbnailHash !== prepared.sha256) {
+                const thumbResult = await uploadPreparedImage(prepared, thumbKey)
+                thumbnailKey = thumbResult.key
+              }
+              thumbnailHash = prepared.sha256
             }
           } catch (uploadErr) {
             console.warn('[save] R2 upload skipped:', uploadErr)
           }
-
-          // Always keep a data URL thumbnail for instant display; R2 thumbnail is only a backup.
-          thumbnailKey = localThumbnailDataUrl ?? thumbnailKey
 
           // ── Always save metadata to Supabase DB ──
           const status: AlbumPage['status'] = getPersistedPageStatus(entry)
@@ -200,6 +212,9 @@ export default function AlbumListModal() {
               albumPageId: result.id,
               originalR2Key: originalKey,
               cleanedR2Key: cleanedKey,
+              originalHash,
+              cleanedHash,
+              thumbnailHash,
               pageNumber,
             })
             // Auto-set album cover from first saved page
@@ -217,7 +232,7 @@ export default function AlbumListModal() {
 
       setSaving(false)
       if (savedCount > 0) {
-        await fetchPages(album.id)
+        await fetchPages(album.id, 'summary')
         const updatedAlbum = useAlbumStore.getState().albums.find((item) => item.id === album.id) ?? album
         setCurrentAlbum(updatedAlbum)
         toast.success(`บันทึก ${savedCount} หน้าลง "${album.title}" แล้ว`)
@@ -234,7 +249,7 @@ export default function AlbumListModal() {
         return
       }
       setCurrentAlbum(album)
-      await fetchPages(album.id)
+      await fetchPages(album.id, 'summary')
       setView('detail')
     },
     [saveMode, handleSaveToAlbum, setCurrentAlbum, fetchPages],
@@ -279,7 +294,8 @@ export default function AlbumListModal() {
       setLoadingPage(true)
       try {
         const appStore = useAppStore.getState()
-        await appStore.loadAlbumPages(currentPages, page.id)
+        if (currentAlbum) await fetchPages(currentAlbum.id, 'full')
+        await appStore.loadAlbumPages(useAlbumStore.getState().currentPages, page.id)
         closeModal()
       } catch (err) {
         console.error('[album] loadAlbumPages failed:', err)
@@ -288,7 +304,7 @@ export default function AlbumListModal() {
         setLoadingPage(false)
       }
     },
-    [currentPages, closeModal, editMode],
+    [closeModal, currentAlbum, editMode, fetchPages],
   )
 
   const handleDeletePage = useCallback(
@@ -361,17 +377,17 @@ export default function AlbumListModal() {
                   className="mg-button mg-button-ghost mg-button-sm"
                   onClick={async () => {
                     if (!currentAlbum) return
-                    toast.info('กำลัง export...')
+                    toast.info('กำลังส่งออก...')
                     await exportAlbumPages(currentPages, currentAlbum.title, {
                       format: 'webp',
                       quality: 0.92,
                       onProgress: (cur, total) => {
-                        if (cur === total) toast.success(`Export ${total} หน้าเสร็จ!`)
+                        if (cur === total) toast.success(`ส่งออก ${total} หน้าเสร็จ`)
                       },
                     })
                   }}
                 >
-                  <Download size={12} /> Export
+                  <Download size={12} /> ส่งออก
                 </button>
               )}
               {view === 'detail' && (
@@ -459,7 +475,7 @@ export default function AlbumListModal() {
                   <div className="space-y-4">
                     <div className="flex items-end justify-between gap-3">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--mg-muted)]">Library</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--mg-muted)]">คลังอัลบั้ม</p>
                         <p className="mt-1 text-xs text-[var(--mg-dim)]">{albums.length} อัลบั้ม</p>
                       </div>
                     </div>

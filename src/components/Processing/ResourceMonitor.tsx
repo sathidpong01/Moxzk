@@ -173,14 +173,14 @@ export default function ResourceMonitor({ isProcessing }: ResourceMonitorProps) 
       <div className="flex items-center justify-between mb-1.5">
         <div {...dragHandleProps} className="flex items-center gap-1 drag-handle flex-1">
           <GripVertical size={10} className="text-[var(--mg-dim)]" />
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">Resources</span>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">ทรัพยากร</span>
           {isProcessing && (
             <span className="ml-1 font-mono text-[10px] tabular-nums text-blue-300">
               {formatElapsed(elapsed)}
             </span>
           )}
         </div>
-        <IconButton label="Close resource monitor" className="h-6 w-6" onClick={() => togglePanel('resource', false)}>
+        <IconButton label="ปิดทรัพยากรเครื่อง" className="h-6 w-6" onClick={() => togglePanel('resource', false)}>
           <X size={10} />
         </IconButton>
       </div>

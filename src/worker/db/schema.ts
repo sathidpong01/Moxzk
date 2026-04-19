@@ -135,11 +135,13 @@ export const objects = sqliteTable('objects', {
   kind: text('kind', { enum: objectKinds }).notNull(),
   contentType: text('content_type').notNull(),
   sizeBytes: integer('size_bytes').notNull(),
+  sha256: text('sha256'),
   createdAt: integer('created_at').notNull().$defaultFn(() => Date.now()),
 }, (table) => [
   index('objects_user_idx').on(table.userId),
   index('objects_album_idx').on(table.albumId),
   index('objects_page_idx').on(table.pageId),
+  index('objects_user_hash_idx').on(table.userId, table.sha256),
   check('objects_kind_check', sql`${table.kind} in ('original', 'cleaned', 'thumbnail', 'cover')`),
 ])
 

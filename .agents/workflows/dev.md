@@ -12,7 +12,7 @@ description: วิธีเริ่มต้น development environment สำ
 
 ## Steps
 
-1. Start manga-image-translator backend via Docker
+1. Start the PanelCleaner bridge with `npm run backend:panelcleaner`
    // turbo
 
 ```bash

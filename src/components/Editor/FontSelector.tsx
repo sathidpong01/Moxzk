@@ -62,7 +62,7 @@ export default function FontSelector({
           className="w-full"
           onClick={() => onSelect(moodFontId)}
         >
-          🤖 ใช้ฟอนต์ตาม mood: {moodFont.name}
+          ใช้ฟอนต์ตามอารมณ์ข้อความ: {moodFont.name}
         </Button>
       )}
 

@@ -69,7 +69,7 @@ export function parseApiError(raw: string): ParsedError {
     } else if (lower.includes('panelcleaner') || lower.includes('5055')) {
       result.shortMessage = 'เชื่อมต่อ PanelCleaner bridge ไม่ได้ — รัน npm run backend:panelcleaner แล้วลองใหม่'
     } else {
-      result.shortMessage = 'เชื่อมต่อ Server ไม่ได้ — ตรวจสอบ PanelCleaner bridge หรือ legacy manga-image-translator'
+      result.shortMessage = 'เชื่อมต่อ Server ไม่ได้ — ตรวจสอบ PanelCleaner bridge'
     }
   }
 

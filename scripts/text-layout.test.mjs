@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   calculateBalloonFitFontSize,
   estimateWrappedLineCount,
+  layoutTextInBox,
   normalizeTextLayoutMode,
 } from '../src/utils/textLayout.ts'
 
@@ -30,4 +31,16 @@ test('estimateWrappedLineCount respects manual line breaks', () => {
 
   assert.equal(oneLine, 1)
   assert.equal(twoLines, 2)
+})
+
+test('layoutTextInBox returns shared lines and overflow signal', () => {
+  const layout = layoutTextInBox(
+    'ไม่มีทางล่ะงั้นเหรอค พอร์ว่ามันอยู่ไปหนแค่ อดทนรออีกนิดเถอะ',
+    { width: 160, height: 72 },
+    32,
+  )
+
+  assert.ok(layout.lines.length > 1)
+  assert.ok(layout.fontSize <= 32)
+  assert.equal(typeof layout.overflow, 'boolean')
 })

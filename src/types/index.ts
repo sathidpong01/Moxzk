@@ -23,6 +23,7 @@ export interface TextRegion {
   translatedText: string;
   mood: MoodType;
   suggestedFont: string;
+  fontId?: string;
   fontSize: number;
   fontColor: string;
   rotation: number;
@@ -76,9 +77,7 @@ export interface TranslationResult {
   originalImageUrl: string;
 }
 
-export type ProcessingMode = "gemma_vision_full" | "full" | "clean_only" | "ocr_only";
-
-export type CleanupBackend = "panelcleaner" | "legacy-manga-translator";
+export type ProcessingMode = "gemma_vision_full" | "clean_only";
 
 export type ExportFormat = "png" | "jpg" | "webp";
 
@@ -131,6 +130,9 @@ export interface ImageEntry {
   albumPageId?: string;
   originalR2Key?: string;
   cleanedR2Key?: string;
+  originalHash?: string;
+  cleanedHash?: string;
+  thumbnailHash?: string;
   imageLoaded?: boolean;
 }
 
@@ -149,11 +151,8 @@ export interface AppState {
 }
 
 export interface AppSettings {
-  cleanupBackend: CleanupBackend;
-  translatorApiUrl: string;
   panelCleanerBridgeUrl: string;
   panelCleanerExecutablePath: string;
-  panelCleanerUseOcrFallback: boolean;
   sourceLang: "auto" | "ja" | "zh" | "en";
   fontMoodMap: FontMoodMap;
   theme: string;

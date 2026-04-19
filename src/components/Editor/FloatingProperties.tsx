@@ -16,7 +16,7 @@ export default function FloatingProperties({
 }) {
   const { panelStyle, dragHandleProps } = useFloatingPanel({
     id: 'properties-panel',
-    defaultPosition: { x: window.innerWidth - 300, y: 60 },
+    defaultPosition: { x: Math.max(24, window.innerWidth - 380), y: 92 },
     defaultVisible: true,
   })
   const togglePanel = useAppStore((s) => s.togglePanel)
@@ -27,10 +27,10 @@ export default function FloatingProperties({
         <div {...dragHandleProps} className="flex items-center gap-1 drag-handle flex-1">
           <GripVertical size={14} className="text-[var(--mg-dim)]" />
           <span className="text-xs font-bold uppercase tracking-wider text-[var(--mg-muted)]">
-            Properties
+            คุณสมบัติข้อความ
           </span>
         </div>
-        <IconButton label="Close properties" onClick={() => togglePanel('properties', false)}>
+        <IconButton label="ปิดคุณสมบัติข้อความ" onClick={() => togglePanel('properties', false)}>
           <X size={12} />
         </IconButton>
       </div>

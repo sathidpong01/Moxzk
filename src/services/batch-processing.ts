@@ -2,7 +2,6 @@ import type { AppSettings, BoundingBox, ImageEntry, ProcessingMode, TextRegion }
 import { processImageWithCleanupProvider } from './cleanup-provider'
 import { processImagesWithPanelCleanerBatch } from './panelcleaner-api'
 import {
-  detectOcrWithOllamaVision,
   translateWithOllamaBoxedVision,
   translateWithOllamaVision,
   type OllamaOptions,
@@ -49,7 +48,6 @@ export interface BatchAiServices {
   deriveTextBoxes: typeof deriveTextBoxesFromCleanupDiff
   translateBoxedVision: typeof translateWithOllamaBoxedVision
   translateVision: typeof translateWithOllamaVision
-  detectOcrVision: typeof detectOcrWithOllamaVision
   readImageUrlAsBlob: (url: string) => Promise<Blob>
 }
 
@@ -61,7 +59,6 @@ const defaultServices: BatchAiServices = {
   deriveTextBoxes: deriveTextBoxesFromCleanupDiff,
   translateBoxedVision: translateWithOllamaBoxedVision,
   translateVision: translateWithOllamaVision,
-  detectOcrVision: detectOcrWithOllamaVision,
   readImageUrlAsBlob,
 }
 
@@ -229,57 +226,16 @@ async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions, s
     options.onEntryUpdate(entry.id, { status: 'cleaning', progress: 15 })
   })
 
-  if (options.settings.cleanupBackend === 'panelcleaner') {
-    const results = await services.processPanelCleanerBatch(
-      needsClean.map((entry) => ({ id: entry.id, file: entry.file! })),
-      {
-        bridgeUrl: options.settings.panelCleanerBridgeUrl,
-        executablePath: options.settings.panelCleanerExecutablePath,
-      },
-      (progress) => options.onLog(`[${progress.status}] ${progress.message}`),
-    )
+  const results = await services.processPanelCleanerBatch(
+    needsClean.map((entry) => ({ id: entry.id, file: entry.file! })),
+    {
+      bridgeUrl: options.settings.panelCleanerBridgeUrl,
+      executablePath: options.settings.panelCleanerExecutablePath,
+    },
+    (progress) => options.onLog(`[${progress.status}] ${progress.message}`),
+  )
 
-    const byId = new Map(results.map((result) => [result.id, result]))
-    const cleaned: CleanResult[] = []
-    for (const [index, entry] of needsClean.entries()) {
-      options.onBatchProgress?.({
-        phase: 'cleaning',
-        currentIndex: index + 1,
-        total: needsClean.length,
-        currentPageNumber: entry.pageNumber ?? index + 1,
-        progress: Math.round((index / needsClean.length) * 55),
-        message: `กำลังอัปเดตผลคลีนหน้า ${entry.pageNumber ?? index + 1}`,
-      })
-      await delay(UI_STEP_DELAY_MS)
-
-      const result = byId.get(entry.id)
-      if (!result?.cleanedImageBlob) {
-        const message = result?.error || 'PanelCleaner batch did not return a cleaned image'
-        options.onEntryUpdate(entry.id, { status: 'error', error: message, lastErrorStage: 'clean', progress: 100 })
-        continue
-      }
-      result.logs?.forEach((line) => options.onLog(`PanelCleaner batch: ${line}`))
-      const cleanedUrl = URL.createObjectURL(result.cleanedImageBlob)
-      options.onEntryUpdate(entry.id, {
-        cleanedImageUrl: cleanedUrl,
-        status: 'clean_done',
-        progress: 55,
-        error: undefined,
-        lastErrorStage: undefined,
-      })
-      options.onBatchProgress?.({
-        phase: 'clean_done',
-        currentIndex: index + 1,
-        total: needsClean.length,
-        currentPageNumber: entry.pageNumber ?? index + 1,
-        progress: Math.round(((index + 1) / needsClean.length) * 55),
-        message: `คลีนหน้า ${entry.pageNumber ?? index + 1} เสร็จ`,
-      })
-      cleaned.push({ entry, cleanedBlob: result.cleanedImageBlob, cleanedUrl })
-    }
-    return orderCleanResults(entries, [...reusable, ...cleaned])
-  }
-
+  const byId = new Map(results.map((result) => [result.id, result]))
   const cleaned: CleanResult[] = []
   for (const [index, entry] of needsClean.entries()) {
     options.onBatchProgress?.({
@@ -288,36 +244,34 @@ async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions, s
       total: needsClean.length,
       currentPageNumber: entry.pageNumber ?? index + 1,
       progress: Math.round((index / needsClean.length) * 55),
-      message: `กำลังคลีนหน้า ${entry.pageNumber ?? index + 1}`,
+      message: `กำลังอัปเดตผลคลีนหน้า ${entry.pageNumber ?? index + 1}`,
     })
-    try {
-      const result = await services.processCleanupImage({
-        file: entry.file!,
-        mode: options.mode,
-        settings: options.settings,
-        runOcr: false,
-        onProgress: (progress) => options.onLog(`[${progress.status}] ${progress.message}`),
-      })
-      if (!result.cleanedImageBlob) throw new Error('Cleanup backend did not return a cleaned image')
-      const cleanedUrl = URL.createObjectURL(result.cleanedImageBlob)
-      cleaned.push({ entry, cleanedBlob: result.cleanedImageBlob, cleanedUrl })
-      options.onEntryUpdate(entry.id, { cleanedImageUrl: cleanedUrl, status: 'clean_done', progress: 55, error: undefined, lastErrorStage: undefined })
-      options.onBatchProgress?.({
-        phase: 'clean_done',
-        currentIndex: index + 1,
-        total: needsClean.length,
-        currentPageNumber: entry.pageNumber ?? index + 1,
-        progress: Math.round(((index + 1) / needsClean.length) * 55),
-        message: `คลีนหน้า ${entry.pageNumber ?? index + 1} เสร็จ`,
-      })
-    } catch (error) {
-      options.onEntryUpdate(entry.id, {
-        status: 'error',
-        error: error instanceof Error ? error.message : String(error),
-        lastErrorStage: 'clean',
-        progress: 100,
-      })
+    await delay(UI_STEP_DELAY_MS)
+
+    const result = byId.get(entry.id)
+    if (!result?.cleanedImageBlob) {
+      const message = result?.error || 'PanelCleaner batch did not return a cleaned image'
+      options.onEntryUpdate(entry.id, { status: 'error', error: message, lastErrorStage: 'clean', progress: 100 })
+      continue
     }
+    result.logs?.forEach((line) => options.onLog(`PanelCleaner batch: ${line}`))
+    const cleanedUrl = URL.createObjectURL(result.cleanedImageBlob)
+    options.onEntryUpdate(entry.id, {
+      cleanedImageUrl: cleanedUrl,
+      status: 'clean_done',
+      progress: 55,
+      error: undefined,
+      lastErrorStage: undefined,
+    })
+    options.onBatchProgress?.({
+      phase: 'clean_done',
+      currentIndex: index + 1,
+      total: needsClean.length,
+      currentPageNumber: entry.pageNumber ?? index + 1,
+      progress: Math.round(((index + 1) / needsClean.length) * 55),
+      message: `คลีนหน้า ${entry.pageNumber ?? index + 1} เสร็จ`,
+    })
+    cleaned.push({ entry, cleanedBlob: result.cleanedImageBlob, cleanedUrl })
   }
   return orderCleanResults(entries, [...reusable, ...cleaned])
 }
@@ -341,10 +295,6 @@ async function translatePage(
   services: BatchAiServices,
   storyContext?: TranslationStoryContext,
 ): Promise<TextRegion[]> {
-  if (options.mode === 'ocr_only') {
-    return services.detectOcrVision(file, options.sourceLang, options.ollamaOptions)
-  }
-
   let boxes: BoundingBox[] = []
   try {
     boxes = await services.deriveTextBoxes(file, cleanedBlob)

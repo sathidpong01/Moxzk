@@ -61,7 +61,7 @@ export function useEditorActions({ stageRef, editorRef, canvasScale }: UseEditor
   const handleExport = useCallback(async (selectedIds?: string[]) => {
     store.saveActiveEntryState()
     const entries = useAppStore.getState().imageEntries
-    if (entries.length > 0) {
+    if (entries.length > 1) {
       const album = useAlbumStore.getState().currentAlbum
       const ids = selectedIds && selectedIds.length > 0 ? selectedIds : entries.map((entry) => entry.id)
       try {
@@ -71,10 +71,10 @@ export function useEditorActions({ stageRef, editorRef, canvasScale }: UseEditor
           albumTitle: album?.title || originalFileName,
           selectedIds: ids,
         })
-        toast.success(mode === 'folder' ? 'Export ลงโฟลเดอร์สำเร็จ' : 'Export เป็น ZIP สำเร็จ')
+        toast.success(mode === 'folder' ? 'ส่งออกลงโฟลเดอร์สำเร็จ' : 'ส่งออกเป็น ZIP สำเร็จ')
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
-        toast.error(error instanceof Error ? error.message : 'Export ล้มเหลว')
+        toast.error(error instanceof Error ? error.message : 'ส่งออกล้มเหลว')
       }
       return
     }
@@ -143,7 +143,7 @@ export function useEditorActions({ stageRef, editorRef, canvasScale }: UseEditor
     setIsBatchProcessing(true)
     setBatchStatus(null)
     state.clearLogs()
-    state.addLog(`Batch AI: เริ่ม ${retryFailedOnly ? 'retry failed' : 'all pages'}`)
+    state.addLog(`Batch AI: เริ่ม ${retryFailedOnly ? 'หน้าที่พลาด' : 'ทุกหน้า'}`)
     try {
       await runBatchAiQueue({
         entries,

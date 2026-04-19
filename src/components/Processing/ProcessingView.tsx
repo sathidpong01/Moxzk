@@ -2,18 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AppSettings, ProcessingState, TextRegion, ProcessingMode } from '../../types'
 import { processImageWithCleanupProvider } from '../../services/cleanup-provider'
 import {
-  detectOcrWithOllamaVision,
   translateWithOllamaBoxedVision,
-  translateWithOllamaImage,
   translateWithOllamaVision,
   type OllamaOptions,
 } from '../../services/ollama'
 import {
-  alignRegionsToCleanupBoxes,
   deriveTextBoxesFromCleanupDiff,
 } from '../../services/cleanup-diff-bboxes'
 import type { BoundingBox } from '../../types'
-import type { OcrRegion, StreamProgress } from '../../services/translator-api'
+import type { StreamProgress } from '../../services/translator-api'
 import {
   Search,
   FileText,
@@ -70,35 +67,14 @@ function stepToProgress(step: PipelineStep): number {
 }
 
 // Cached intermediate results for smart retry
-let _cachedOcrRegions: OcrRegion[] | null = null
 let _cachedCleanedBlob: Blob | null = null
 let _cachedCleanupBoxes: BoundingBox[] | null = null
 let _cachedFailedStep: PipelineStep | null = null
 
 export function clearProcessingCache() {
-  _cachedOcrRegions = null
   _cachedCleanedBlob = null
   _cachedCleanupBoxes = null
   _cachedFailedStep = null
-}
-
-function toOcrTextRegions(ocrRegions: OcrRegion[]): TextRegion[] {
-  return ocrRegions.map((r, i) => ({
-    id: `region-${i}`,
-    bbox: r.bbox,
-    originalText: r.text,
-    translatedText: '',
-    mood: 'normal' as const,
-    suggestedFont: 'normal',
-    fontSize: 14,
-    fontColor: '#000000',
-    rotation: 0,
-    strokeWidth: 0,
-    strokeColor: '#ffffff',
-    textLayoutMode: 'balloon_fit',
-    textScaleX: 1,
-    textScaleY: 1,
-  }))
 }
 
 function hasUsableRegions(regions: TextRegion[]): boolean {
@@ -156,16 +132,12 @@ export default function ProcessingView({
 
     const run = async () => {
       try {
-        const cleanupLabel = settings.cleanupBackend === 'panelcleaner'
-          ? 'PanelCleaner'
-          : 'legacy manga-image-translator'
-        const shouldUseCleanupOcr = mode === 'full' || mode === 'ocr_only'
+        const cleanupLabel = 'PanelCleaner'
 
         // Smart retry: skip cleanup backend if we already have OCR/cleaned results
-        let ocrRegions = _cachedOcrRegions
         let cleanedImageBlob = _cachedCleanedBlob
         let cleanupBoxes = _cachedCleanupBoxes
-        const resumeFromTranslation = _cachedFailedStep === 'translating' && ocrRegions && ocrRegions.length > 0
+        const resumeFromTranslation = _cachedFailedStep === 'translating' && cleanedImageBlob
 
         if (!resumeFromTranslation) {
           // Step 1: cleanup backend
@@ -200,14 +172,12 @@ export default function ProcessingView({
             mode,
             settings,
             signal: abortSignal,
-            runOcr: shouldUseCleanupOcr,
+            runOcr: false,
             onProgress,
           })
-          ocrRegions = result.regions
           cleanedImageBlob = result.cleanedImageBlob
-          _cachedOcrRegions = ocrRegions
           _cachedCleanedBlob = cleanedImageBlob
-          addLog(`${cleanupLabel} เสร็จ: fallback OCR ${ocrRegions.length} regions`)
+          addLog(`${cleanupLabel} เสร็จ`)
 
           if (cleanedImageBlob) {
             try {
@@ -220,40 +190,17 @@ export default function ProcessingView({
             }
           }
         } else {
-          addLog(`Smart Retry: ข้าม ${cleanupLabel}, เริ่มต่อที่ขั้นตอนแปลภาษา`)
+          addLog(`ลองใหม่แบบฉลาด: ข้าม ${cleanupLabel}, เริ่มต่อที่ขั้นตอนแปลภาษา`)
         }
 
         const cleanedUrl = cleanedImageBlob ? URL.createObjectURL(cleanedImageBlob) : ''
 
         if (mode === 'clean_only') {
           setCurrentStep('done')
-          setState({ status: 'done', progress: 100, message: `คลีนเสร็จ! พบ fallback OCR ${ocrRegions?.length ?? 0} regions` })
-          addLog(`Mode: clean_only: หยุดที่ขั้นตอนคลีน, พบ fallback OCR ${ocrRegions?.length ?? 0} regions`)
+          setState({ status: 'done', progress: 100, message: 'คลีนเสร็จ' })
+          addLog('โหมดคลีนอย่างเดียว: หยุดที่ขั้นตอนคลีน')
           clearProcessingCache()
-          onComplete(toOcrTextRegions(ocrRegions ?? []), cleanedUrl)
-          return
-        }
-
-        if (mode === 'ocr_only') {
-          setCurrentStep('ocr')
-          setState({ status: 'ocr', progress: 55, message: 'กำลัง OCR ด้วย Gemma vision...' })
-          addLog(`กำลังเรียก Ollama model "${ollamaOptions?.ollamaModel || 'gemma4'}" สำหรับ OCR...`)
-
-          let regionsWithOcr = await detectOcrWithOllamaVision(imageFile, sourceLang, ollamaRunOptions)
-          if (cleanupBoxes && cleanupBoxes.length > 0) {
-            regionsWithOcr = alignRegionsToCleanupBoxes(regionsWithOcr, cleanupBoxes)
-            addLog(`ปรับตำแหน่ง OCR ด้วย cleanup diff ${cleanupBoxes.length} boxes`)
-          }
-          if (!hasUsableRegions(regionsWithOcr) && ocrRegions && ocrRegions.length > 0) {
-            addLog('Gemma vision OCR ไม่คืน bbox ที่ใช้ได้, fallback ไปใช้ OCR จาก cleanup backend')
-            regionsWithOcr = toOcrTextRegions(ocrRegions)
-          }
-
-          setCurrentStep('done')
-          setState({ status: 'done', progress: 100, message: `OCR เสร็จ! พบ ${regionsWithOcr.length} text regions` })
-          addLog(`Mode: ocr_only: พบ ${regionsWithOcr.length} regions`)
-          clearProcessingCache()
-          onComplete(regionsWithOcr, cleanedUrl)
+          onComplete([], cleanedUrl)
           return
         }
 
@@ -262,50 +209,25 @@ export default function ProcessingView({
         addLog(`กำลังเรียก Ollama model "${ollamaOptions?.ollamaModel || 'gemma4'}"...`)
 
         let translatedRegions: TextRegion[] = []
-        if (mode === 'gemma_vision_full') {
-          setState({ status: 'translating', progress: 75, message: 'กำลังให้ Gemma อ่านและแปลในรอบเดียว...' })
-          if (cleanupBoxes && cleanupBoxes.length > 0) {
-            addLog(`เริ่ม Gemma boxed vision flow: อ่านและแปลตาม cleanup diff ${cleanupBoxes.length} boxes`)
-            translatedRegions = await translateWithOllamaBoxedVision(
-              imageFile,
-              cleanupBoxes,
-              sourceLang,
-              ollamaRunOptions,
-            )
-          } else {
-            addLog('เริ่ม Gemma vision full flow: OCR + translate + bbox')
-            translatedRegions = await translateWithOllamaVision(imageFile, sourceLang, ollamaRunOptions)
-          }
-
-          if (!hasUsableRegions(translatedRegions) && ocrRegions && ocrRegions.length > 0) {
-            addLog('Gemma vision ไม่คืน bbox ที่ใช้ได้, fallback ไปใช้ OCR จาก cleanup backend แล้วแปลด้วย Ollama')
-            translatedRegions = await translateWithOllamaImage(
-              imageFile,
-              ocrRegions.map((r) => r.text),
-              ocrRegions.map((r) => r.bbox),
-              sourceLang,
-              ollamaRunOptions,
-            )
-          }
+        setState({ status: 'translating', progress: 75, message: 'กำลังให้ Gemma อ่านและแปลในรอบเดียว...' })
+        if (cleanupBoxes && cleanupBoxes.length > 0) {
+          addLog(`เริ่ม Gemma boxed vision flow: อ่านและแปลตาม cleanup diff ${cleanupBoxes.length} boxes`)
+          translatedRegions = await translateWithOllamaBoxedVision(
+            imageFile,
+            cleanupBoxes,
+            sourceLang,
+            ollamaRunOptions,
+          )
         } else {
-          setState({ status: 'translating', progress: 75, message: 'กำลังแปล OCR fallback ด้วย Ollama...' })
-          const regions = ocrRegions ?? []
-          if (regions.length === 0) {
-            addLog('ไม่มี OCR fallback, ใช้ Gemma vision full flow แทน')
-            translatedRegions = await translateWithOllamaVision(imageFile, sourceLang, ollamaRunOptions)
-          } else {
-            addLog(`เตรียมส่ง OCR ${regions.length} regions ไปยัง Ollama`)
-            translatedRegions = await translateWithOllamaImage(
-              imageFile,
-              regions.map((r) => r.text),
-              regions.map((r) => r.bbox),
-              sourceLang,
-              ollamaRunOptions,
-            )
-          }
+          addLog('ไม่มี cleanup diff boxes, ใช้ Gemma vision full flow แทน')
+          translatedRegions = await translateWithOllamaVision(imageFile, sourceLang, ollamaRunOptions)
         }
 
-        addLog(`แปลเสร็จ: ${translatedRegions.length} regions`)
+        if (!hasUsableRegions(translatedRegions)) {
+          addLog('Gemma vision ไม่คืน bbox ที่ใช้ได้ใน flow ใหม่')
+        }
+
+        addLog(`แปลเสร็จ: ${translatedRegions.length} กล่อง`)
 
         setCurrentStep('done')
         setState({ status: 'done', progress: 100, message: 'เสร็จสิ้น!' })
@@ -325,8 +247,7 @@ export default function ProcessingView({
 
   // Filter steps based on processing mode
   const visibleSteps = useMemo(() => {
-    if (mode === 'ocr_only') return STEPS.filter((s) => ['detection', 'ocr', 'done'].includes(s.id))
-    if (mode === 'clean_only') return STEPS.filter((s) => ['detection', 'ocr', 'inpainting', 'done'].includes(s.id))
+    if (mode === 'clean_only') return STEPS.filter((s) => ['detection', 'inpainting', 'done'].includes(s.id))
     return STEPS
   }, [mode])
 
@@ -338,7 +259,7 @@ export default function ProcessingView({
       <div className="relative w-fit">
         <img
           src={imagePreviewUrl}
-          alt="Processing"
+          alt="กำลังประมวลผล"
           className="max-w-full max-h-[56vh] rounded-lg object-contain opacity-20"
         />
 
@@ -347,7 +268,7 @@ export default function ProcessingView({
             <Loader2 className="h-12 w-12 animate-spin text-[var(--mg-accent)]" />
             <div className="max-w-xs rounded-[8px] bg-black/70 px-4 py-2 text-center backdrop-blur">
               <p className="text-sm font-medium text-[var(--mg-text)]">
-                {visibleSteps[stepIndex]?.label ?? 'Processing...'}
+                {visibleSteps[stepIndex]?.label ?? 'กำลังประมวลผล...'}
               </p>
               <p className="mt-0.5 text-xs text-[var(--mg-muted)]">{state.message}</p>
             </div>

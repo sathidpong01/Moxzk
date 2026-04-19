@@ -11,7 +11,7 @@ import ResourceMonitor from '../Processing/ResourceMonitor'
 import ProcessingView from '../Processing/ProcessingView'
 import LogPanel from '../Layout/LogPanel'
 import OcrCorrectionModal from '../Editor/OcrCorrectionModal'
-import { Button, SelectField } from '../ui/primitives'
+import { Button } from '../ui/primitives'
 import type { BatchProgressState } from '../../services/batch-processing'
 import {
   Loader2,
@@ -29,6 +29,7 @@ interface EditStepProps {
   onRetryFailedBatchAI: (mode: ProcessingMode) => void
   onRetryAI: () => void
   onCancelAI: () => void
+  processingMode: ProcessingMode
   retryCount: number
   isBatchProcessing: boolean
   batchStatus: BatchProgressState | null
@@ -41,12 +42,12 @@ export default function EditStep({
   onRetryFailedBatchAI,
   onRetryAI,
   onCancelAI,
+  processingMode,
   retryCount,
   isBatchProcessing,
   batchStatus,
 }: EditStepProps) {
   const store = useAppStore()
-  const [processingMode, setProcessingMode] = useState<ProcessingMode>('gemma_vision_full')
   const [showOcrModal, setShowOcrModal] = useState(false)
   const [showArtboards, setShowArtboards] = useState(true)
   const [showFilmstrip, setShowFilmstrip] = useState(true)
@@ -58,6 +59,7 @@ export default function EditStep({
   const isAiProcessing = store.isProcessing && store.processKind === 'ai'
   const isLoadingImage = store.isProcessing && store.processKind === 'loading'
   const hasMultipleImages = store.imageEntries.length > 1
+  const activeToolLabel = getToolLabel(store.activeTool)
 
   const selectedRegion = store.regions.find((r) => r.id === store.selectedRegionId) ?? null
   const editImageUrl = store.cleanedImageUrl || store.originalImageUrl
@@ -86,26 +88,23 @@ export default function EditStep({
             editorRef={editorRef}
           />
         ) : (
-          <div className="h-full flex items-center justify-center dot-canvas">
+          <div className="studio-canvas flex h-full items-center justify-center">
             <p className="text-lg text-[var(--mg-muted)]">ไม่มีรูปภาพ</p>
           </div>
         )}
       </div>
 
-      <div className="pointer-events-none absolute right-3 top-3 z-20">
+      <div className="pointer-events-none absolute right-3 top-16 z-20">
         <div className="pointer-events-auto flex items-center gap-2 rounded-[8px] border border-[var(--mg-border)] bg-black/45 p-1 backdrop-blur">
-          <span className="hidden rounded px-2 text-xs text-[var(--mg-muted)] sm:inline">
-            {store.regions.length} regions · {store.brushStrokes.length} strokes
-          </span>
           {hasMultipleImages && (
             <>
               <Button
                 variant={showArtboards ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={() => setShowArtboards((value) => !value)}
-                title={showArtboards ? 'Focus mode' : 'Artboard mode'}
+                title={showArtboards ? 'โฟกัสหน้าเดียว' : 'โหมดจัดหน้า'}
               >
-                <Images size={14} /> Artboards
+                <Images size={14} /> {showArtboards ? 'จัดหน้า' : 'หน้าเดียว'}
               </Button>
             </>
           )}
@@ -129,34 +128,19 @@ export default function EditStep({
               </button>
             </>
           )}
-          {!isAiProcessing && (
-            <div className="flex min-w-0 items-center gap-1">
-              <SelectField
-                value={processingMode}
-                onChange={setProcessingMode}
-                buttonClassName="h-8 min-h-8 w-40 py-0 text-xs"
-                options={[
-                  { value: 'gemma_vision_full', label: 'Gemma อ่าน+แปล' },
-                  { value: 'full', label: 'OCR fallback' },
-                  { value: 'clean_only', label: 'คลีนอย่างเดียว' },
-                  { value: 'ocr_only', label: 'OCR อย่างเดียว' },
-                ]}
-              />
-              {hasFailedPages && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRetryFailedBatchAI(processingMode)}
-                  disabled={isBatchProcessing}
-                >
-                  Retry failed
-                </Button>
-              )}
-            </div>
+          {!isAiProcessing && hasFailedPages && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onRetryFailedBatchAI(processingMode)}
+              disabled={isBatchProcessing}
+            >
+              ลองหน้าที่พลาด
+            </Button>
           )}
           {isAiProcessing && (
             <span className="mg-button mg-button-soft mg-button-sm gap-1 opacity-70">
-              <Loader2 size={14} className="animate-spin" /> Processing...
+              <Loader2 size={14} className="animate-spin" /> กำลังประมวลผล...
             </span>
           )}
           {isLoadingImage && (
@@ -188,7 +172,7 @@ export default function EditStep({
 
       {/* Inline Processing overlay */}
       {isAiProcessing && activeFile && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--mg-bg)]">
+        <div className="studio-canvas absolute inset-0 z-10 flex items-center justify-center">
           <div className="w-full max-w-xl">
             <ProcessingView
               imageFile={activeFile}
@@ -221,16 +205,21 @@ export default function EditStep({
           <p className="mb-2 text-sm font-medium text-[var(--mg-danger)]">{store.processError}</p>
           <div className="flex items-center justify-center gap-2">
             <Button variant="primary" size="sm" onClick={onRetryAI}>
-              <RotateCcw size={12} /> Retry
+              <RotateCcw size={12} /> ลองอีกครั้ง
             </Button>
             <Button variant="ghost" size="sm" onClick={() => store.setProcessError(null)}>
-              Dismiss
+              ปิด
             </Button>
           </div>
         </div>
       )}
 
       <div className="pointer-events-none fixed bottom-4 right-4 z-40 hidden items-center gap-3 rounded-[8px] border border-[var(--mg-border)] bg-black/45 px-3 py-2 text-xs font-bold text-[var(--mg-muted)] backdrop-blur sm:flex">
+        <span>{activeToolLabel}</span>
+        <span className="h-4 w-px bg-[var(--mg-border)]" />
+        <span>{store.regions.length} กล่องข้อความ</span>
+        <span>{store.brushStrokes.length} สโตรก</span>
+        <span className="h-4 w-px bg-[var(--mg-border)]" />
         <span>{Math.round(viewport.zoom * 100)}%</span>
         <span className="h-4 w-px bg-[var(--mg-border)]" />
         <span>{viewport.imageWidth || 0} × {viewport.imageHeight || 0} px</span>
@@ -269,4 +258,12 @@ export default function EditStep({
       <OcrCorrectionModal isOpen={showOcrModal} onClose={() => setShowOcrModal(false)} />
     </>
   )
+}
+
+function getToolLabel(tool: string): string {
+  if (tool === 'brush') return 'แปรง'
+  if (tool === 'eraser') return 'ยางลบ'
+  if (tool === 'eyedropper') return 'ดูดสี'
+  if (tool === 'pan') return 'เลื่อนผ้าใบ'
+  return 'เลือก'
 }

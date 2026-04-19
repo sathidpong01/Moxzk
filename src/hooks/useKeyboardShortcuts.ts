@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '../store/appStore'
+import { getEditorShortcutKey } from '../services/keyboardShortcuts'
 import type { ActiveTool } from '../types'
 
 export interface ShortcutDef {
@@ -16,7 +17,7 @@ export interface ShortcutDef {
 }
 
 export const SHORTCUT_LIST: ShortcutDef[] = [
-  { key: 'z', ctrl: true, label: 'Ctrl+Z', action: 'Undo brush stroke' },
+  { key: 'z', ctrl: true, label: 'Ctrl+Z', action: 'Undo' },
   { key: 'z', ctrl: true, shift: true, label: 'Ctrl+Shift+Z', action: 'Redo' },
   { key: 's', ctrl: true, label: 'Ctrl+S', action: 'Save (prevent default)' },
   { key: 'b', label: 'B', action: 'Brush tool' },
@@ -48,6 +49,11 @@ function shouldIgnoreShortcut(target: EventTarget | null): boolean {
   )
 }
 
+function shouldUseEditorHistoryShortcut(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  return Boolean(el?.closest('[data-editor-history-shortcuts="true"]'))
+}
+
 export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}): void {
   const handlersRef = useRef(handlers)
   const heldToolRef = useRef<ActiveTool | null>(null)
@@ -61,41 +67,44 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}): void {
       const state = useAppStore.getState()
       if (state.currentStep !== 'edit') return
 
-      if (shouldIgnoreShortcut(e.target)) return
-
       const ctrl = e.ctrlKey || e.metaKey
       const shift = e.shiftKey
+      const key = getEditorShortcutKey(e)
+      const ignoreShortcut = shouldIgnoreShortcut(e.target)
+      const useEditorHistoryShortcut = shouldUseEditorHistoryShortcut(e.target)
 
-      // Ctrl+Z / Ctrl+Shift+Z — Undo / Redo brush strokes
-      if (ctrl && e.key === 'z') {
+      // Ctrl+Z / Ctrl+Shift+Z — Undo / Redo editor actions in chronological order.
+      if (ctrl && key === 'z' && (!ignoreShortcut || useEditorHistoryShortcut)) {
         e.preventDefault()
         if (shift) {
-          state.redoBrushStroke()
+          state.redoEditorEdit()
         } else {
-          state.undoBrushStroke()
+          state.undoEditorEdit()
         }
         return
       }
 
-      if (ctrl && e.key === 'y') {
+      if (ctrl && key === 'y' && (!ignoreShortcut || useEditorHistoryShortcut)) {
         e.preventDefault()
-        state.redoBrushStroke()
+        state.redoEditorEdit()
         return
       }
 
-      if (ctrl && e.key === 's') {
+      if (ignoreShortcut) return
+
+      if (ctrl && key === 's') {
         e.preventDefault()
         handlersRef.current.onSave?.()
         return
       }
 
-      if (ctrl && e.key === 'Enter') {
+      if (ctrl && key === 'Enter') {
         e.preventDefault()
         handlersRef.current.onExport?.()
         return
       }
 
-      if (ctrl && e.key.toLowerCase() === 'k') {
+      if (ctrl && key === 'k') {
         e.preventDefault()
         handlersRef.current.onStartAI?.()
         return
@@ -104,7 +113,7 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}): void {
       // Single-key shortcuts (no ctrl)
       if (ctrl) return
 
-      switch (e.key) {
+      switch (key) {
         case ' ': {
           if (!e.repeat && state.activeTool !== 'pan') {
             e.preventDefault()
@@ -116,10 +125,12 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}): void {
         case 'b':
         case 'B':
           state.setActiveTool('brush')
+          state.selectRegion(null)
           break
         case 'e':
         case 'E':
           state.setActiveTool('eraser')
+          state.selectRegion(null)
           break
         case 'v':
         case 'V':
@@ -129,6 +140,7 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}): void {
         case 'i':
         case 'I':
           state.setActiveTool('eyedropper')
+          state.selectRegion(null)
           break
         case '[': {
           const size = Math.max(1, (state.brushSize ?? 10) - 2)
@@ -156,7 +168,7 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}): void {
     function handleKeyUp(e: KeyboardEvent) {
       const state = useAppStore.getState()
       if (state.currentStep !== 'edit') return
-      if (e.key === ' ' && heldToolRef.current) {
+      if (getEditorShortcutKey(e) === ' ' && heldToolRef.current) {
         e.preventDefault()
         state.setActiveTool(heldToolRef.current)
         heldToolRef.current = null

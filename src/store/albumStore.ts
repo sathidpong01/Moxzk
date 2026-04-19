@@ -6,6 +6,7 @@ import {
   deleteAlbum as deleteCloudflareAlbum,
   deletePage as deleteCloudflarePage,
   fetchAlbums as fetchCloudflareAlbums,
+  fetchPageSummaries as fetchCloudflarePageSummaries,
   fetchPages as fetchCloudflarePages,
   reorderPages as reorderCloudflarePages,
   updateAlbum as updateCloudflareAlbum,
@@ -33,7 +34,7 @@ interface AlbumStore {
   updateAlbum: (id: string, updates: Partial<Pick<Album, 'title' | 'description' | 'cover_key' | 'source_lang'>>) => Promise<void>
   deleteAlbum: (id: string) => Promise<void>
 
-  fetchPages: (albumId: string) => Promise<void>
+  fetchPages: (albumId: string, detail?: 'summary' | 'full') => Promise<void>
   createPage: (albumId: string, pageNumber: number) => Promise<AlbumPage | null>
   updatePage: (pageId: string, updates: Partial<Pick<AlbumPage, 'page_number' | 'original_key' | 'cleaned_key' | 'thumbnail_key' | 'artboard_x' | 'artboard_y' | 'regions' | 'brush_strokes' | 'status' | 'processing_mode' | 'error_message'>>) => Promise<void>
   deletePage: (pageId: string) => Promise<boolean>
@@ -132,10 +133,12 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     toast.success('ลบอัลบั้มแล้ว')
   },
 
-  fetchPages: async (albumId) => {
+  fetchPages: async (albumId, detail = 'full') => {
     set({ loading: true })
     try {
-      const pages = await fetchCloudflarePages(albumId)
+      const pages = detail === 'summary'
+        ? await fetchCloudflarePageSummaries(albumId)
+        : await fetchCloudflarePages(albumId)
       set({ currentPages: pages, loading: false })
     } catch (error) {
       console.error('[album] fetchPages error:', error)

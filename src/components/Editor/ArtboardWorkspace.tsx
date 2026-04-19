@@ -3,7 +3,7 @@ import { Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer
 import { Html } from 'react-konva-utils'
 import Konva from 'konva'
 import { Hand, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
-import type { ImageEntry, TextRegion } from '../../types'
+import type { ActiveTool, ImageEntry, TextRegion } from '../../types'
 import {
   ARTBOARD_COLUMNS,
   ARTBOARD_GAP_X,
@@ -11,19 +11,26 @@ import {
   ARTBOARD_MAX_PREVIEW_WIDTH,
   ARTBOARD_ROW_HEIGHT,
   getDefaultArtboardPosition,
+  type RegionUpdateOptions,
   useAppStore,
 } from '../../store/appStore'
 import { useAlbumStore } from '../../store/albumStore'
-import { resolveFont } from '../../config/fonts'
-import { calculateBalloonFitFontSize, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { resolveRegionFont } from '../../config/fonts'
+import { layoutTextInBox, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { computeBrushFeather } from '../../services/brushStrokes'
+import { getEditorToolCursor } from '../../services/editorCursor'
+import { shouldStartBrushStroke } from '../../services/konvaInteraction'
 import {
   getInlineTextEditorBboxSize,
   getInlineTextEditorLayerSize,
+  getTextTransformerAnchors,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import type { CanvasEditorHandle } from './CanvasEditor'
 import InlineTextEditor from './InlineTextEditor'
+import CanvasGrid from './CanvasGrid'
 import { Button, Modal } from '../ui/primitives'
+import { toast } from 'sonner'
 
 interface ArtboardWorkspaceProps {
   entries: ImageEntry[]
@@ -90,6 +97,7 @@ export default function ArtboardWorkspace({
   const selectRegion = useAppStore((s) => s.selectRegion)
   const updateRegion = useAppStore((s) => s.updateRegion)
   const addBrushStroke = useAppStore((s) => s.addBrushStroke)
+  const setBrushColor = useAppStore((s) => s.setBrushColor)
   const brushColor = useAppStore((s) => s.brushColor)
   const brushSize = useAppStore((s) => s.brushSize)
   const brushOpacity = useAppStore((s) => s.brushOpacity)
@@ -105,10 +113,13 @@ export default function ArtboardWorkspace({
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<ImageEntry | null>(null)
   const [isDeletingPage, setIsDeletingPage] = useState(false)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string } | null>(null)
+  const [eyedropPreview, setEyedropPreview] = useState<{ x: number; y: number; color: string } | null>(null)
+  const eyedropCacheRef = useRef<ImageData | null>(null)
 
   const activeEntry = entries.find((entry) => entry.id === activeImageId) ?? entries[0]
   const isPanning = activeTool === 'pan'
   const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
+  const isEyedropper = activeTool === 'eyedropper'
 
   useImperativeHandle(editorRef, () => ({
     deselectAll: () => {
@@ -189,8 +200,8 @@ export default function ArtboardWorkspace({
     const loaded = loadedImages[entry.id]
     return {
       entry,
-      x: fallback.x,
-      y: fallback.y,
+      x: entry.artboardX ?? fallback.x,
+      y: entry.artboardY ?? fallback.y,
       scale: loaded?.scale ?? 0.25,
       width: ARTBOARD_FRAME_WIDTH,
       height: ARTBOARD_FRAME_HEIGHT,
@@ -244,8 +255,70 @@ export default function ArtboardWorkspace({
     return { x, y }
   }, [activeArtboard, stagePos, stageRef, zoom])
 
-  const handlePaintStart = useCallback(() => {
+  const buildEyedropCache = useCallback(() => {
+    const stage = stageRef.current
+    if (!stage) return null
+    try {
+      const canvas = stage.toCanvas({ pixelRatio: 1 })
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      eyedropCacheRef.current = data
+      return data
+    } catch {
+      return null
+    }
+  }, [stageRef])
+
+  const sampleEyedropColor = useCallback(() => {
+    if (!isEyedropper) return null
+    const stage = stageRef.current
+    if (!stage) return null
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return null
+
+    let cache = eyedropCacheRef.current
+    if (!cache) cache = buildEyedropCache()
+    if (!cache) return null
+
+    const px = Math.round(pointer.x)
+    const py = Math.round(pointer.y)
+    if (px < 0 || py < 0 || px >= cache.width || py >= cache.height) return null
+
+    const i = (py * cache.width + px) * 4
+    return '#' + [cache.data[i], cache.data[i + 1], cache.data[i + 2]]
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('')
+  }, [buildEyedropCache, isEyedropper, stageRef])
+
+  useEffect(() => {
+    if (!isEyedropper) {
+      eyedropCacheRef.current = null
+      setEyedropPreview(null)
+    }
+  }, [isEyedropper])
+
+  const handleEyedropMove = useCallback((event: Konva.KonvaEventObject<MouseEvent>) => {
+    const color = sampleEyedropColor()
+    if (!color) return
+    setEyedropPreview({ x: event.evt.clientX, y: event.evt.clientY, color })
+  }, [sampleEyedropColor])
+
+  const handleEyedrop = useCallback(() => {
+    if (!isEyedropper) return
+    const color = eyedropPreview?.color ?? sampleEyedropColor()
+    if (color) {
+      setBrushColor(color)
+      toast.success(`Picked: ${color}`, { duration: 1500 })
+    }
+    setActiveTool('brush')
+    setEyedropPreview(null)
+    eyedropCacheRef.current = null
+  }, [eyedropPreview, isEyedropper, sampleEyedropColor, setActiveTool, setBrushColor])
+
+  const handlePaintStart = useCallback((event: Konva.KonvaEventObject<MouseEvent>) => {
     if (!isBrushActive || !activeEntry) return
+    if (!shouldStartBrushStroke(event.target)) return
     const point = pointerToActiveImagePoint()
     if (!point) return
     isDrawing.current = true
@@ -303,9 +376,14 @@ export default function ArtboardWorkspace({
     })
   }
 
-  const updateEntryRegion = (entry: ImageEntry, regionId: string, updates: Partial<TextRegion>) => {
+  const updateEntryRegion = (
+    entry: ImageEntry,
+    regionId: string,
+    updates: Partial<TextRegion>,
+    options?: RegionUpdateOptions,
+  ) => {
     if (entry.id === activeImageId) {
-      updateRegion(regionId, updates)
+      updateRegion(regionId, updates, options)
       return
     }
     updateImageEntry(entry.id, {
@@ -318,13 +396,17 @@ export default function ArtboardWorkspace({
   const selectedRegion = activeEntry?.regions.find((region) => region.id === selectedRegionId) ?? null
   const inlineEditRegion = inlineEdit ? activeEntry?.regions.find((region) => region.id === inlineEdit.id) ?? null : null
   const inlineEditLayoutMode = normalizeTextLayoutMode(inlineEditRegion?.textLayoutMode)
-  const inlineEditFont = inlineEditRegion ? resolveFont(inlineEditRegion.suggestedFont, inlineEditRegion.mood) : null
+  const inlineEditFont = inlineEditRegion ? resolveRegionFont(inlineEditRegion) : null
   const inlineEditScale = activeArtboard?.scale ?? 1
   const inlineEditFontSize = inlineEditRegion
     ? (
         inlineEditLayoutMode === 'artistic'
           ? Math.max(8, inlineEditRegion.fontSize * inlineEditScale)
-          : calculateBalloonFitFontSize(inlineEdit?.text ?? '', inlineEditRegion.bbox, inlineEditRegion.fontSize) * inlineEditScale
+          : layoutTextInBox(inlineEdit?.text ?? '', inlineEditRegion.bbox, inlineEditRegion.fontSize, {
+              fontFamily: inlineEditFont?.family,
+              fontWeight: inlineEditFont?.weight,
+              fontStyle: inlineEditFont?.style,
+            }).fontSize * inlineEditScale
       )
     : 14
   const inlineEditSize = inlineEditRegion
@@ -355,9 +437,20 @@ export default function ArtboardWorkspace({
     const bboxSize = metrics
       ? getInlineTextEditorBboxSize({ metrics, scale: inlineEditScale })
       : null
+    const layoutMode = normalizeTextLayoutMode(region?.textLayoutMode)
+    const font = region ? resolveRegionFont(region) : null
+    const nextBbox = region && bboxSize ? { ...region.bbox, ...bboxSize } : null
+    const nextFontSize = region && font && nextBbox && layoutMode === 'balloon_fit'
+      ? layoutTextInBox(inlineEdit.text || ' ', nextBbox, region.fontSize, {
+          fontFamily: font.family,
+          fontWeight: font.weight,
+          fontStyle: font.style,
+        }).fontSize
+      : undefined
     updateEntryRegion(activeEntry, inlineEdit.id, {
       translatedText: inlineEdit.text,
-      ...(region && bboxSize ? { bbox: { ...region.bbox, ...bboxSize } } : {}),
+      ...(nextBbox ? { bbox: nextBbox } : {}),
+      ...(nextFontSize !== undefined ? { fontSize: nextFontSize } : {}),
     })
     setInlineEdit(null)
   }, [activeEntry, inlineEdit, inlineEditScale])
@@ -365,9 +458,7 @@ export default function ArtboardWorkspace({
     setInlineEdit(null)
   }, [])
   const selectedRegionLayout = selectedRegion ? normalizeTextLayoutMode(selectedRegion.textLayoutMode) : 'balloon_fit'
-  const transformerAnchors = selectedRegionLayout === 'artistic'
-    ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
-    : ['middle-left', 'middle-right', 'top-center', 'bottom-center']
+  const transformerAnchors = getTextTransformerAnchors(selectedRegionLayout)
 
   const handleConfirmDeletePage = useCallback(async () => {
     if (!pendingDeleteEntry) return
@@ -398,14 +489,23 @@ export default function ArtboardWorkspace({
     orderedEntries.splice(toIndex, 0, moved)
     reorderImages(fromIndex, toIndex)
     if (currentAlbum && orderedEntries.every((entry) => entry.albumPageId)) {
-      void reorderAlbumPages(currentAlbum.id, orderedEntries.map((entry) => entry.albumPageId!))
+      void (async () => {
+        await reorderAlbumPages(currentAlbum.id, orderedEntries.map((entry) => entry.albumPageId!))
+        await Promise.all(orderedEntries.map((entry, index) => {
+          const position = getDefaultArtboardPosition(index)
+          return updateAlbumPage(entry.albumPageId!, {
+            artboard_x: Math.round(position.x),
+            artboard_y: Math.round(position.y),
+          })
+        }))
+      })()
     }
-  }, [currentAlbum, entries, reorderAlbumPages, reorderImages])
+  }, [currentAlbum, entries, reorderAlbumPages, reorderImages, updateAlbumPage])
 
   return (
-    <div className="flex h-full flex-col bg-[var(--mg-bg)]">
-      <div className="pointer-events-auto absolute left-3 top-3 z-20 flex items-center gap-1 rounded-[8px] border border-[var(--mg-border)] bg-black/50 p-1 backdrop-blur">
-        <button className="mg-icon-button h-7 w-7" onClick={() => applyZoom(zoom - 0.1)} aria-label="Zoom out">
+    <div className="studio-canvas flex h-full flex-col">
+      <div className="pointer-events-auto absolute left-3 top-16 z-20 flex items-center gap-1 rounded-[8px] border border-[var(--mg-border)] bg-black/50 p-1 backdrop-blur">
+        <button className="mg-icon-button h-7 w-7" onClick={() => applyZoom(zoom - 0.1)} aria-label="ซูมออก">
           <ZoomOut size={14} />
         </button>
         <input
@@ -416,23 +516,26 @@ export default function ArtboardWorkspace({
           onKeyDown={(event) => {
             if (event.key === 'Enter') commitZoomInput()
           }}
-          aria-label="Zoom percent"
+          aria-label="เปอร์เซ็นต์ซูม"
         />
-        <button className="mg-icon-button h-7 w-7" onClick={() => applyZoom(zoom + 0.1)} aria-label="Zoom in">
+        <button className="mg-icon-button h-7 w-7" onClick={() => applyZoom(zoom + 0.1)} aria-label="ซูมเข้า">
           <ZoomIn size={14} />
         </button>
         <button
           className={`mg-icon-button h-7 w-7 ${isPanning ? 'mg-tool-active' : ''}`}
-          onClick={() => setActiveTool(isPanning ? 'select' : 'pan')}
-          aria-label="Pan mode"
+          onClick={() => {
+            setActiveTool(isPanning ? 'select' : 'pan')
+            if (!isPanning) selectRegion(null)
+          }}
+          aria-label="โหมดเลื่อนผ้าใบ"
         >
           <Hand size={14} />
         </button>
-        <button className="mg-icon-button h-7 w-7" onClick={resetView} aria-label="Reset view">
+        <button className="mg-icon-button h-7 w-7" onClick={resetView} aria-label="รีเซ็ตมุมมอง">
           <RotateCcw size={14} />
         </button>
         <button className="mg-button mg-button-ghost mg-button-sm" onClick={resetLayout}>
-          Reset layout
+          จัดเป็นกริดใหม่
         </button>
       </div>
 
@@ -447,42 +550,74 @@ export default function ArtboardWorkspace({
           scaleY={zoom}
           draggable={isPanning}
           onWheel={handleWheel}
+          onClick={handleEyedrop}
           onMouseDown={handlePaintStart}
-          onMouseMove={handlePaintMove}
+          onMouseMove={(event) => {
+            handlePaintMove()
+            handleEyedropMove(event)
+          }}
           onMouseUp={handlePaintEnd}
-          onMouseLeave={handlePaintEnd}
+          onMouseLeave={() => {
+            handlePaintEnd()
+            setEyedropPreview(null)
+          }}
           onDragEnd={(event) => {
             if (event.target === event.target.getStage()) {
               setStagePos({ x: event.target.x(), y: event.target.y() })
             }
           }}
-          style={{ cursor: isPanning ? 'grab' : isBrushActive ? 'crosshair' : 'default' }}
+          style={{ cursor: getEditorToolCursor(activeTool) }}
         >
+          <Layer listening={false}>
+            <CanvasGrid stageSize={stageSize} stagePos={stagePos} zoom={zoom} />
+          </Layer>
           <Layer>
             {artboards.map((artboard) => (
-              <ArtboardNode
+              <ArtboardBase
                 key={artboard.entry.id}
                 artboard={artboard}
                 isActive={artboard.entry.id === activeImageId}
-                showTextOverlay={showTextOverlay}
-                drawingLine={artboard.entry.id === activeImageId ? drawingLine : null}
                 activeTool={activeTool}
-                selectedRegionId={selectedRegionId}
                 onActivate={() => {
                   if (artboard.entry.id !== activeImageId) switchImage(artboard.entry.id)
                 }}
                 onSelectRegion={selectRegion}
                 onReorderDrop={(x, y) => reorderFromDropPoint(artboard.entry.id, x, y)}
                 onRequestDelete={() => setPendingDeleteEntry(artboard.entry)}
-                onRegionUpdate={(regionId, updates) => updateEntryRegion(artboard.entry, regionId, updates)}
-                editingRegionId={inlineEdit?.id ?? null}
-                onStartInlineEdit={startInlineEdit}
+              />
+            ))}
+          </Layer>
+          <Layer>
+            {artboards.map((artboard) => (
+              <ArtboardBrushOverlay
+                key={`${artboard.entry.id}-brush`}
+                artboard={artboard}
+                drawingLine={artboard.entry.id === activeImageId ? drawingLine : null}
+                activeTool={activeTool}
                 brushPreview={{
                   color: activeTool === 'eraser' ? '#ff000080' : brushColor,
                   size: brushSize,
                   opacity: activeTool === 'eraser' ? 0.5 : brushOpacity,
                   shadowBlur: brushShadowBlur,
                 }}
+              />
+            ))}
+          </Layer>
+          <Layer>
+            {artboards.map((artboard) => (
+              <ArtboardTextOverlay
+                key={`${artboard.entry.id}-text`}
+                artboard={artboard}
+                isActive={artboard.entry.id === activeImageId}
+                showTextOverlay={showTextOverlay}
+                activeTool={activeTool}
+                onActivate={() => {
+                  if (artboard.entry.id !== activeImageId) switchImage(artboard.entry.id)
+                }}
+                onSelectRegion={selectRegion}
+                onRegionUpdate={(regionId, updates, options) => updateEntryRegion(artboard.entry, regionId, updates, options)}
+                editingRegionId={inlineEdit?.id ?? null}
+                onStartInlineEdit={startInlineEdit}
               />
             ))}
             <Transformer
@@ -523,6 +658,7 @@ export default function ArtboardWorkspace({
                   viewportZoom={zoom}
                   color={inlineEditRegion.fontColor}
                   align={inlineEditLayoutMode === 'artistic' ? 'left' : 'center'}
+                  layoutMode={inlineEditLayoutMode}
                   onChange={(text) => setInlineEdit((current) => current ? { ...current, text } : current)}
                   onCommit={commitInlineEdit}
                   onCancel={cancelInlineEdit}
@@ -531,6 +667,18 @@ export default function ArtboardWorkspace({
             )}
           </Layer>
         </Stage>
+        {eyedropPreview && (
+          <div
+            className="fixed z-100 pointer-events-none flex items-center gap-2 rounded-[8px] border border-[var(--mg-border)] bg-black/85 px-2.5 py-1.5 shadow-lg backdrop-blur"
+            style={{ left: eyedropPreview.x + 20, top: eyedropPreview.y - 10 }}
+          >
+            <div
+              className="h-6 w-6 rounded border-2 border-[var(--mg-border-strong)]"
+              style={{ backgroundColor: eyedropPreview.color }}
+            />
+            <span className="font-mono text-xs text-[var(--mg-text)]">{eyedropPreview.color}</span>
+          </div>
+        )}
         <Modal
           isOpen={pendingDeleteEntry !== null}
           onClose={() => {
@@ -570,7 +718,7 @@ export default function ArtboardWorkspace({
   )
 }
 
-interface ArtboardNodeProps {
+interface ArtboardRenderProps {
   artboard: {
     entry: ImageEntry
     x: number
@@ -580,40 +728,29 @@ interface ArtboardNodeProps {
     height: number
     loaded?: LoadedImage
   }
+}
+
+interface ArtboardBaseProps extends ArtboardRenderProps {
   isActive: boolean
-  showTextOverlay: boolean
-  drawingLine: number[] | null
   activeTool: string
-  selectedRegionId: string | null
-  brushPreview: { color: string; size: number; opacity: number; shadowBlur: number }
   onActivate: () => void
   onSelectRegion: (id: string | null) => void
   onReorderDrop: (x: number, y: number) => void
   onRequestDelete: () => void
-  onRegionUpdate: (id: string, updates: Partial<TextRegion>) => void
-  editingRegionId: string | null
-  onStartInlineEdit: (region: TextRegion) => void
 }
 
-function ArtboardNode({
+function ArtboardBase({
   artboard,
   isActive,
-  showTextOverlay,
-  drawingLine,
   activeTool,
-  brushPreview,
   onActivate,
   onSelectRegion,
   onReorderDrop,
   onRequestDelete,
-  onRegionUpdate,
-  editingRegionId,
-  onStartInlineEdit,
-}: ArtboardNodeProps) {
-  const { entry, loaded, scale } = artboard
+}: ArtboardBaseProps) {
+  const { entry, loaded } = artboard
   const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
   const canReorderArtboard = activeTool === 'select'
-  const canRenderTextOverlay = showTextOverlay && entry.imageLoaded !== false && Boolean(loaded)
   const reorderHandlePosition = { x: -30, y: -ARTBOARD_HEADER_HEIGHT + 4 }
 
   return (
@@ -753,13 +890,34 @@ function ArtboardNode({
       ) : (
         <Rect width={artboard.width} height={artboard.height} fill="#151515" />
       )}
+    </Group>
+  )
+}
+
+interface ArtboardBrushOverlayProps extends ArtboardRenderProps {
+  drawingLine: number[] | null
+  activeTool: string
+  brushPreview: { color: string; size: number; opacity: number; shadowBlur: number }
+}
+
+function ArtboardBrushOverlay({
+  artboard,
+  drawingLine,
+  activeTool,
+  brushPreview,
+}: ArtboardBrushOverlayProps) {
+  const { entry, loaded, scale } = artboard
+  if (!loaded || entry.imageLoaded === false) return null
+
+  return (
+    <Group x={artboard.x} y={artboard.y}>
       {entry.brushStrokes.map((stroke) => {
-        const feather = computeFeather(stroke.width, stroke.shadowBlur)
+        const feather = computeBrushFeather(stroke.width, stroke.shadowBlur)
         return (
           <Line
             key={stroke.id}
             points={stroke.points.map((point, index) =>
-              point * scale + (index % 2 === 0 ? (loaded?.offsetX ?? 0) : (loaded?.offsetY ?? 0)),
+              point * scale + (index % 2 === 0 ? loaded.offsetX : loaded.offsetY),
             )}
             stroke={stroke.color}
             strokeWidth={feather.strokeWidth * scale}
@@ -776,10 +934,10 @@ function ArtboardNode({
       {drawingLine && drawingLine.length >= 2 && (
         <Line
           points={drawingLine.map((point, index) =>
-            point * scale + (index % 2 === 0 ? (loaded?.offsetX ?? 0) : (loaded?.offsetY ?? 0)),
+            point * scale + (index % 2 === 0 ? loaded.offsetX : loaded.offsetY),
           )}
           stroke={brushPreview.color}
-          strokeWidth={computeFeather(brushPreview.size, brushPreview.shadowBlur).strokeWidth * scale}
+          strokeWidth={computeBrushFeather(brushPreview.size, brushPreview.shadowBlur).strokeWidth * scale}
           opacity={brushPreview.opacity}
           tension={0.5}
           lineCap="round"
@@ -787,20 +945,58 @@ function ArtboardNode({
           dash={activeTool === 'eraser' ? [5, 5] : undefined}
         />
       )}
-      {canRenderTextOverlay && entry.regions.map((region) => (
+    </Group>
+  )
+}
+
+interface ArtboardTextOverlayProps extends ArtboardRenderProps {
+  isActive: boolean
+  showTextOverlay: boolean
+  activeTool: ActiveTool
+  onActivate: () => void
+  onSelectRegion: (id: string | null) => void
+  onRegionUpdate: (
+    id: string,
+    updates: Partial<TextRegion>,
+    options?: RegionUpdateOptions,
+  ) => void
+  editingRegionId: string | null
+  onStartInlineEdit: (region: TextRegion) => void
+}
+
+function ArtboardTextOverlay({
+  artboard,
+  isActive,
+  showTextOverlay,
+  activeTool,
+  onActivate,
+  onSelectRegion,
+  onRegionUpdate,
+  editingRegionId,
+  onStartInlineEdit,
+}: ArtboardTextOverlayProps) {
+  const { entry, loaded, scale } = artboard
+  const canRenderTextOverlay = showTextOverlay && entry.imageLoaded !== false && Boolean(loaded)
+  if (!canRenderTextOverlay || !loaded) return null
+
+  return (
+    <Group x={artboard.x} y={artboard.y}>
+      {entry.regions.map((region) => (
         <ArtboardText
           key={`${entry.id}-${region.id}`}
           region={region}
+          allRegions={entry.regions}
           scale={scale}
-          offsetX={loaded?.offsetX ?? 0}
-          offsetY={loaded?.offsetY ?? 0}
+          offsetX={loaded.offsetX}
+          offsetY={loaded.offsetY}
           isActiveArtboard={isActive}
+          activeTool={activeTool}
           onSelect={() => {
             onActivate()
             onSelectRegion(region.id)
           }}
-          onUpdate={(updates) => onRegionUpdate(region.id, updates)}
-          onLiveResize={(updates) => onRegionUpdate(region.id, updates)}
+          onUpdate={(updates, options) => onRegionUpdate(region.id, updates, options)}
+          onLiveResize={(updates) => onRegionUpdate(region.id, updates, { trackHistory: false })}
           isEditing={editingRegionId === region.id}
           onStartInlineEdit={() => onStartInlineEdit(region)}
         />
@@ -811,10 +1007,12 @@ function ArtboardNode({
 
 function ArtboardText({
   region,
+  allRegions,
   scale,
   offsetX,
   offsetY,
   isActiveArtboard,
+  activeTool,
   onSelect,
   onUpdate,
   onLiveResize,
@@ -822,23 +1020,34 @@ function ArtboardText({
   onStartInlineEdit,
 }: {
   region: TextRegion
+  allRegions: TextRegion[]
   scale: number
   offsetX: number
   offsetY: number
   isActiveArtboard: boolean
+  activeTool: ActiveTool
   onSelect: () => void
-  onUpdate: (updates: Partial<TextRegion>) => void
+  onUpdate: (updates: Partial<TextRegion>, options?: RegionUpdateOptions) => void
   onLiveResize: (updates: Partial<TextRegion>) => void
   isEditing: boolean
   onStartInlineEdit: () => void
 }) {
-  const font = resolveFont(region.suggestedFont, region.mood)
+  const font = resolveRegionFont(region)
   const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
   const isArtistic = layoutMode === 'artistic'
   const text = region.translatedText || ' '
+  const textLayout = isArtistic
+    ? null
+    : layoutTextInBox(text, region.bbox, region.fontSize, {
+        fontFamily: font.family,
+        fontWeight: font.weight,
+        fontStyle: font.style,
+      })
   const fontSize = isArtistic
     ? Math.max(8, region.fontSize * scale)
-    : calculateBalloonFitFontSize(text, region.bbox, region.fontSize) * scale
+    : textLayout!.fontSize * scale
+  const transformStartRegionsRef = useRef<TextRegion[] | null>(null)
+  const canEditText = isActiveArtboard && activeTool === 'select'
 
   const applyLiveTextBoxResize = (node: Konva.Text) => {
     const nextWidth = Math.max(20 * scale, node.width() * Math.abs(node.scaleX()))
@@ -856,7 +1065,7 @@ function ArtboardText({
       id={isActiveArtboard ? region.id : `${region.id}-readonly`}
       x={offsetX + region.bbox.x * scale}
       y={offsetY + region.bbox.y * scale}
-      text={text}
+      text={isArtistic ? text : textLayout!.lines.join('\n')}
       fontSize={fontSize}
       fontFamily={font.family}
       fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
@@ -874,17 +1083,17 @@ function ArtboardText({
             scaleY: region.textScaleY ?? 1,
           }
         : {
-            width: region.bbox.width * scale,
-            height: region.bbox.height * scale,
-            padding: 8 * scale,
-            wrap: 'word' as const,
-            align: 'center' as const,
+          width: region.bbox.width * scale,
+          height: region.bbox.height * scale,
+          padding: Math.max(textLayout!.paddingX, textLayout!.paddingY) * scale,
+          wrap: 'none' as const,
+          align: 'center' as const,
             verticalAlign: 'middle' as const,
       })}
-      draggable={isActiveArtboard}
+      draggable={canEditText}
       rotation={region.rotation}
       opacity={isEditing ? 0.12 : 1}
-      listening={isActiveArtboard}
+      listening={canEditText}
       onClick={(event) => {
         event.cancelBubble = true
         onSelect()
@@ -922,19 +1131,32 @@ function ArtboardText({
       onTransformEnd={(event) => {
         event.cancelBubble = true
         const node = event.target as Konva.Text
+        const historyBefore = transformStartRegionsRef.current ?? undefined
+        transformStartRegionsRef.current = null
+        const historyOptions: RegionUpdateOptions = {
+          historyBefore,
+          historyKey: `transform:${region.id}`,
+        }
         if (!isArtistic) {
           const resized = applyLiveTextBoxResize(node)
+          const nextBbox = {
+            x: (node.x() - offsetX) / scale,
+            y: (node.y() - offsetY) / scale,
+            width: resized.width / scale,
+            height: resized.height / scale,
+          }
+          const fitted = layoutTextInBox(text, nextBbox, region.fontSize, {
+            fontFamily: font.family,
+            fontWeight: font.weight,
+            fontStyle: font.style,
+          })
           onUpdate({
-            bbox: {
-              x: (node.x() - offsetX) / scale,
-              y: (node.y() - offsetY) / scale,
-              width: resized.width / scale,
-              height: resized.height / scale,
-            },
+            bbox: nextBbox,
+            fontSize: fitted.fontSize,
             rotation: node.rotation(),
             textScaleX: 1,
             textScaleY: 1,
-          })
+          }, historyOptions)
           return
         }
 
@@ -952,7 +1174,10 @@ function ArtboardText({
           textScaleX: isArtistic ? textScaleX : region.textScaleX,
           textScaleY: isArtistic ? textScaleY : region.textScaleY,
           rotation: node.rotation(),
-        })
+        }, historyOptions)
+      }}
+      onTransformStart={() => {
+        transformStartRegionsRef.current = cloneRegions(allRegions)
       }}
       onTransform={(event) => {
         event.cancelBubble = true
@@ -977,9 +1202,9 @@ function ArtboardText({
   )
 }
 
-function computeFeather(size: number, feather: number) {
-  return {
-    strokeWidth: Math.max(1, size - 2 * feather),
-    shadowBlur: feather,
-  }
+function cloneRegions(regions: TextRegion[]): TextRegion[] {
+  return regions.map((region) => ({
+    ...region,
+    bbox: { ...region.bbox },
+  }))
 }
