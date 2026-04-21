@@ -33,21 +33,25 @@ Root: `MG_Translater`
 |   |-- meta/
 |   |   |-- 0000_snapshot.json
 |   |   |-- 0001_snapshot.json
+|   |   |-- 0002_snapshot.json
 |   |   `-- _journal.json
 |   |-- 0000_parallel_stranger.sql
-|   `-- 0001_artboard_layout.sql
+|   |-- 0001_artboard_layout.sql
+|   `-- 0002_bizarre_zodiak.sql
 |-- public/
 |   `-- vite.svg
 |-- scripts/
 |   |-- album-save-plan.test.mjs
 |   |-- batch-processing.test.mjs
 |   |-- d1-schema.test.mjs
+|   |-- editor-model.test.mjs
 |   |-- export-preview.test.mjs
 |   |-- inline-text-editor.test.mjs
 |   |-- ollama-prompt.test.mjs
 |   |-- panelcleaner-bridge.mjs
 |   |-- panelcleaner-csv.mjs
 |   |-- panelcleaner-csv.test.mjs
+|   |-- pre-electron-readiness.test.mjs
 |   |-- story-context.test.mjs
 |   |-- text-layout.test.mjs
 |   |-- update_repo_context.py
@@ -68,6 +72,7 @@ Root: `MG_Translater`
 |   |   |   |-- ArtboardWorkspace.tsx
 |   |   |   |-- BrushToolbar.tsx
 |   |   |   |-- CanvasEditor.tsx
+|   |   |   |-- CanvasGrid.tsx
 |   |   |   |-- FloatingProperties.tsx
 |   |   |   |-- FontSelector.tsx
 |   |   |   |-- ImageStrip.tsx
@@ -101,25 +106,32 @@ Root: `MG_Translater`
 |   |   `-- useKeyboardShortcuts.ts
 |   |-- lib/
 |   |-- runtime/
+|   |   |-- types.ts
 |   |   `-- webRuntime.ts
 |   |-- services/
 |   |   |-- albumImageUrls.ts
 |   |   |-- albumSavePlan.ts
 |   |   |-- batch-processing.ts
+|   |   |-- brushStrokes.ts
 |   |   |-- cleanup-diff-bboxes.ts
 |   |   |-- cleanup-provider.ts
 |   |   |-- cloudflareApi.ts
+|   |   |-- editorCursor.ts
 |   |   |-- exporter.ts
 |   |   |-- exportPreview.ts
 |   |   |-- fontStorage.ts
 |   |   |-- imageCache.ts
 |   |   |-- inlineTextEditor.ts
+|   |   |-- keyboardShortcuts.ts
+|   |   |-- konvaInteraction.ts
 |   |   |-- ollama.ts
 |   |   |-- panelcleaner-api.ts
+|   |   |-- projectDraftStorage.ts
 |   |   |-- settingsStorage.ts
 |   |   |-- storageService.ts
 |   |   |-- story-context.ts
 |   |   |-- translationMemory.ts
+|   |   |-- translationReview.ts
 |   |   |-- translator-api.ts
 |   |   `-- viewerZoom.ts
 |   |-- store/
@@ -166,7 +178,6 @@ Root: `MG_Translater`
 |-- AGENTS.md
 |-- app.css
 |-- CLAUDE.md
-|-- docker-compose.yml
 |-- drizzle.config.ts
 |-- index.html
 |-- package.json

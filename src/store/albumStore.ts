@@ -34,7 +34,7 @@ interface AlbumStore {
   updateAlbum: (id: string, updates: Partial<Pick<Album, 'title' | 'description' | 'cover_key' | 'source_lang'>>) => Promise<void>
   deleteAlbum: (id: string) => Promise<void>
 
-  fetchPages: (albumId: string, detail?: 'summary' | 'full') => Promise<void>
+  fetchPages: (albumId: string, detail?: 'summary' | 'full') => Promise<AlbumPage[]>
   createPage: (albumId: string, pageNumber: number) => Promise<AlbumPage | null>
   updatePage: (pageId: string, updates: Partial<Pick<AlbumPage, 'page_number' | 'original_key' | 'cleaned_key' | 'thumbnail_key' | 'artboard_x' | 'artboard_y' | 'regions' | 'brush_strokes' | 'status' | 'processing_mode' | 'error_message'>>) => Promise<void>
   deletePage: (pageId: string) => Promise<boolean>
@@ -134,16 +134,18 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
   },
 
   fetchPages: async (albumId, detail = 'full') => {
-    set({ loading: true })
+    set({ loading: true, currentPages: [] })
     try {
       const pages = detail === 'summary'
         ? await fetchCloudflarePageSummaries(albumId)
         : await fetchCloudflarePages(albumId)
       set({ currentPages: pages, loading: false })
+      return pages
     } catch (error) {
       console.error('[album] fetchPages error:', error)
       toast.error('โหลดหน้าล้มเหลว')
       set({ loading: false })
+      throw error instanceof Error ? error : new Error('Failed to load album pages')
     }
   },
 

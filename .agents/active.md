@@ -1,23 +1,25 @@
 # Active Project Context
 
-Updated: 2026-04-17
+Updated: 2026-04-20
 Branch: master
 Project type: node, react, vite, typescript, cloudflare-worker, drizzle-d1
 
 ## Current Focus
 
-Create an agent-context-kit style context layer for this repository without disturbing the existing `.agents/skills` and `.agents/workflows` directories.
+Prepare MG_Translater for a future Electron shell by hardening the web-first runtime boundary and core manga translation workflow first.
 
 ## Current State
 
-- The project already has extensive local agent skills under `.agents/skills`.
-- The project now has the missing durable context folders: `index`, `sessions`, `topics`, and `private`.
-- `scripts/update_repo_context.py` can refresh `.agents/index/repo-tree.md`.
-- `.agents/private/` is local-only and should stay ignored.
+- The app is still React/Vite web-first and does not include Electron dependencies yet.
+- Runtime seams now cover Ollama status/model listing, PanelCleaner status, export file saving, and project draft storage.
+- Autosave now snapshots the full multi-page project draft instead of only active-page fragments.
+- OCR review now has a summary helper and sorts review-risk regions first in the correction modal.
+- Export can resolve R2-backed album image keys before rendering exported files.
+- Legacy `manga-image-translator` Docker fallback has been removed; PanelCleaner bridge is the single cleanup path.
 
 ## Next Action
 
-Keep `.agents/active.md` current during future work. Add focused session notes under `.agents/sessions/` for long-running tasks, and refresh the repo tree after structural changes.
+Next Electron phase should add a secure typed IPC implementation behind the existing `AppRuntime` contract: no renderer Node access, no raw `ipcRenderer`, and native actions only in main/preload.
 
 ## Known Constraints
 

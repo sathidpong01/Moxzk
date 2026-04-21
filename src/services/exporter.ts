@@ -1,11 +1,12 @@
 import Konva from 'konva'
-import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import type { ExportFormat, ImageEntry, TextRegion } from '../types'
 import type { AlbumPage } from '../types/database'
 import { resolveRegionFont } from '../config/fonts'
-import { layoutTextInBox, normalizeTextLayoutMode } from '../utils/textLayout'
+import { layoutTextInBox, normalizeTextAlign, normalizeTextLayoutMode } from '../utils/textLayout'
 import { drawBrushOverlay } from './brushStrokes'
+import { downloadImage } from './storageService'
+import { webRuntime } from '../runtime/webRuntime'
 
 const MIME_TYPES: Record<ExportFormat, string> = {
   png: 'image/png',
@@ -116,30 +117,7 @@ export async function exportImageEntries(
     options.onProgress?.(i + 1, selected.length)
   }
 
-  const directoryPicker = getDirectoryPicker()
-  if (directoryPicker) {
-    try {
-      const dir = await directoryPicker()
-      for (const file of rendered) {
-        const handle = await dir.getFileHandle(file.name, { create: true })
-        const writable = await handle.createWritable()
-        await writable.write(file.blob)
-        await writable.close()
-      }
-      return 'folder'
-    } catch (error) {
-      if (isAbortError(error)) throw error
-      console.warn('[export] folder export failed, falling back to zip:', error)
-    }
-  }
-
-  const zip = new JSZip()
-  for (const file of rendered) {
-    zip.file(file.name, file.blob)
-  }
-  const content = await zip.generateAsync({ type: 'blob' })
-  saveAs(content, `${safeFilename(options.albumTitle || 'manga')}.zip`)
-  return 'zip'
+  return webRuntime.files.saveExportFiles(rendered, options.albumTitle || 'manga')
 }
 
 export async function renderImageEntryToBlob(
@@ -184,6 +162,7 @@ function drawTextRegions(ctx: CanvasRenderingContext2D, regions: TextRegion[]) {
     if (!text.trim()) continue
     const font = resolveRegionFont(region)
     const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+    const textAlign = normalizeTextAlign(region.textAlign)
     const weight = font.weight >= 700 ? '700' : '400'
     const style = font.style === 'italic' ? 'italic ' : ''
     const fontFamily = font.family.includes(' ') ? `"${font.family}"` : font.family
@@ -205,17 +184,21 @@ function drawTextRegions(ctx: CanvasRenderingContext2D, regions: TextRegion[]) {
     ctx.lineWidth = region.strokeWidth
     ctx.lineJoin = region.strokeJoin ?? 'round'
     ctx.textBaseline = 'middle'
-    ctx.textAlign = layoutMode === 'artistic' ? 'left' : 'center'
+    ctx.textAlign = textAlign
 
     const lines = layout?.lines ?? text.split(/\r?\n/)
     const lineHeight = size * 1.18
     const totalHeight = lines.length * lineHeight
     const startY = -totalHeight / 2 + lineHeight / 2
+    const textX = textAlign === 'left'
+      ? -region.bbox.width / 2
+      : textAlign === 'right'
+        ? region.bbox.width / 2
+        : 0
     for (let i = 0; i < lines.length; i += 1) {
-      const x = layoutMode === 'artistic' ? -region.bbox.width / 2 : 0
       const y = startY + i * lineHeight
-      if (region.strokeWidth > 0) ctx.strokeText(lines[i], x, y)
-      ctx.fillText(lines[i], x, y)
+      if (region.strokeWidth > 0) ctx.strokeText(lines[i], textX, y)
+      ctx.fillText(lines[i], textX, y)
     }
     ctx.restore()
   }
@@ -239,24 +222,6 @@ function safeFilename(value: string): string {
   return value.trim().replace(/[<>:"/\\|?*\x00-\x1f]+/g, '-').replace(/\s+/g, ' ').slice(0, 80) || 'manga'
 }
 
-type DirectoryPicker = () => Promise<{
-  getFileHandle: (name: string, options: { create: boolean }) => Promise<{
-    createWritable: () => Promise<{
-      write: (data: Blob) => Promise<void>
-      close: () => Promise<void>
-    }>
-  }>
-}>
-
-function getDirectoryPicker(): DirectoryPicker | null {
-  const candidate = (window as unknown as { showDirectoryPicker?: DirectoryPicker }).showDirectoryPicker
-  return typeof candidate === 'function' ? candidate.bind(window) : null
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
-
 // ── Batch Album Export ──────────────────────────────────────────────
 
 export interface BatchExportOptions {
@@ -276,33 +241,32 @@ export async function exportAlbumPages(
 
   if (pages.length === 0) return
 
-  // Single page → direct download (no zip)
   if (pages.length === 1) {
     const page = pages[0]
     const blob = await pageToBlob(page, mime, quality)
     if (blob) {
       const num = String(page.page_number).padStart(3, '0')
-      saveAs(blob, `${albumTitle}_${num}.${ext}`)
+      await webRuntime.files.saveFile({ name: `${safeFilename(albumTitle)}_${num}.${ext}`, blob })
     }
     onProgress?.(1, 1)
     return
   }
 
-  // Multiple pages → ZIP
-  const zip = new JSZip()
+  const rendered: Array<{ name: string; blob: Blob }> = []
 
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     const blob = await pageToBlob(page, mime, quality)
     if (blob) {
       const num = String(page.page_number).padStart(3, '0')
-      zip.file(`${albumTitle}_${num}.${ext}`, blob)
+      rendered.push({ name: `${safeFilename(albumTitle)}_${num}.${ext}`, blob })
     }
     onProgress?.(i + 1, pages.length)
   }
 
-  const content = await zip.generateAsync({ type: 'blob' })
-  saveAs(content, `${albumTitle}.zip`)
+  if (rendered.length > 0) {
+    await webRuntime.files.saveExportFiles(rendered, albumTitle)
+  }
 }
 
 async function pageToBlob(
@@ -314,26 +278,40 @@ async function pageToBlob(
   const key = page.thumbnail_key as string | null
   if (!key) return null
 
-  if (key.startsWith('data:')) {
-    return new Promise<Blob | null>((resolve) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0)
-        canvas.toBlob(
-          (blob) => resolve(blob),
-          mime,
-          quality,
-        )
-      }
-      img.onerror = () => resolve(null)
-      img.src = key
-    })
+  if (key.startsWith('data:') || key.startsWith('blob:') || /^https?:\/\//.test(key)) {
+    return imageSourceToBlob(key, mime, quality)
   }
 
-  // TODO: If it's an R2 key, fetch presigned URL and download
-  return null
+  let objectUrl: string | null = null
+  try {
+    objectUrl = await downloadImage(key)
+    return imageSourceToBlob(objectUrl, mime, quality)
+  } finally {
+    if (objectUrl?.startsWith('blob:')) URL.revokeObjectURL(objectUrl)
+  }
+}
+
+function imageSourceToBlob(src: string, mime: string, quality: number): Promise<Blob | null> {
+  return new Promise<Blob | null>((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(null)
+        return
+      }
+      ctx.drawImage(img, 0, 0)
+      canvas.toBlob(
+        (blob) => resolve(blob),
+        mime,
+        quality,
+      )
+    }
+    img.onerror = () => resolve(null)
+    img.crossOrigin = 'anonymous'
+    img.src = src
+  })
 }

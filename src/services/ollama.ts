@@ -1,6 +1,7 @@
 import type { BoundingBox, MoodType, TextRegion } from '../types'
 import { lookupMemory, saveMemory } from './translationMemory'
 import { buildStoryContextBlock, type TranslationStoryContext } from './story-context'
+import { detectSourceLanguageFromText, normalizeSourceLanguage } from './sourceLanguage'
 
 export interface OllamaOptions {
   ollamaUrl?: string
@@ -393,6 +394,7 @@ function toTextRegions(
       strokeWidth: 0,
       strokeColor: '#ffffff',
       textLayoutMode: 'balloon_fit',
+      textAlign: 'center',
       textScaleX: 1,
       textScaleY: 1,
     }
@@ -477,6 +479,7 @@ function toVisionTextRegions(parsed: OllamaTranslationResponse, translate: boole
       strokeWidth: 0,
       strokeColor: '#ffffff',
       textLayoutMode: 'balloon_fit',
+      textAlign: 'center',
       textScaleX: 1,
       textScaleY: 1,
     }]
@@ -506,6 +509,39 @@ async function postOllamaChat(
   if (data.error) throw new Error(data.error)
   if (!content.trim()) throw new Error('Ollama returned an empty response')
   return content.trim()
+}
+
+function parseDetectedLanguageResponse(content: string): 'ja' | 'zh' | 'en' | 'auto' {
+  const normalized = normalizeSourceLanguage(content)
+  if (normalized !== 'auto') return normalized
+
+  const tokenMatch = content.toLowerCase().match(/\b(ja|zh|en|auto)\b/)
+  return normalizeSourceLanguage(tokenMatch?.[1])
+}
+
+export async function detectSourceLanguageFromImage(
+  imageFile: File,
+  options: OllamaOptions = {},
+): Promise<'ja' | 'zh' | 'en' | 'auto'> {
+  const base64 = await fileToBase64(imageFile)
+  const content = await postOllamaChat(
+    [{
+      role: 'user',
+      content: `Identify the primary source language used in this manga page.
+
+Reply with exactly one lowercase code:
+- ja for Japanese
+- zh for Chinese
+- en for English
+- auto if mixed, unclear, or unreadable
+
+Do not add explanations or punctuation.`,
+      images: [base64],
+    }],
+    options,
+  )
+
+  return parseDetectedLanguageResponse(content)
 }
 
 export async function translateWithOllamaImage(
@@ -605,11 +641,16 @@ export async function translateSingleRegion(
   sourceLang: string,
   options: OllamaOptions = {},
 ): Promise<string> {
-  const cached = await lookupMemory(text, sourceLang)
+  const detected = sourceLang === 'auto' ? detectSourceLanguageFromText(text) : null
+  const resolvedSourceLang = sourceLang === 'auto'
+    ? (detected?.language ?? 'auto')
+    : sourceLang
+
+  const cached = await lookupMemory(text, resolvedSourceLang)
   if (cached) return cached
 
-  const result = await translateWithOllamaText(text, sourceLang, options)
-  await saveMemory(text, sourceLang, result).catch(() => {})
+  const result = await translateWithOllamaText(text, resolvedSourceLang, options)
+  await saveMemory(text, resolvedSourceLang, result).catch(() => {})
   return result
 }
 

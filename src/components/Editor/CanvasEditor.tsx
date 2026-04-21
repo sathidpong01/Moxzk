@@ -5,14 +5,21 @@ import Konva from 'konva'
 import type { TextRegion, BrushStroke } from '../../types'
 import { resolveRegionFont } from '../../config/fonts'
 import { useAppStore } from '../../store/appStore'
-import { layoutTextInBox, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { layoutTextInBox, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
 import { computeBrushFeather } from '../../services/brushStrokes'
 import { getEditorToolCursor } from '../../services/editorCursor'
-import { shouldStartBrushStroke } from '../../services/konvaInteraction'
 import {
+  shouldClearTextSelectionOnStagePointer,
+  shouldStartBrushStroke,
+  shouldSyncStagePositionOnDragEnd,
+} from '../../services/konvaInteraction'
+import {
+  getArtisticInlineTextEditorLayerSize,
   getInlineTextEditorBboxSize,
   getInlineTextEditorLayerSize,
   getTextTransformerAnchors,
+  getTextTransformerKeepRatio,
+  getTextTransformerShiftBehavior,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import type { RegionUpdateOptions } from '../../store/appStore'
@@ -61,7 +68,7 @@ export default function CanvasEditor({
   const [zoom, setZoom] = useState(1)
   const [zoomInput, setZoomInput] = useState('100')
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
-  const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string } | null>(null)
+  const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string; beforeRegions: TextRegion[] } | null>(null)
 
   // Paint state
   const isDrawing = useRef(false)
@@ -176,10 +183,8 @@ export default function CanvasEditor({
 
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      if (e.target === e.target.getStage()) {
-        if (!isBrushActive && !isEyedropper) {
-          handleSelect(null)
-        }
+      if (!isBrushActive && !isEyedropper && shouldClearTextSelectionOnStagePointer(e.target)) {
+        handleSelect(null)
       }
     },
     [handleSelect, isBrushActive, isEyedropper],
@@ -458,6 +463,7 @@ export default function CanvasEditor({
 
   const handleStageDragEnd = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
+      if (!shouldSyncStagePositionOnDragEnd(e.target)) return
       setStagePos({ x: e.target.x(), y: e.target.y() })
     },
     [],
@@ -467,6 +473,7 @@ export default function CanvasEditor({
   const selectedLayoutMode = normalizeTextLayoutMode(selectedRegion?.textLayoutMode)
   const inlineEditRegion = inlineEdit ? regions.find((region) => region.id === inlineEdit.id) : null
   const inlineEditLayoutMode = normalizeTextLayoutMode(inlineEditRegion?.textLayoutMode)
+  const inlineEditAlign = normalizeTextAlign(inlineEditRegion?.textAlign)
   const inlineEditFont = inlineEditRegion ? resolveRegionFont(inlineEditRegion) : null
   const inlineEditFontSize = inlineEditRegion
     ? (
@@ -479,23 +486,44 @@ export default function CanvasEditor({
             }).fontSize * scale
       )
     : 14
-  const inlineEditSize = inlineEditRegion
-    ? getInlineTextEditorLayerSize({
-        bbox: inlineEditRegion.bbox,
-        scale,
-        minWidth: 96 / zoom,
-        minHeight: 44 / zoom,
-      })
+  const inlineEditSize = inlineEditRegion && inlineEditFont
+    ? (
+        inlineEditLayoutMode === 'artistic'
+          ? getArtisticInlineTextEditorLayerSize({
+              text: inlineEdit?.text ?? '',
+              bbox: inlineEditRegion.bbox,
+              scale,
+              fontSize: inlineEditRegion.fontSize,
+              fontFamily: inlineEditFont.family,
+              fontWeight: inlineEditFont.weight,
+              fontStyle: inlineEditFont.style,
+              textScaleX: inlineEditRegion.textScaleX,
+              textScaleY: inlineEditRegion.textScaleY,
+              minWidth: 96 / zoom,
+              minHeight: 44 / zoom,
+            })
+          : getInlineTextEditorLayerSize({
+              bbox: inlineEditRegion.bbox,
+              scale,
+              minWidth: 96 / zoom,
+              minHeight: 44 / zoom,
+            })
+      )
     : null
   const startInlineEdit = useCallback(
     (region: TextRegion) => {
       if (isBrushActive || isEyedropper) return
       handleSelect(region.id)
-      setInlineEdit({ id: region.id, text: region.translatedText })
+      setInlineEdit({ id: region.id, text: region.translatedText, beforeRegions: cloneRegions(regions) })
     },
-    [handleSelect, isBrushActive, isEyedropper],
+    [handleSelect, isBrushActive, isEyedropper, regions],
   )
-  const commitInlineEdit = useCallback((metrics?: InlineTextEditorCommitMetrics) => {
+  const updateInlineEditText = useCallback((text: string) => {
+    if (!inlineEdit) return
+    setInlineEdit((current) => current ? { ...current, text } : current)
+    onRegionUpdate(inlineEdit.id, { translatedText: text }, { trackHistory: false })
+  }, [inlineEdit, onRegionUpdate])
+  const finishInlineEdit = useCallback((metrics: InlineTextEditorCommitMetrics | undefined, finalText: string) => {
     if (!inlineEdit) return
     const region = regions.find((item) => item.id === inlineEdit.id)
     const bboxSize = metrics
@@ -505,23 +533,24 @@ export default function CanvasEditor({
     const font = region ? resolveRegionFont(region) : null
     const nextBbox = region && bboxSize ? { ...region.bbox, ...bboxSize } : null
     const nextFontSize = region && font && nextBbox && layoutMode === 'balloon_fit'
-      ? layoutTextInBox(inlineEdit.text || ' ', nextBbox, region.fontSize, {
+      ? layoutTextInBox(finalText || ' ', nextBbox, region.fontSize, {
           fontFamily: font.family,
           fontWeight: font.weight,
           fontStyle: font.style,
         }).fontSize
       : undefined
     onRegionUpdate(inlineEdit.id, {
-      translatedText: inlineEdit.text,
+      translatedText: finalText,
       ...(nextBbox ? { bbox: nextBbox } : {}),
       ...(nextFontSize !== undefined ? { fontSize: nextFontSize } : {}),
+    }, {
+      historyBefore: inlineEdit.beforeRegions,
     })
     setInlineEdit(null)
   }, [inlineEdit, onRegionUpdate, regions, scale])
-  const cancelInlineEdit = useCallback(() => {
-    setInlineEdit(null)
-  }, [])
   const transformerAnchors = getTextTransformerAnchors(selectedLayoutMode)
+  const transformerKeepRatio = getTextTransformerKeepRatio(selectedLayoutMode)
+  const transformerShiftBehavior = getTextTransformerShiftBehavior(selectedLayoutMode)
 
   return (
     <div className="studio-canvas flex h-full min-h-0 flex-col">
@@ -669,7 +698,10 @@ export default function CanvasEditor({
             {regions.map((region) => {
               const font = resolveRegionFont(region)
               const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+              const textAlign = normalizeTextAlign(region.textAlign)
               const isArtistic = layoutMode === 'artistic'
+              const textScaleX = region.textScaleX ?? 1
+              const textScaleY = region.textScaleY ?? 1
               const text = region.translatedText || ' '
               const textLayout = isArtistic
                 ? null
@@ -699,17 +731,18 @@ export default function CanvasEditor({
                     lineHeight={1.18}
                     {...(isArtistic
                       ? {
-                          wrap: 'none' as const,
-                          align: 'left' as const,
-                          scaleX: region.textScaleX ?? 1,
-                          scaleY: region.textScaleY ?? 1,
+                          width: (region.bbox.width * scale) / Math.max(0.0001, Math.abs(textScaleX)),
+                          wrap: 'word' as const,
+                          align: textAlign,
+                          scaleX: textScaleX,
+                          scaleY: textScaleY,
                         }
                       : {
                           width: region.bbox.width * scale,
                           height: region.bbox.height * scale,
                           padding: Math.max(textLayout!.paddingX, textLayout!.paddingY) * scale,
                           wrap: 'none' as const,
-                          align: 'center' as const,
+                          align: textAlign,
                           verticalAlign: 'middle' as const,
                         })}
                     draggable={!isPanning && !isBrushActive && !isEyedropper}
@@ -758,7 +791,8 @@ export default function CanvasEditor({
               anchorCornerRadius={4}
               padding={4}
               rotateEnabled={true}
-              keepRatio={false}
+              keepRatio={transformerKeepRatio}
+              shiftBehavior={transformerShiftBehavior}
               enabledAnchors={transformerAnchors}
               flipEnabled={false}
               boundBoxFunc={(oldBox, newBox) => {
@@ -787,11 +821,10 @@ export default function CanvasEditor({
                   padding={inlineEditLayoutMode === 'artistic' ? 0 : 8 * scale}
                   viewportZoom={zoom}
                   color={inlineEditRegion.fontColor}
-                  align={inlineEditLayoutMode === 'artistic' ? 'left' : 'center'}
+                  align={inlineEditAlign}
                   layoutMode={inlineEditLayoutMode}
-                  onChange={(text) => setInlineEdit((current) => current ? { ...current, text } : current)}
-                  onCommit={commitInlineEdit}
-                  onCancel={cancelInlineEdit}
+                  onChange={updateInlineEditText}
+                  onFinish={finishInlineEdit}
                 />
               </Html>
             )}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AppSettings } from '../../types'
 import type { OllamaStatus } from '../../services/ollama'
-import { getPanelCleanerStatus } from '../../services/panelcleaner-api'
+import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
 import { webRuntime } from '../../runtime/webRuntime'
 import {
   AlertCircle,
@@ -46,7 +46,7 @@ export default function SettingsPanel({
   const [checkingOllama, setCheckingOllama] = useState(false)
   const [modelNames, setModelNames] = useState<string[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
-  const [panelCleanerStatus, setPanelCleanerStatus] = useState<{ ok: boolean; version?: string; command?: string; error?: string; installHint?: string } | null>(null)
+  const [panelCleanerStatus, setPanelCleanerStatus] = useState<PanelCleanerStatus | null>(null)
   const [checkingPanelCleaner, setCheckingPanelCleaner] = useState(false)
 
   useEffect(() => {
@@ -96,7 +96,7 @@ export default function SettingsPanel({
 
   const handleCheckPanelCleaner = async () => {
     setCheckingPanelCleaner(true)
-    const status = await getPanelCleanerStatus({
+    const status = await webRuntime.panelCleaner.getStatus({
       bridgeUrl: draft.panelCleanerBridgeUrl,
       executablePath: draft.panelCleanerExecutablePath,
     })

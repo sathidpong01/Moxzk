@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AppSettings, ProcessingState, TextRegion, ProcessingMode } from '../../types'
 import { processImageWithCleanupProvider } from '../../services/cleanup-provider'
 import {
+  detectSourceLanguageFromImage,
   translateWithOllamaBoxedVision,
   translateWithOllamaVision,
   type OllamaOptions,
@@ -209,18 +210,26 @@ export default function ProcessingView({
         addLog(`กำลังเรียก Ollama model "${ollamaOptions?.ollamaModel || 'gemma4'}"...`)
 
         let translatedRegions: TextRegion[] = []
+        let resolvedSourceLang = sourceLang
+        if (sourceLang === 'auto') {
+          setState({ status: 'translating', progress: 68, message: 'กำลังตรวจภาษาต้นฉบับ...' })
+          resolvedSourceLang = await detectSourceLanguageFromImage(imageFile, ollamaRunOptions)
+          addLog(`ตรวจภาษาต้นฉบับ: ${resolvedSourceLang === 'auto' ? 'ระบุไม่ชัด ปล่อยให้โมเดลตรวจต่อ' : resolvedSourceLang}`)
+        } else {
+          addLog(`ใช้ภาษาต้นฉบับที่ผู้ใช้กำหนด: ${sourceLang}`)
+        }
         setState({ status: 'translating', progress: 75, message: 'กำลังให้ Gemma อ่านและแปลในรอบเดียว...' })
         if (cleanupBoxes && cleanupBoxes.length > 0) {
           addLog(`เริ่ม Gemma boxed vision flow: อ่านและแปลตาม cleanup diff ${cleanupBoxes.length} boxes`)
           translatedRegions = await translateWithOllamaBoxedVision(
             imageFile,
             cleanupBoxes,
-            sourceLang,
+            resolvedSourceLang,
             ollamaRunOptions,
           )
         } else {
           addLog('ไม่มี cleanup diff boxes, ใช้ Gemma vision full flow แทน')
-          translatedRegions = await translateWithOllamaVision(imageFile, sourceLang, ollamaRunOptions)
+          translatedRegions = await translateWithOllamaVision(imageFile, resolvedSourceLang, ollamaRunOptions)
         }
 
         if (!hasUsableRegions(translatedRegions)) {

@@ -56,6 +56,7 @@ function services(overrides = {}) {
       throw new Error('Cleanup provider should not run')
     },
     deriveTextBoxes: async () => [],
+    detectImageLanguage: async () => 'auto',
     translateBoxedVision: async () => {
       throw new Error('Boxed translation should not run without boxes')
     },

@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import type { TextRegion, MoodType, TextLayoutMode, TextStrokeJoin } from '../../types'
-import { MOOD_LABELS, resolveRegionFont } from '../../config/fonts'
+import type { TextRegion, MoodType, TextAlign, TextLayoutMode, TextStrokeJoin } from '../../types'
+import { MOOD_LABELS } from '../../config/fonts'
 import { useAppStore } from '../../store/appStore'
-import { layoutTextInBox, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { normalizeTextLayoutMode } from '../../utils/textLayout'
 import { translateSingleRegion } from '../../services/ollama'
+import { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } from '../../services/textRegionMode'
 import FontSelector from './FontSelector'
-import { Trash2, RotateCcw, Languages, Loader2 } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, Trash2, RotateCcw, Languages, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, DisclosureSection, Field, SelectField, TextareaField } from '../ui/primitives'
 
@@ -20,6 +21,11 @@ const STROKE_JOINS: Array<{ value: TextStrokeJoin; label: string }> = [
   { value: 'round', label: 'มน' },
   { value: 'bevel', label: 'ปาดมุม' },
   { value: 'miter', label: 'คม' },
+]
+const TEXT_ALIGNS: Array<{ value: TextAlign; label: string; icon: typeof AlignLeft }> = [
+  { value: 'left', label: 'ชิดซ้าย', icon: AlignLeft },
+  { value: 'center', label: 'กึ่งกลาง', icon: AlignCenter },
+  { value: 'right', label: 'ชิดขวา', icon: AlignRight },
 ]
 
 function SliderRow({
@@ -61,9 +67,7 @@ export default function PropertiesPanel({
   }
 
   const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
-  const modeHint = layoutMode === 'balloon_fit'
-    ? 'ปรับขนาดกล่องเพื่อให้ข้อความจัดบรรทัดใหม่'
-    : 'ย้าย หมุน และยืดข้อความแบบอิสระ'
+  const textAlign = region.textAlign ?? 'center'
 
   const translateRegion = async () => {
     if (!region.originalText || translating) return
@@ -88,52 +92,50 @@ export default function PropertiesPanel({
     }
   }
 
-  const getCurrentBalloonFontSize = () => {
-    const font = resolveRegionFont(region)
-    return layoutTextInBox(region.translatedText || ' ', region.bbox, region.fontSize, {
-      fontFamily: font.family,
-      fontWeight: font.weight,
-      fontStyle: font.style,
-    }).fontSize
-  }
-
   return (
     <div className="space-y-4 text-sm">
-      <p className="rounded-[7px] border border-[var(--mg-border)] bg-white/[0.035] px-2.5 py-2 text-xs leading-relaxed text-[var(--mg-muted)]">
-        ดับเบิลคลิกข้อความบนภาพเพื่อแก้ตรงตำแหน่งนั้น · กด Esc เพื่อยกเลิก · Ctrl/Cmd+Enter เพื่อบันทึก
-      </p>
       <DisclosureSection title="รูปแบบกล่อง">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="mt-1 text-[11px] leading-snug text-[var(--mg-dim)]">{modeHint}</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={layoutMode === 'balloon_fit'}
-            onClick={() => onUpdate(region.id, { textLayoutMode: 'balloon_fit', textScaleX: 1, textScaleY: 1 })}
-          >
-            จัดเข้ากรอบ
-          </Button>
-        </div>
-
         <Field label="เลย์เอาต์">
-          <SelectField
-            value={layoutMode}
-            onChange={(nextMode: TextLayoutMode) => {
-              onUpdate(region.id, {
-                textLayoutMode: nextMode,
-                ...(layoutMode === 'balloon_fit' && nextMode === 'artistic'
-                  ? { fontSize: getCurrentBalloonFontSize() }
-                  : {}),
-                ...(nextMode === 'balloon_fit' ? { textScaleX: 1, textScaleY: 1 } : {}),
-              })
-            }}
-            options={[
-              { value: 'balloon_fit', label: 'พอดีบอลลูน' },
-              { value: 'artistic', label: 'ยืด/หมุนอิสระ' },
-            ]}
-          />
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <SelectField
+              value={layoutMode}
+              onChange={(nextMode: TextLayoutMode) => {
+                onUpdate(region.id, {
+                  textLayoutMode: nextMode,
+                  ...(layoutMode === 'balloon_fit' && nextMode === 'artistic'
+                    ? convertBalloonRegionToArtistic(region)
+                    : {}),
+                  ...(layoutMode === 'artistic' && nextMode === 'balloon_fit'
+                    ? convertArtisticRegionToBalloon(region)
+                    : {}),
+                })
+              }}
+              options={[
+                { value: 'balloon_fit', label: 'พอดีบอลลูน' },
+                { value: 'artistic', label: 'ยืด/หมุนอิสระ' },
+              ]}
+            />
+            <div className="grid grid-cols-3 gap-1 rounded-[8px] border border-[var(--mg-border)] bg-black/20 p-1">
+              {TEXT_ALIGNS.map((option) => {
+                const Icon = option.icon
+                const active = textAlign === option.value
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={active ? 'primary' : 'ghost'}
+                    size="sm"
+                    className="h-8 w-8 justify-center p-0"
+                    aria-label={option.label}
+                    aria-pressed={active}
+                    onClick={() => onUpdate(region.id, { textAlign: option.value })}
+                  >
+                    <Icon size={14} aria-hidden="true" />
+                  </Button>
+                )
+              })}
+            </div>
+          </div>
         </Field>
 
         <Field label="ฟอนต์">
@@ -151,6 +153,7 @@ export default function PropertiesPanel({
             options={MOODS.map((m) => ({ value: m, label: `${MOOD_LABELS[m]} (${m})` }))}
           />
         </Field>
+
       </DisclosureSection>
 
       <DisclosureSection title="ข้อความ">

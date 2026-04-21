@@ -1,4 +1,5 @@
 import type { BoundingBox, TextLayoutMode } from '../types'
+import { measureArtisticTextSize } from '../utils/textLayout.ts'
 
 export const TEXT_TRANSFORMER_ANCHORS = [
   'top-left',
@@ -12,6 +13,10 @@ export const TEXT_TRANSFORMER_ANCHORS = [
 ] as const
 
 export type TextTransformerAnchor = typeof TEXT_TRANSFORMER_ANCHORS[number]
+export type TextTransformerShiftBehavior = 'default' | 'inverted' | 'none'
+
+export const TEXT_TRANSFORMER_KEEP_RATIO = true
+export const TEXT_TRANSFORMER_SHIFT_BEHAVIOR: TextTransformerShiftBehavior = 'none'
 
 export interface InlineTextEditorLayerSizeInput {
   bbox: BoundingBox
@@ -23,6 +28,22 @@ export interface InlineTextEditorLayerSizeInput {
 export interface InlineTextEditorLayerSize {
   width: number
   height: number
+}
+
+export interface ArtisticInlineTextEditorLayerSizeInput {
+  text: string
+  bbox: BoundingBox
+  scale: number
+  fontSize: number
+  fontFamily?: string
+  fontWeight?: string | number
+  fontStyle?: string
+  textScaleX?: number
+  textScaleY?: number
+  minWidth?: number
+  minHeight?: number
+  lineHeight?: number
+  measureText?: (text: string, fontSize: number) => number
 }
 
 export interface InlineTextEditorTheme {
@@ -59,6 +80,36 @@ export function getInlineTextEditorLayerSize({
   }
 }
 
+export function getArtisticInlineTextEditorLayerSize({
+  text,
+  bbox: _bbox,
+  scale,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  fontStyle,
+  textScaleX = 1,
+  textScaleY = 1,
+  minWidth = 96,
+  minHeight = 44,
+  lineHeight = 1.18,
+  measureText,
+}: ArtisticInlineTextEditorLayerSizeInput): InlineTextEditorLayerSize {
+  const content = measureArtisticTextSize(text || ' ', fontSize, {
+    fontFamily,
+    fontWeight,
+    fontStyle,
+    lineHeight,
+    measureText,
+  })
+  const scaleX = Math.max(0.0001, Math.abs(textScaleX))
+  const scaleY = Math.max(0.0001, Math.abs(textScaleY))
+  return {
+    width: Math.max(minWidth, content.width * scale * scaleX),
+    height: Math.max(minHeight, content.height * scale * scaleY),
+  }
+}
+
 export function getInlineTextEditorBboxSize({
   metrics,
   scale,
@@ -80,6 +131,21 @@ export function getInlineTextEditorBboxSize({
 
 export function getTextTransformerAnchors(_layoutMode?: TextLayoutMode): TextTransformerAnchor[] {
   return [...TEXT_TRANSFORMER_ANCHORS]
+}
+
+export function getTextTransformerKeepRatio(_layoutMode?: TextLayoutMode): boolean {
+  return TEXT_TRANSFORMER_KEEP_RATIO
+}
+
+export function getTextTransformerShiftBehavior(_layoutMode?: TextLayoutMode): TextTransformerShiftBehavior {
+  return TEXT_TRANSFORMER_SHIFT_BEHAVIOR
+}
+
+export function shouldFinishInlineTextEditorOnPointerDown(
+  editorRoot: Pick<HTMLElement, 'contains'> | null,
+  target: EventTarget | null,
+): boolean {
+  return Boolean(editorRoot && target && !editorRoot.contains(target as Node))
 }
 
 export function getInlineTextEditorTheme(sourceTextColor: string): InlineTextEditorTheme {

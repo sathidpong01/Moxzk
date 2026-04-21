@@ -14,6 +14,7 @@ export interface BoundingBox {
 }
 
 export type TextLayoutMode = "balloon_fit" | "artistic";
+export type TextAlign = "left" | "center" | "right";
 export type TextStrokeJoin = "round" | "bevel" | "miter";
 
 export interface TextRegion {
@@ -31,8 +32,10 @@ export interface TextRegion {
   strokeColor: string;
   strokeJoin?: TextStrokeJoin;
   textLayoutMode?: TextLayoutMode;
+  textAlign?: TextAlign;
   textScaleX?: number;
   textScaleY?: number;
+  confidence?: number;
 }
 
 export interface TranslatorConfig {

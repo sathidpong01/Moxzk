@@ -13,12 +13,16 @@ import {
 import {
   getInlineTextEditorBboxSize,
   getTextTransformerAnchors,
+  getTextTransformerKeepRatio,
+  getTextTransformerShiftBehavior,
 } from '../src/services/inlineTextEditor.ts'
 import {
   getEditorToolCursor,
 } from '../src/services/editorCursor.ts'
 import {
+  shouldClearTextSelectionOnStagePointer,
   shouldStartBrushStroke,
+  shouldSyncStagePositionOnDragEnd,
 } from '../src/services/konvaInteraction.ts'
 import {
   getEditorShortcutKey,
@@ -111,6 +115,55 @@ test('artistic text uses the same full resize anchor set as balloon fit', () => 
   assert.deepEqual(getTextTransformerAnchors('artistic'), getTextTransformerAnchors('balloon_fit'))
 })
 
+test('text transformer corner resize keeps ratio without a modifier key', () => {
+  assert.equal(getTextTransformerKeepRatio('balloon_fit'), true)
+  assert.equal(getTextTransformerKeepRatio('artistic'), true)
+  assert.equal(getTextTransformerShiftBehavior('artistic'), 'none')
+})
+
+test('balloon to artistic conversion keeps the visible text box centered', async () => {
+  const { convertBalloonRegionToArtistic } = await loadViteModule('/src/services/textRegionMode.ts')
+  const converted = convertBalloonRegionToArtistic(region({
+    bbox: { x: 10, y: 20, width: 220, height: 100 },
+    translatedText: 'หนึ่ง สอง สาม สี่',
+    fontSize: 36,
+  }))
+
+  assert.equal(converted.textScaleX, 1)
+  assert.equal(converted.textScaleY, 1)
+  assert.equal(converted.textAlign, 'center')
+  assert.ok(converted.fontSize <= 36)
+  assert.ok(converted.bbox.width < 220)
+  assert.ok(converted.bbox.width >= 220 - 2 * 13.2)
+  assert.ok(converted.bbox.height < 100)
+  assert.ok(converted.bbox.x > 10)
+  assert.ok(converted.bbox.y > 20)
+  assert.equal('translatedText' in converted, false)
+})
+
+test('balloon to artistic conversion keeps enough width to avoid Konva rewrapping old album text', async () => {
+  const { convertBalloonRegionToArtistic } = await loadViteModule('/src/services/textRegionMode.ts')
+  const converted = convertBalloonRegionToArtistic(region({
+    bbox: { x: 0, y: 0, width: 540, height: 260 },
+    translatedText: 'ไม่ต้องกังวลเรื่องนั้นหรอก พ่อรู้ว่ามันอยู่ที่ไหน แค่ อดทนรออีกนิดเถอะ',
+    fontSize: 36,
+  }))
+
+  assert.ok(converted.bbox.width >= 540 - 2 * 14)
+  assert.ok(converted.bbox.height > 0)
+})
+
+test('balloon to artistic conversion preserves explicit text alignment', async () => {
+  const { convertBalloonRegionToArtistic } = await loadViteModule('/src/services/textRegionMode.ts')
+  const converted = convertBalloonRegionToArtistic(region({
+    textAlign: 'right',
+    bbox: { x: 10, y: 20, width: 220, height: 100 },
+    translatedText: 'หนึ่ง สอง',
+  }))
+
+  assert.equal(converted.textAlign, 'right')
+})
+
 test('artistic inline editor bbox grows from multiline scroll metrics', () => {
   const bboxSize = getInlineTextEditorBboxSize({
     scale: 2,
@@ -175,6 +228,30 @@ test('brush stroke does not start from text transformer handles', () => {
   assert.equal(shouldStartBrushStroke(konvaTarget('Image')), true)
   assert.equal(shouldStartBrushStroke(konvaTarget('Rect', ['Transformer'])), false)
   assert.equal(shouldStartBrushStroke(konvaTarget('Transformer')), false)
+})
+
+test('clicking canvas background clears selected text object', () => {
+  assert.equal(shouldClearTextSelectionOnStagePointer(konvaTarget('Stage')), true)
+  assert.equal(shouldClearTextSelectionOnStagePointer(konvaTarget('Image')), true)
+  assert.equal(shouldClearTextSelectionOnStagePointer(konvaTarget('Rect')), true)
+  assert.equal(shouldClearTextSelectionOnStagePointer(konvaTarget('Text')), false)
+  assert.equal(shouldClearTextSelectionOnStagePointer(konvaTarget('Rect', ['Transformer'])), false)
+})
+
+test('stage drag sync ignores text-node drag end events', () => {
+  const stage = {
+    getStage() {
+      return stage
+    },
+  }
+  const textNode = {
+    getStage() {
+      return stage
+    },
+  }
+
+  assert.equal(shouldSyncStagePositionOnDragEnd(stage), true)
+  assert.equal(shouldSyncStagePositionOnDragEnd(textNode), false)
 })
 
 test('editor tool cursors use matching SVG icons with fallbacks', () => {
@@ -327,6 +404,55 @@ test('loadAlbumPages preserves persisted artboard coordinates', async () => {
   assert.equal(entry.artboardY, 456)
 })
 
+test('loadAlbumPages loads every album page while keeping the requested page active', async () => {
+  const { useAppStore } = await loadAppStore()
+  const store = useAppStore.getState()
+  useAppStore.setState({ imageEntries: [], originalImageUrl: null })
+
+  await store.loadAlbumPages([
+    {
+      id: 'page-1',
+      album_id: 'album-1',
+      page_number: 1,
+      original_key: null,
+      cleaned_key: null,
+      thumbnail_key: 'data:image/png;base64,page1',
+      artboard_x: 10,
+      artboard_y: 20,
+      regions: [region({ id: 'r-page-1', translatedText: 'หน้าแรก' })],
+      brush_strokes: [],
+      status: 'translated',
+      processing_mode: 'full',
+      error_message: null,
+      created_at: '',
+      updated_at: '',
+    },
+    {
+      id: 'page-2',
+      album_id: 'album-1',
+      page_number: 2,
+      original_key: null,
+      cleaned_key: null,
+      thumbnail_key: 'data:image/png;base64,page2',
+      artboard_x: 30,
+      artboard_y: 40,
+      regions: [region({ id: 'r-page-2', translatedText: 'หน้าที่สอง' })],
+      brush_strokes: [],
+      status: 'translated',
+      processing_mode: 'full',
+      error_message: null,
+      created_at: '',
+      updated_at: '',
+    },
+  ], 'page-1')
+
+  const state = useAppStore.getState()
+  assert.equal(state.imageEntries.length, 2)
+  assert.deepEqual(state.imageEntries.map((entry) => entry.albumPageId), ['page-1', 'page-2'])
+  assert.equal(state.activeImageId, state.imageEntries[0].id)
+  assert.equal(state.regions[0].translatedText, 'หน้าแรก')
+})
+
 test('text region updates can be undone and redone with active entry sync', async () => {
   const { useAppStore } = await loadAppStore()
   const first = region({ id: 'r1', translatedText: 'ก่อน' })
@@ -351,6 +477,37 @@ test('text region updates can be undone and redone with active entry sync', asyn
   assert.equal(useAppStore.getState().redoTextEdit(), true)
   assert.equal(useAppStore.getState().regions[0].translatedText, 'หลัง')
   assert.equal(useAppStore.getState().imageEntries[0].regions[0].translatedText, 'หลัง')
+})
+
+test('live inline text edit saves immediately and creates one undo step at finish', async () => {
+  const { useAppStore } = await loadAppStore()
+  const first = region({ id: 'r1', translatedText: 'ก่อน' })
+  useAppStore.setState({
+    activeImageId: 'page-1',
+    regions: [first],
+    imageEntries: [{ id: 'page-1', regions: [first], brushStrokes: [] }],
+    selectedRegionId: 'r1',
+    _textUndoStack: [],
+    _textRedoStack: [],
+    _editorUndoStack: [],
+    _editorRedoStack: [],
+  })
+
+  const beforeSession = useAppStore.getState().regions.map((item) => ({ ...item, bbox: { ...item.bbox } }))
+  useAppStore.getState().updateRegion('r1', { translatedText: 'กลาง' }, { trackHistory: false })
+  useAppStore.getState().updateRegion('r1', { translatedText: 'หลัง' }, { trackHistory: false })
+
+  assert.equal(useAppStore.getState().regions[0].translatedText, 'หลัง')
+  assert.equal(useAppStore.getState().imageEntries[0].regions[0].translatedText, 'หลัง')
+  assert.equal(useAppStore.getState()._editorUndoStack.length, 0)
+
+  useAppStore.getState().updateRegion('r1', { translatedText: 'หลัง' }, { historyBefore: beforeSession })
+
+  assert.equal(useAppStore.getState()._editorUndoStack.length, 1)
+  assert.equal(useAppStore.getState().undoEditorEdit(), true)
+  assert.equal(useAppStore.getState().regions[0].translatedText, 'ก่อน')
+  assert.equal(useAppStore.getState().redoEditorEdit(), true)
+  assert.equal(useAppStore.getState().regions[0].translatedText, 'หลัง')
 })
 
 test('editor undo uses one chronological stack for text and brush actions', async () => {

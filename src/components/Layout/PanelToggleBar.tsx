@@ -171,6 +171,7 @@ function describeTextHistory(entry: TextHistoryEntry, direction: 'undo' | 'redo'
   if (!changed || !previous) return 'แก้ข้อความ'
   if (previous.translatedText !== changed.translatedText) return `แก้ข้อความ ${historyText(changed)}`
   if (previous.textLayoutMode !== changed.textLayoutMode) return `เปลี่ยนโหมด ${changed.textLayoutMode === 'artistic' ? 'Artistic' : 'Bubble'}`
+  if (previous.textAlign !== changed.textAlign) return `จัดตำแหน่งข้อความ ${historyText(changed)}`
   if (previous.fontSize !== changed.fontSize || previous.fontId !== changed.fontId) return `ปรับฟอนต์ ${historyText(changed)}`
   if (JSON.stringify(previous.bbox) !== JSON.stringify(changed.bbox) || previous.rotation !== changed.rotation) return `ปรับกรอบ ${historyText(changed)}`
   return `แก้รูปแบบ ${historyText(changed)}`

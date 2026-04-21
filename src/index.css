@@ -272,22 +272,6 @@ textarea {
   display: none;
 }
 
-.mg-inline-text-confirm {
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    transform 120ms ease;
-}
-
-.mg-inline-text-confirm:hover {
-  background: #1d4ed8 !important;
-  border-color: rgba(191, 219, 254, 0.64) !important;
-}
-
-.mg-inline-text-confirm:active {
-  transform: translateY(1px);
-}
-
 .mg-slider {
   width: 100%;
   accent-color: var(--mg-accent);
@@ -310,9 +294,9 @@ textarea {
 }
 
 .mg-popover-list {
-  z-index: 60;
-  min-width: 13rem;
-  border: 1px solid var(--mg-border);
+    z-index: 220;
+    min-width: 13rem;
+    border: 1px solid var(--mg-border);
   border-radius: 8px;
   background: var(--mg-surface-2);
   padding: 0.35rem;

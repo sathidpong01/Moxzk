@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AlbumPage } from '../../types/database'
-import { FileImage, Trash2, CheckCircle2, Loader2, AlertCircle, Paintbrush, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, FileImage, GripVertical, Loader2, Paintbrush, Trash2 } from 'lucide-react'
 import { downloadImage } from '../../services/storageService'
 
 interface AlbumPageGridProps {
@@ -78,10 +78,12 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
 
   if (pages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-[var(--mg-dim)]">
-        <FileImage size={40} className="mb-3" />
-        <p className="text-sm">ยังไม่มีหน้าในอัลบั้มนี้</p>
-        <p className="text-xs mt-1">อัปโหลดรูปแล้วบันทึกเข้าอัลบั้มจาก Editor</p>
+      <div className="flex min-h-72 flex-col items-center justify-center rounded-[10px] border border-dashed border-[var(--mg-border-strong)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))] px-6 py-12 text-center text-[var(--mg-dim)]">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--mg-border)] bg-white/[0.035]">
+          <FileImage size={24} />
+        </div>
+        <p className="text-sm font-semibold text-[var(--mg-text)]">ยังไม่มีหน้าในอัลบั้มนี้</p>
+        <p className="mt-1 max-w-sm text-sm leading-6 text-[var(--mg-muted)]">บันทึกหน้าจาก Editor เข้ามาในอัลบั้ม แล้วค่อยกลับมาเปิด แก้ไข หรือเรียงลำดับจากที่นี่</p>
       </div>
     )
   }
@@ -117,13 +119,13 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
   return (
     <>
       {editMode && (
-        <div className="mb-2 px-1">
-          <p className="text-xs text-yellow-300">
+        <div className="mb-4 rounded-[12px] border border-yellow-300/20 bg-yellow-300/8 px-3 py-2.5">
+          <p className="text-xs font-medium text-yellow-100">
             โหมดแก้ไข: ลาก thumbnail เพื่อเรียงหน้าใหม่ หรือใช้ปุ่มลูกศรเป็นทางเลือก
           </p>
         </div>
       )}
-      <div className="grid justify-start gap-3 [grid-template-columns:repeat(auto-fill,minmax(112px,132px))] sm:[grid-template-columns:repeat(auto-fill,minmax(128px,148px))]">
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(172px,1fr))] 2xl:[grid-template-columns:repeat(auto-fill,minmax(182px,1fr))]">
         {pages.map((page, index) => {
           const cfg = STATUS_CONFIG[page.status]
           const Icon = cfg.icon
@@ -132,10 +134,10 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
             <div
               key={page.id}
               draggable={Boolean(editMode)}
-              className={`group relative overflow-hidden rounded-[8px] border bg-[#181818] p-1.5 transition-all hover:bg-[#202020] ${
+              className={`group relative flex h-full flex-col overflow-hidden rounded-[16px] border bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-all duration-200 hover:-translate-y-1 hover:border-[var(--mg-border-strong)] hover:shadow-[0_22px_44px_rgba(0,0,0,0.24)] ${
                 editMode
                   ? `cursor-grab border-yellow-300/50 ring-1 ring-yellow-300/20 ${draggedPageId === page.id ? 'opacity-50' : ''}`
-                  : 'border-[var(--mg-border)] hover:border-[var(--mg-border-strong)] cursor-pointer'
+                  : 'cursor-pointer border-[var(--mg-border)]'
               }`}
               onDragStart={(event) => {
                 if (!editMode) return
@@ -159,36 +161,47 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
               }}
             >
               {/* Thumbnail — lazy loaded */}
-              <LazyThumbnail
-                src={page.thumbnail_key as string | null}
-                alt={`หน้า ${page.page_number}`}
-              />
+              <div className="relative overflow-hidden rounded-[12px] border border-white/10 bg-black/20">
+                <LazyThumbnail
+                  src={page.thumbnail_key as string | null}
+                  alt={`หน้า ${page.page_number}`}
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
+              </div>
 
               {/* Status */}
-              <div className="absolute top-1 right-1">
-                <div className={`mg-pill gap-0.5 bg-black/70 ${cfg.color} backdrop-blur`}>
-                  <Icon size={8} className={page.status === 'processing' ? 'animate-spin' : ''} />
+              <div className="absolute right-5 top-5">
+                <div className={`mg-pill gap-1 border-white/10 bg-black/65 ${cfg.color} backdrop-blur`}>
+                  <Icon size={9} className={page.status === 'processing' ? 'animate-spin' : ''} />
+                  <span className="max-w-20 truncate">{cfg.label}</span>
                 </div>
               </div>
 
-              {/* Page number */}
-              <div className="px-1.5 py-1.5 text-center">
-                <span className="font-mono text-[10px] text-[var(--mg-muted)]">
-                  #{String(page.page_number).padStart(3, '0')}
-                </span>
+              <div className="flex flex-1 flex-col justify-between gap-3 px-1 pb-1 pt-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--mg-dim)]">
+                    หน้า {String(page.page_number).padStart(3, '0')}
+                  </span>
+                </div>
+                {!editMode && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-[var(--mg-text)]">เปิดหน้าในตัวแก้ไข</span>
+                    <span className="text-[10px] text-[var(--mg-dim)]">คลิกเพื่อเปิด</span>
+                  </div>
+                )}
               </div>
 
               {/* Edit mode controls */}
               {editMode ? (
                 <>
-                  <div className="absolute left-1 top-1 flex h-6 w-6 items-center justify-center rounded-[6px] bg-black/70 text-yellow-100 backdrop-blur" title="ลากเพื่อเรียงหน้า">
+                  <div className="absolute left-5 top-5 flex h-7 w-7 items-center justify-center rounded-[8px] border border-white/10 bg-black/60 text-yellow-100 backdrop-blur" title="ลากเพื่อเรียงหน้า">
                     <GripVertical size={11} />
                   </div>
 
                   {/* Move arrows */}
-                  <div className="absolute bottom-7 left-0 right-0 flex justify-center gap-0.5">
+                  <div className="absolute bottom-16 left-0 right-0 flex justify-center gap-1">
                     <button
-                      className="mg-icon-button h-6 w-6 bg-black/70 backdrop-blur disabled:opacity-30"
+                      className="mg-icon-button h-7 w-7 border border-white/10 bg-black/65 backdrop-blur disabled:opacity-30"
                       disabled={index === 0}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -199,7 +212,7 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
                       <ChevronLeft size={10} />
                     </button>
                     <button
-                      className="mg-icon-button h-6 w-6 bg-black/70 backdrop-blur disabled:opacity-30"
+                      className="mg-icon-button h-7 w-7 border border-white/10 bg-black/65 backdrop-blur disabled:opacity-30"
                       disabled={index === pages.length - 1}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -213,7 +226,7 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
 
                   {/* Delete button (always visible in edit mode) */}
                   <button
-                    className="mg-icon-button absolute right-1 top-1 h-6 w-6 bg-red-500/80 text-white backdrop-blur"
+                    className="mg-icon-button absolute left-5 bottom-5 h-8 w-8 border border-red-300/25 bg-red-500/75 text-white backdrop-blur"
                     onClick={(e) => {
                       e.stopPropagation()
                       onDeletePage(page.id)
@@ -226,7 +239,7 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
               ) : (
                 /* Normal mode: delete on hover */
                 <button
-                  className="mg-icon-button absolute left-1 top-1 h-6 w-6 bg-black/70 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100"
+                  className="mg-icon-button absolute left-5 top-5 h-8 w-8 border border-white/10 bg-black/60 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                   onClick={(e) => {
                     e.stopPropagation()
                     onDeletePage(page.id)

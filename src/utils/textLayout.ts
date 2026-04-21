@@ -4,6 +4,7 @@ interface BoxLike {
 }
 
 export type NormalizedTextLayoutMode = 'balloon_fit' | 'artistic'
+export type NormalizedTextAlign = 'left' | 'center' | 'right'
 
 export interface TextLayoutOptions {
   fontFamily?: string
@@ -29,6 +30,14 @@ export interface TextLayoutResult {
   overflow: boolean
 }
 
+export interface ArtisticTextSizeResult {
+  width: number
+  height: number
+  lines: string[]
+  lineHeight: number
+  lineHeightPx: number
+}
+
 const segmenter = typeof Intl !== 'undefined' && (Intl as typeof Intl & {
   Segmenter?: new (locale?: string, options?: { granularity?: 'grapheme' | 'word' }) => {
     segment: (input: string) => Iterable<{ segment: string; isWordLike?: boolean }>
@@ -45,6 +54,10 @@ let sharedCanvas: HTMLCanvasElement | null = null
 
 export function normalizeTextLayoutMode(mode?: string): NormalizedTextLayoutMode {
   return mode === 'artistic' ? 'artistic' : 'balloon_fit'
+}
+
+export function normalizeTextAlign(align?: string): NormalizedTextAlign {
+  return align === 'left' || align === 'right' ? align : 'center'
 }
 
 export function layoutTextInBox(
@@ -114,6 +127,27 @@ export function estimateWrappedLineCount(text: string, width: number, fontSize: 
   return wrapTextToWidth(text, width, fontSize, buildMeasure({})).length
 }
 
+export function measureArtisticTextSize(
+  text: string,
+  fontSize: number,
+  options: TextLayoutOptions = {},
+): ArtisticTextSizeResult {
+  const lineHeight = options.lineHeight ?? 1.18
+  const size = Math.max(1, Number.isFinite(fontSize) ? fontSize : 18)
+  const lines = normalizeTextLines(text)
+  const measure = buildMeasure(options)
+  const width = Math.max(1, ...lines.map((line) => measure(line, size)))
+  const lineHeightPx = size * lineHeight
+
+  return {
+    width,
+    height: Math.max(lineHeightPx, lines.length * lineHeightPx),
+    lines,
+    lineHeight,
+    lineHeightPx,
+  }
+}
+
 export function wrapTextToWidth(
   text: string,
   width: number,
@@ -150,6 +184,12 @@ export function wrapTextToWidth(
     }
     if (current || lines.length === 0) lines.push(current.trimEnd())
   }
+  return lines.length ? lines : ['']
+}
+
+function normalizeTextLines(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const lines = normalized.split('\n')
   return lines.length ? lines : ['']
 }
 

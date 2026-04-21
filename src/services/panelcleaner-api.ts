@@ -42,6 +42,14 @@ export interface PanelCleanerBatchResult {
   logs?: string[]
 }
 
+export interface PanelCleanerStatus {
+  ok: boolean
+  version?: string
+  command?: string
+  error?: string
+  installHint?: string
+}
+
 const DEFAULT_PANELCLEANER_BRIDGE_URL = 'http://localhost:5055'
 
 export function getPanelCleanerBridgeUrl(url?: string): string {
@@ -125,7 +133,7 @@ export async function processImagesWithPanelCleanerBatch(
   }))
 }
 
-export async function getPanelCleanerStatus(options: PanelCleanerOptions = {}): Promise<{ ok: boolean; version?: string; command?: string; error?: string; installHint?: string }> {
+export async function getPanelCleanerStatus(options: PanelCleanerOptions = {}): Promise<PanelCleanerStatus> {
   try {
     const res = await fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/status`, {
       method: 'POST',

@@ -2,6 +2,7 @@ import type { AppSettings, BoundingBox, ImageEntry, ProcessingMode, TextRegion }
 import { processImageWithCleanupProvider } from './cleanup-provider'
 import { processImagesWithPanelCleanerBatch } from './panelcleaner-api'
 import {
+  detectSourceLanguageFromImage,
   translateWithOllamaBoxedVision,
   translateWithOllamaVision,
   type OllamaOptions,
@@ -46,6 +47,7 @@ export interface BatchAiServices {
   processPanelCleanerBatch: typeof processImagesWithPanelCleanerBatch
   processCleanupImage: typeof processImageWithCleanupProvider
   deriveTextBoxes: typeof deriveTextBoxesFromCleanupDiff
+  detectImageLanguage: typeof detectSourceLanguageFromImage
   translateBoxedVision: typeof translateWithOllamaBoxedVision
   translateVision: typeof translateWithOllamaVision
   readImageUrlAsBlob: (url: string) => Promise<Blob>
@@ -57,6 +59,7 @@ const defaultServices: BatchAiServices = {
   processPanelCleanerBatch: processImagesWithPanelCleanerBatch,
   processCleanupImage: processImageWithCleanupProvider,
   deriveTextBoxes: deriveTextBoxesFromCleanupDiff,
+  detectImageLanguage: detectSourceLanguageFromImage,
   translateBoxedVision: translateWithOllamaBoxedVision,
   translateVision: translateWithOllamaVision,
   readImageUrlAsBlob,
@@ -302,14 +305,24 @@ async function translatePage(
     options.onLog(`Batch AI: cleanup diff ใช้ไม่ได้ (${error instanceof Error ? error.message : String(error)})`)
   }
 
+  const resolvedSourceLang = options.sourceLang === 'auto'
+    ? await services.detectImageLanguage(file, options.ollamaOptions)
+    : options.sourceLang
+
+  options.onLog(
+    `Batch AI: ภาษาต้นฉบับ ${options.sourceLang === 'auto'
+      ? (resolvedSourceLang === 'auto' ? 'ระบุไม่ชัด ปล่อยให้โมเดลตรวจต่อ' : `ตรวจพบ ${resolvedSourceLang}`)
+      : `ผู้ใช้กำหนด ${resolvedSourceLang}`}`,
+  )
+
   if (boxes.length > 0) {
-    return services.translateBoxedVision(file, boxes, options.sourceLang, {
+    return services.translateBoxedVision(file, boxes, resolvedSourceLang, {
       ...options.ollamaOptions,
       storyContext,
     })
   }
 
-  return services.translateVision(file, options.sourceLang, {
+  return services.translateVision(file, resolvedSourceLang, {
     ...options.ollamaOptions,
     storyContext,
   })

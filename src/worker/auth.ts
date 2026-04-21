@@ -94,8 +94,15 @@ export async function logout(ctx: RequestContext): Promise<Response> {
 }
 
 export async function me(ctx: RequestContext): Promise<Response> {
-  const user = await requireUser(ctx)
-  return json({ user: publicUser(user) })
+  try {
+    const user = await requireUser(ctx)
+    return json({ user: publicUser(user) })
+  } catch (error) {
+    if (error instanceof ApiError && error.response.status === 401) {
+      return json({ user: null })
+    }
+    throw error
+  }
 }
 
 export async function verifyEmail(_ctx: RequestContext): Promise<Response> {

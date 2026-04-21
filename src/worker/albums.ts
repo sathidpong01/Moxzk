@@ -21,7 +21,7 @@ export async function createAlbum(ctx: RequestContext, user: AuthUser): Promise<
     userId: user.id,
     title,
     description: typeof input.description === 'string' && input.description.trim() ? input.description.trim() : null,
-    sourceLang: typeof input.sourceLang === 'string' && input.sourceLang.trim() ? input.sourceLang.trim() : 'ja',
+    sourceLang: typeof input.sourceLang === 'string' && input.sourceLang.trim() ? input.sourceLang.trim() : 'auto',
     createdAt: now,
     updatedAt: now,
   }

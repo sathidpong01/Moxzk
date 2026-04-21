@@ -16,14 +16,21 @@ import {
 } from '../../store/appStore'
 import { useAlbumStore } from '../../store/albumStore'
 import { resolveRegionFont } from '../../config/fonts'
-import { layoutTextInBox, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { layoutTextInBox, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
 import { computeBrushFeather } from '../../services/brushStrokes'
 import { getEditorToolCursor } from '../../services/editorCursor'
-import { shouldStartBrushStroke } from '../../services/konvaInteraction'
 import {
+  shouldClearTextSelectionOnStagePointer,
+  shouldStartBrushStroke,
+  shouldSyncStagePositionOnDragEnd,
+} from '../../services/konvaInteraction'
+import {
+  getArtisticInlineTextEditorLayerSize,
   getInlineTextEditorBboxSize,
   getInlineTextEditorLayerSize,
   getTextTransformerAnchors,
+  getTextTransformerKeepRatio,
+  getTextTransformerShiftBehavior,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import type { CanvasEditorHandle } from './CanvasEditor'
@@ -112,7 +119,7 @@ export default function ArtboardWorkspace({
   const [drawingLine, setDrawingLine] = useState<number[] | null>(null)
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<ImageEntry | null>(null)
   const [isDeletingPage, setIsDeletingPage] = useState(false)
-  const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string } | null>(null)
+  const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string; beforeRegions: TextRegion[] } | null>(null)
   const [eyedropPreview, setEyedropPreview] = useState<{ x: number; y: number; color: string } | null>(null)
   const eyedropCacheRef = useRef<ImageData | null>(null)
 
@@ -316,6 +323,12 @@ export default function ArtboardWorkspace({
     eyedropCacheRef.current = null
   }, [eyedropPreview, isEyedropper, sampleEyedropColor, setActiveTool, setBrushColor])
 
+  const handleStageClick = useCallback((event: Konva.KonvaEventObject<MouseEvent>) => {
+    if (!isBrushActive && !isEyedropper && shouldClearTextSelectionOnStagePointer(event.target)) {
+      selectRegion(null)
+    }
+  }, [isBrushActive, isEyedropper, selectRegion])
+
   const handlePaintStart = useCallback((event: Konva.KonvaEventObject<MouseEvent>) => {
     if (!isBrushActive || !activeEntry) return
     if (!shouldStartBrushStroke(event.target)) return
@@ -396,6 +409,7 @@ export default function ArtboardWorkspace({
   const selectedRegion = activeEntry?.regions.find((region) => region.id === selectedRegionId) ?? null
   const inlineEditRegion = inlineEdit ? activeEntry?.regions.find((region) => region.id === inlineEdit.id) ?? null : null
   const inlineEditLayoutMode = normalizeTextLayoutMode(inlineEditRegion?.textLayoutMode)
+  const inlineEditAlign = normalizeTextAlign(inlineEditRegion?.textAlign)
   const inlineEditFont = inlineEditRegion ? resolveRegionFont(inlineEditRegion) : null
   const inlineEditScale = activeArtboard?.scale ?? 1
   const inlineEditFontSize = inlineEditRegion
@@ -409,13 +423,29 @@ export default function ArtboardWorkspace({
             }).fontSize * inlineEditScale
       )
     : 14
-  const inlineEditSize = inlineEditRegion
-    ? getInlineTextEditorLayerSize({
-        bbox: inlineEditRegion.bbox,
-        scale: inlineEditScale,
-        minWidth: 96 / zoom,
-        minHeight: 44 / zoom,
-      })
+  const inlineEditSize = inlineEditRegion && inlineEditFont
+    ? (
+        inlineEditLayoutMode === 'artistic'
+          ? getArtisticInlineTextEditorLayerSize({
+              text: inlineEdit?.text ?? '',
+              bbox: inlineEditRegion.bbox,
+              scale: inlineEditScale,
+              fontSize: inlineEditRegion.fontSize,
+              fontFamily: inlineEditFont.family,
+              fontWeight: inlineEditFont.weight,
+              fontStyle: inlineEditFont.style,
+              textScaleX: inlineEditRegion.textScaleX,
+              textScaleY: inlineEditRegion.textScaleY,
+              minWidth: 96 / zoom,
+              minHeight: 44 / zoom,
+            })
+          : getInlineTextEditorLayerSize({
+              bbox: inlineEditRegion.bbox,
+              scale: inlineEditScale,
+              minWidth: 96 / zoom,
+              minHeight: 44 / zoom,
+            })
+      )
     : null
   const inlineEditPosition = inlineEditRegion && activeArtboard
     ? {
@@ -427,11 +457,16 @@ export default function ArtboardWorkspace({
     (region: TextRegion) => {
       if (isBrushActive) return
       selectRegion(region.id)
-      setInlineEdit({ id: region.id, text: region.translatedText })
+      setInlineEdit({ id: region.id, text: region.translatedText, beforeRegions: cloneRegions(activeEntry?.regions ?? []) })
     },
-    [isBrushActive, selectRegion],
+    [activeEntry?.regions, isBrushActive, selectRegion],
   )
-  const commitInlineEdit = useCallback((metrics?: InlineTextEditorCommitMetrics) => {
+  const updateInlineEditText = useCallback((text: string) => {
+    if (!inlineEdit || !activeEntry) return
+    setInlineEdit((current) => current ? { ...current, text } : current)
+    updateEntryRegion(activeEntry, inlineEdit.id, { translatedText: text }, { trackHistory: false })
+  }, [activeEntry, inlineEdit])
+  const finishInlineEdit = useCallback((metrics: InlineTextEditorCommitMetrics | undefined, finalText: string) => {
     if (!inlineEdit || !activeEntry) return
     const region = activeEntry.regions.find((item) => item.id === inlineEdit.id)
     const bboxSize = metrics
@@ -441,24 +476,25 @@ export default function ArtboardWorkspace({
     const font = region ? resolveRegionFont(region) : null
     const nextBbox = region && bboxSize ? { ...region.bbox, ...bboxSize } : null
     const nextFontSize = region && font && nextBbox && layoutMode === 'balloon_fit'
-      ? layoutTextInBox(inlineEdit.text || ' ', nextBbox, region.fontSize, {
+      ? layoutTextInBox(finalText || ' ', nextBbox, region.fontSize, {
           fontFamily: font.family,
           fontWeight: font.weight,
           fontStyle: font.style,
         }).fontSize
       : undefined
     updateEntryRegion(activeEntry, inlineEdit.id, {
-      translatedText: inlineEdit.text,
+      translatedText: finalText,
       ...(nextBbox ? { bbox: nextBbox } : {}),
       ...(nextFontSize !== undefined ? { fontSize: nextFontSize } : {}),
+    }, {
+      historyBefore: inlineEdit.beforeRegions,
     })
     setInlineEdit(null)
   }, [activeEntry, inlineEdit, inlineEditScale])
-  const cancelInlineEdit = useCallback(() => {
-    setInlineEdit(null)
-  }, [])
   const selectedRegionLayout = selectedRegion ? normalizeTextLayoutMode(selectedRegion.textLayoutMode) : 'balloon_fit'
   const transformerAnchors = getTextTransformerAnchors(selectedRegionLayout)
+  const transformerKeepRatio = getTextTransformerKeepRatio(selectedRegionLayout)
+  const transformerShiftBehavior = getTextTransformerShiftBehavior(selectedRegionLayout)
 
   const handleConfirmDeletePage = useCallback(async () => {
     if (!pendingDeleteEntry) return
@@ -550,7 +586,10 @@ export default function ArtboardWorkspace({
           scaleY={zoom}
           draggable={isPanning}
           onWheel={handleWheel}
-          onClick={handleEyedrop}
+          onClick={(event) => {
+            handleStageClick(event)
+            handleEyedrop()
+          }}
           onMouseDown={handlePaintStart}
           onMouseMove={(event) => {
             handlePaintMove()
@@ -562,9 +601,8 @@ export default function ArtboardWorkspace({
             setEyedropPreview(null)
           }}
           onDragEnd={(event) => {
-            if (event.target === event.target.getStage()) {
-              setStagePos({ x: event.target.x(), y: event.target.y() })
-            }
+            if (!shouldSyncStagePositionOnDragEnd(event.target)) return
+            setStagePos({ x: event.target.x(), y: event.target.y() })
           }}
           style={{ cursor: getEditorToolCursor(activeTool) }}
         >
@@ -629,7 +667,8 @@ export default function ArtboardWorkspace({
               anchorCornerRadius={4}
               padding={4}
               rotateEnabled
-              keepRatio={false}
+              keepRatio={transformerKeepRatio}
+              shiftBehavior={transformerShiftBehavior}
               enabledAnchors={transformerAnchors}
               flipEnabled={false}
               boundBoxFunc={(oldBox, newBox) => {
@@ -657,11 +696,10 @@ export default function ArtboardWorkspace({
                   padding={inlineEditLayoutMode === 'artistic' ? 0 : 8 * inlineEditScale}
                   viewportZoom={zoom}
                   color={inlineEditRegion.fontColor}
-                  align={inlineEditLayoutMode === 'artistic' ? 'left' : 'center'}
+                  align={inlineEditAlign}
                   layoutMode={inlineEditLayoutMode}
-                  onChange={(text) => setInlineEdit((current) => current ? { ...current, text } : current)}
-                  onCommit={commitInlineEdit}
-                  onCancel={cancelInlineEdit}
+                  onChange={updateInlineEditText}
+                  onFinish={finishInlineEdit}
                 />
               </Html>
             )}
@@ -757,9 +795,9 @@ function ArtboardBase({
     <Group
       x={artboard.x}
       y={artboard.y}
-      onClick={(event) => {
+      onClick={() => {
         onActivate()
-        if (event.target === event.currentTarget) onSelectRegion(null)
+        if (activeTool === 'select') onSelectRegion(null)
       }}
     >
       <Rect
@@ -1034,7 +1072,10 @@ function ArtboardText({
 }) {
   const font = resolveRegionFont(region)
   const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+  const textAlign = normalizeTextAlign(region.textAlign)
   const isArtistic = layoutMode === 'artistic'
+  const textScaleX = region.textScaleX ?? 1
+  const textScaleY = region.textScaleY ?? 1
   const text = region.translatedText || ' '
   const textLayout = isArtistic
     ? null
@@ -1077,17 +1118,18 @@ function ArtboardText({
       lineHeight={1.18}
       {...(isArtistic
         ? {
-            wrap: 'none' as const,
-            align: 'left' as const,
-            scaleX: region.textScaleX ?? 1,
-            scaleY: region.textScaleY ?? 1,
+            width: (region.bbox.width * scale) / Math.max(0.0001, Math.abs(textScaleX)),
+            wrap: 'word' as const,
+            align: textAlign,
+            scaleX: textScaleX,
+            scaleY: textScaleY,
           }
         : {
           width: region.bbox.width * scale,
           height: region.bbox.height * scale,
           padding: Math.max(textLayout!.paddingX, textLayout!.paddingY) * scale,
           wrap: 'none' as const,
-          align: 'center' as const,
+          align: textAlign,
             verticalAlign: 'middle' as const,
       })}
       draggable={canEditText}

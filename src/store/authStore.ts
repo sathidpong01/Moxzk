@@ -11,6 +11,8 @@ import {
 } from '../services/cloudflareApi'
 import type { Profile } from '../types/database'
 
+let hasInitializedAuth = false
+
 interface AuthStore {
   user: AppUser | null
   session: AppSession | null
@@ -92,6 +94,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   init: async () => {
+    if (hasInitializedAuth) return () => {}
+    hasInitializedAuth = true
     set({ loading: true })
     try {
       await get().fetchProfile()

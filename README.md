@@ -13,7 +13,7 @@ React/Vite image editor สำหรับคลีนภาพมังงะ�
 - AI: Ollama `/api/chat` สำหรับ OCR/translation/vision JSON
 - Storage/Auth: Cloudflare Worker API + D1 + R2
 - Schema: Drizzle เป็น source of truth สำหรับ Cloudflare D1
-- Legacy backend: `manga-image-translator` ยังอยู่เป็น fallback ชั่วคราวเท่านั้น
+- Legacy backend ถูกถอดออกแล้ว เส้นทางหลักคือ PanelCleaner bridge เท่านั้น
 
 ## Features
 
@@ -354,16 +354,6 @@ delete page from album/canvas -> page disappears from editor state
 export all pages -> folder export or ZIP fallback
 ```
 
-## Legacy Docker Fallback
-
-`docker-compose.yml` remains only for legacy fallback:
-
-```bash
-docker compose up -d
-```
-
-Then choose Settings > Cleanup > `Legacy manga-image-translator`.
-
 ## Skills
 
 Installed skills that are relevant to this project:
@@ -395,8 +385,8 @@ Installed skills that are relevant to this project:
 - [x] Story context prompt layer for batch translation
 - [ ] Album-level story bible and glossary UI
 - [ ] Translation review pass for pronoun/relationship consistency
-- [ ] OCR confidence review and fallback comparison
-- [ ] Remove legacy backend after PanelCleaner flow is verified
+- [x] OCR confidence review summary in correction flow
+- [x] Remove legacy backend after PanelCleaner flow is verified
 - [ ] Electron shell with secure typed IPC
 - [ ] Native executable discovery/version/start service
 

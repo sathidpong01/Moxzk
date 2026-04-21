@@ -23,6 +23,7 @@
 /.vercel
 /output
 /.venv-panelcleaner
+/_codex
 /.agents/private/*
 !/.agents/private/.gitkeep
 
@@ -57,6 +58,8 @@ next-env.d.ts
 .vscode
 *.swp
 *.swo
+/.obsidian/
+/MainVault/
 
 .vercel
 

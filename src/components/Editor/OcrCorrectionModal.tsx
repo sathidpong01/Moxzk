@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { TextRegion } from '../../types'
 import { useAppStore } from '../../store/appStore'
 import { translateSingleRegion } from '../../services/ollama'
+import { buildOcrReviewSummary, getRegionConfidence, sortRegionsForReview } from '../../services/translationReview'
 import { Languages, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge, Button, Modal, TextInput } from '../ui/primitives'
@@ -25,6 +25,8 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
   const regions = useAppStore((s) => s.regions)
   const updateRegion = useAppStore((s) => s.updateRegion)
   const settings = useAppStore((s) => s.settings)
+  const reviewRegions = sortRegionsForReview(regions)
+  const summary = buildOcrReviewSummary(regions)
   const [editTexts, setEditTexts] = useState<Record<string, string>>({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [translating, setTranslating] = useState(false)
@@ -88,11 +90,6 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
     toast.success(`แปลเสร็จ ${done}/${ids.length} กล่อง`)
   }, [selected, regions, editTexts, settings, updateRegion])
 
-  const lowConfCount = regions.filter((region) => {
-    const confidence = (region as TextRegion & { confidence?: number }).confidence
-    return confidence != null && confidence < 0.7
-  }).length
-
   return (
     <Modal
       isOpen={isOpen}
@@ -100,8 +97,8 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
       title={(
         <span className="flex items-center gap-2">
           ตรวจสอบ OCR ({regions.length} กล่อง)
-          {lowConfCount > 0 && (
-            <Badge className="text-yellow-300"><AlertTriangle size={10} /> {lowConfCount} ความมั่นใจต่ำ</Badge>
+          {summary.needsReview && (
+            <Badge className="text-yellow-300"><AlertTriangle size={10} /> ต้องตรวจ {summary.lowConfidence + summary.emptyOriginalText + summary.emptyTranslatedText}</Badge>
           )}
         </span>
       )}
@@ -109,6 +106,9 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
     >
       <div className="flex max-h-[72vh] min-h-0 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="border-b border-[var(--mg-border)] px-4 py-3 text-xs text-[var(--mg-muted)]">
+            ความมั่นใจต่ำ {summary.lowConfidence} · ไม่มี OCR {summary.emptyOriginalText} · ยังไม่แปล {summary.emptyTranslatedText} · ไม่ทราบคะแนน {summary.unknownConfidence}
+          </div>
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 bg-[var(--mg-surface-2)] text-[var(--mg-muted)]">
               <tr>
@@ -127,8 +127,8 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--mg-border)]">
-              {regions.map((region, index) => {
-                const confidence = (region as TextRegion & { confidence?: number }).confidence
+              {reviewRegions.map((region, index) => {
+                const confidence = getRegionConfidence(region) ?? undefined
                 const isLow = confidence != null && confidence < 0.7
                 return (
                   <tr key={region.id} className={isLow ? 'bg-red-500/10' : ''}>

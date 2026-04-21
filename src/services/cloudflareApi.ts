@@ -118,13 +118,9 @@ export async function loginWithEmail(email: string, password: string): Promise<{
 }
 
 export async function getCurrentUser(): Promise<{ user: AppUser; profile: Profile; session: AppSession } | null> {
-  try {
-    const { user } = await apiFetch<{ user: ApiUser }>('/api/auth/me')
-    return authPayload(user)
-  } catch (error) {
-    if (error instanceof CloudflareApiError && error.status === 401) return null
-    throw error
-  }
+  const { user } = await apiFetch<{ user: ApiUser | null }>('/api/auth/me')
+  if (!user) return null
+  return authPayload(user)
 }
 
 export async function logout(): Promise<void> {

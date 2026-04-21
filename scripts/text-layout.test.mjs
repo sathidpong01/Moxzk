@@ -4,6 +4,8 @@ import {
   calculateBalloonFitFontSize,
   estimateWrappedLineCount,
   layoutTextInBox,
+  measureArtisticTextSize,
+  normalizeTextAlign,
   normalizeTextLayoutMode,
 } from '../src/utils/textLayout.ts'
 
@@ -11,6 +13,14 @@ test('normalizeTextLayoutMode defaults older regions to balloon_fit', () => {
   assert.equal(normalizeTextLayoutMode(undefined), 'balloon_fit')
   assert.equal(normalizeTextLayoutMode('paragraph'), 'balloon_fit')
   assert.equal(normalizeTextLayoutMode('artistic'), 'artistic')
+})
+
+test('normalizeTextAlign defaults older regions to center', () => {
+  assert.equal(normalizeTextAlign(undefined), 'center')
+  assert.equal(normalizeTextAlign('left'), 'left')
+  assert.equal(normalizeTextAlign('center'), 'center')
+  assert.equal(normalizeTextAlign('right'), 'right')
+  assert.equal(normalizeTextAlign('bad'), 'center')
 })
 
 test('calculateBalloonFitFontSize shrinks long text to fit the balloon box', () => {
@@ -31,6 +41,17 @@ test('estimateWrappedLineCount respects manual line breaks', () => {
 
   assert.equal(oneLine, 1)
   assert.equal(twoLines, 2)
+})
+
+test('measureArtisticTextSize preserves manual blank lines', () => {
+  const measured = measureArtisticTextSize('A\n\nBBBB', 10, {
+    lineHeight: 1.2,
+    measureText: (text, fontSize) => text.length * fontSize,
+  })
+
+  assert.deepEqual(measured.lines, ['A', '', 'BBBB'])
+  assert.equal(measured.width, 40)
+  assert.equal(measured.height, 36)
 })
 
 test('layoutTextInBox returns shared lines and overflow signal', () => {

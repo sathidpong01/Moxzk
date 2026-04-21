@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { Check } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   getInlineTextEditorTheme,
+  shouldFinishInlineTextEditorOnPointerDown,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
-import type { TextLayoutMode } from '../../types'
+import type { TextAlign, TextLayoutMode } from '../../types'
 import { layoutTextInBox } from '../../utils/textLayout'
 
 interface InlineTextEditorProps {
@@ -18,11 +18,10 @@ interface InlineTextEditorProps {
   padding: number
   viewportZoom: number
   color: string
-  align: 'left' | 'center'
+  align: TextAlign
   layoutMode: TextLayoutMode
   onChange: (value: string) => void
-  onCommit: (metrics: InlineTextEditorCommitMetrics) => void
-  onCancel: () => void
+  onFinish: (metrics: InlineTextEditorCommitMetrics, value: string) => void
 }
 
 export default function InlineTextEditor({
@@ -39,19 +38,19 @@ export default function InlineTextEditor({
   align,
   layoutMode,
   onChange,
-  onCommit,
-  onCancel,
+  onFinish,
 }: InlineTextEditorProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const skipBlurCommitRef = useRef(false)
-  const committedRef = useRef(false)
+  const finishedRef = useRef(false)
+  const [artisticSize, setArtisticSize] = useState<{ width: number; height: number } | null>(null)
   const theme = getInlineTextEditorTheme(color)
   const isArtistic = layoutMode === 'artistic'
   const displayFontSize = Math.max(1, fontSize)
   const lineHeight = 1.18
   const chromeScale = 1 / Math.max(0.1, viewportZoom)
-  const confirmButtonSize = 28 * chromeScale
-  const confirmButtonOffset = -8 * chromeScale
+  const editorWidth = isArtistic ? (artisticSize?.width ?? width) : width
+  const editorHeight = isArtistic ? (artisticSize?.height ?? height) : height
   const verticalPadding = useMemo(() => {
     if (align !== 'center') return padding
     const layout = layoutTextInBox(value, { width, height }, displayFontSize, {
@@ -66,18 +65,39 @@ export default function InlineTextEditor({
     })
     return Math.max(padding, (height - layout.contentHeight) / 2)
   }, [align, displayFontSize, fontFamily, fontStyle, fontWeight, height, padding, value, width])
-  const commit = () => {
-    if (committedRef.current) return
-    committedRef.current = true
+  const finish = () => {
+    if (finishedRef.current) return
+    finishedRef.current = true
     const textarea = textareaRef.current
-    onCommit({
-      width: textarea?.offsetWidth ?? width,
-      height: textarea?.offsetHeight ?? height,
+    onFinish({
+      width: textarea?.offsetWidth ?? editorWidth,
+      height: textarea?.offsetHeight ?? editorHeight,
       scrollWidth: textarea?.scrollWidth,
       scrollHeight: textarea?.scrollHeight,
       layoutMode,
-    })
+    }, textarea?.value ?? value)
   }
+
+  useLayoutEffect(() => {
+    if (!isArtistic) {
+      setArtisticSize(null)
+      return
+    }
+
+    const textarea = textareaRef.current
+    if (!textarea) return
+    textarea.style.width = `${width}px`
+    textarea.style.height = `${height}px`
+    const next = {
+      width: Math.max(width, textarea.scrollWidth),
+      height: Math.max(height, textarea.scrollHeight),
+    }
+    setArtisticSize((current) =>
+      current && Math.abs(current.width - next.width) < 0.5 && Math.abs(current.height - next.height) < 0.5
+        ? current
+        : next,
+    )
+  }, [displayFontSize, fontFamily, fontStyle, fontWeight, height, isArtistic, value, width])
 
   useEffect(() => {
     const textarea = textareaRef.current
@@ -86,15 +106,26 @@ export default function InlineTextEditor({
     textarea.setSelectionRange(textarea.value.length, textarea.value.length)
   }, [])
 
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!shouldFinishInlineTextEditorOnPointerDown(rootRef.current, event.target)) return
+      finish()
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, { capture: true })
+    return () => document.removeEventListener('pointerdown', handlePointerDown, { capture: true })
+  })
+
   return (
     <div
+      ref={rootRef}
       style={{
         position: 'relative',
         display: 'inline-block',
-        width,
-        height,
-        minWidth: width,
-        minHeight: height,
+        width: editorWidth,
+        height: editorHeight,
+        minWidth: editorWidth,
+        minHeight: editorHeight,
       }}
       onPointerDown={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
@@ -106,10 +137,10 @@ export default function InlineTextEditor({
         style={{
           boxSizing: 'border-box',
           display: 'block',
-          width,
-          height,
-          minWidth: width,
-          minHeight: height,
+          width: editorWidth,
+          height: editorHeight,
+          minWidth: editorWidth,
+          minHeight: editorHeight,
           margin: 0,
           border: `${chromeScale}px solid rgba(125, 150, 255, 0.38)`,
           borderRadius: 6 * chromeScale,
@@ -128,7 +159,7 @@ export default function InlineTextEditor({
           textShadow: theme.textShadow,
           textAlign: align,
           resize: 'none',
-          overflow: isArtistic ? 'auto' : 'hidden',
+          overflow: 'hidden',
           whiteSpace: isArtistic ? 'pre' : 'pre-wrap',
           overflowWrap: isArtistic ? 'normal' : 'break-word',
           outline: 'none',
@@ -139,65 +170,20 @@ export default function InlineTextEditor({
         onPointerDown={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
         onChange={(event) => onChange(event.target.value)}
-        onBlur={() => {
-          if (skipBlurCommitRef.current) return
-          commit()
-        }}
+        onBlur={finish}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault()
-            skipBlurCommitRef.current = true
-            onCancel()
+            finish()
             return
           }
           if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
             event.preventDefault()
-            commit()
+            finish()
           }
         }}
         aria-label="Edit translated text"
       />
-      <button
-        type="button"
-        className="mg-inline-text-confirm"
-        style={{
-          position: 'absolute',
-          right: confirmButtonOffset,
-          bottom: confirmButtonOffset,
-          zIndex: 2,
-          width: confirmButtonSize,
-          height: confirmButtonSize,
-          minWidth: confirmButtonSize,
-          minHeight: confirmButtonSize,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: `${chromeScale}px solid rgba(147, 197, 253, 0.46)`,
-          borderRadius: 7 * chromeScale,
-          padding: 0,
-          background: 'var(--mg-accent)',
-          color: '#ffffff',
-          boxShadow: `0 ${6 * chromeScale}px ${18 * chromeScale}px rgba(0, 0, 0, 0.35)`,
-          cursor: 'pointer',
-        }}
-        aria-label="ยืนยัน"
-        title="ยืนยัน"
-        onPointerDown={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-        }}
-        onMouseDown={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-        }}
-        onClick={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          commit()
-        }}
-      >
-        <Check size={14 * chromeScale} strokeWidth={2.4} aria-hidden="true" />
-      </button>
     </div>
   )
 }

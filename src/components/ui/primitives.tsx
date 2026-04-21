@@ -198,14 +198,14 @@ export function SelectField<T extends string>({
 
   return (
     <Listbox value={value} onChange={onChange}>
-      <div className={cn('relative', className)}>
+      <div className={cn('relative isolate', className)}>
         <ListboxButton className={cn('mg-control flex items-center justify-between gap-2 text-left', buttonClassName)}>
           <span className="truncate">{selected?.label}</span>
           <ChevronDown size={14} className="shrink-0 text-[var(--mg-muted)]" aria-hidden="true" />
         </ListboxButton>
         <ListboxOptions
           anchor="bottom start"
-          className="mg-popover-list w-[var(--button-width)]"
+          className="mg-popover-list z-[260] max-h-72 w-[var(--button-width)] overflow-y-auto"
         >
           {options.map((option) => (
             <ListboxOption
