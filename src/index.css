@@ -272,6 +272,15 @@ textarea {
   display: none;
 }
 
+.mg-scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.mg-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 .mg-slider {
   width: 100%;
   accent-color: var(--mg-accent);

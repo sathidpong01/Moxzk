@@ -14,7 +14,6 @@ import AlbumListModal from './components/Albums/AlbumListModal'
 import UploadStep from './components/Steps/UploadStep'
 import EditStep from './components/Steps/EditStep'
 import ExportStep from './components/Steps/ExportStep'
-import PanelToggleBar from './components/Layout/PanelToggleBar'
 import SettingsPanel from './components/Settings/SettingsPanel'
 import FontConfigPage from './components/Settings/FontConfigPage'
 import { Button, DropdownItem, DropdownMenu, IconButton, Modal, SelectField } from './components/ui/primitives'
@@ -25,7 +24,7 @@ import type { ProcessingMode } from './types'
 // ── Main App ─────────────────────────────────────────────────────────
 
 const AI_MODE_OPTIONS: Array<{ value: ProcessingMode; label: string }> = [
-  { value: 'gemma_vision_full', label: 'Gemma อ่าน+แปล' },
+  { value: 'gemma_vision_full', label: 'คลีน+แปล' },
   { value: 'clean_only', label: 'คลีนอย่างเดียว' },
 ]
 
@@ -35,7 +34,6 @@ function App() {
   const stageRef = useRef<Konva.Stage>(null)
   const editorRef = useRef<CanvasEditorHandle>(null)
   const addImagesInputRef = useRef<HTMLInputElement>(null)
-  const [canvasScale, setCanvasScale] = useState(1)
   const [aiConfirmTarget, setAiConfirmTarget] = useState<'single' | 'batch' | null>(null)
   const [processingMode, setProcessingMode] = useState<ProcessingMode>('gemma_vision_full')
   const [batchStopConfirmOpen, setBatchStopConfirmOpen] = useState(false)
@@ -80,7 +78,7 @@ function App() {
     handleSaveToAlbum,
     isBatchProcessing,
     batchStatus,
-  } = useEditorActions({ stageRef, editorRef, canvasScale })
+  } = useEditorActions({ editorRef })
 
   const requestAI = (target: 'single' | 'batch') => {
     if (store.isProcessing || isBatchProcessing) return
@@ -161,7 +159,7 @@ function App() {
               <DropdownMenu
                 trigger={(
                   <button className="mg-button mg-button-ai mg-button-sm gap-1" disabled={store.isProcessing || isBatchProcessing}>
-                    <Wand2 size={14} /> <span className="hidden sm:inline">AI อ่าน+แปล</span>
+                    <Wand2 size={14} /> <span className="hidden sm:inline">AI แปล</span>
                   </button>
                 )}
               >
@@ -251,7 +249,6 @@ function App() {
           <EditStep
             stageRef={stageRef}
             editorRef={editorRef}
-            onScaleChange={setCanvasScale}
             onRetryFailedBatchAI={handleRetryFailedBatchAI}
             onRetryAI={handleRetryAI}
             onCancelAI={handleCancelAI}
@@ -277,9 +274,6 @@ function App() {
         )}
       </main>
 
-      {/* ── Panel toggle bar ── */}
-      <PanelToggleBar />
-
       {/* ── Modals ── */}
       <SettingsPanel
         settings={store.settings}
@@ -303,8 +297,8 @@ function App() {
         <div className="space-y-4">
           <p className="text-sm leading-6 text-[var(--mg-muted)]">
             {aiConfirmTarget === 'batch'
-              ? 'ระบบจะเริ่มแปลทุกหน้าที่ยังไม่เสร็จ โดย cleanup หลายหน้าก่อนแล้วแปลทีละหน้า ถ้าหยุดระหว่างทางจะหยุดหลังหน้าปัจจุบันเสร็จ'
-              : 'ระบบจะเริ่ม cleanup, OCR และแปลหน้าที่เลือกอยู่ตอนนี้ ระหว่างทำงานสามารถกดยกเลิกงานนี้ได้'}
+              ? 'ระบบจะคลีนและแปลทุกหน้าที่ยังไม่เสร็จ ถ้าหยุดระหว่างทางจะหยุดหลังหน้าปัจจุบันเสร็จ'
+              : 'ระบบจะคลีน OCR และแปลหน้าที่เลือกอยู่ตอนนี้ ระหว่างทำงานสามารถกดยกเลิกงานนี้ได้'}
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setAiConfirmTarget(null)}>
@@ -393,7 +387,7 @@ function getHeaderStatus({
     return `${Math.max(pageCount, 1)} หน้า · ตรวจไฟล์ก่อนดาวน์โหลด`
   }
   const pageText = pageCount > 1 ? `หน้า ${activePageIndex + 1}/${pageCount}` : 'หน้าเดียว'
-  return `${pageText} · ${regions} กล่องข้อความ · ${strokes} สโตรกแปรง`
+  return `${pageText} · ${regions} ข้อความ · ${strokes} รอยแปรง`
 }
 
 export default App

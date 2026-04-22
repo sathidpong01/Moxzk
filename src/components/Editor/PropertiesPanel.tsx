@@ -8,7 +8,7 @@ import { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } from '
 import FontSelector from './FontSelector'
 import { AlignCenter, AlignLeft, AlignRight, Trash2, RotateCcw, Languages, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, DisclosureSection, Field, SelectField, TextareaField } from '../ui/primitives'
+import { Button, DisclosureSection, Field, SelectField, TextInput, TextareaField } from '../ui/primitives'
 
 interface PropertiesPanelProps {
   region: TextRegion | null
@@ -28,24 +28,8 @@ const TEXT_ALIGNS: Array<{ value: TextAlign; label: string; icon: typeof AlignLe
   { value: 'right', label: 'ชิดขวา', icon: AlignRight },
 ]
 
-function SliderRow({
-  label,
-  value,
-  children,
-}: {
-  label: string
-  value: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="font-bold text-[var(--mg-muted)]">{label}</span>
-        <span className="font-mono text-[var(--mg-dim)]">{value}</span>
-      </div>
-      {children}
-    </div>
-  )
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 export default function PropertiesPanel({
@@ -54,13 +38,14 @@ export default function PropertiesPanel({
   onDelete,
 }: PropertiesPanelProps) {
   const [translating, setTranslating] = useState(false)
+  const [showOriginalText, setShowOriginalText] = useState(false)
   const editorHistoryShortcutProps = { 'data-editor-history-shortcuts': 'true' }
 
   if (!region) {
     return (
       <div className="py-8 text-center">
         <p className="text-sm text-[var(--mg-muted)]">
-          เลือก text region บน canvas เพื่อแก้ไข
+          คลิกข้อความบนหน้าเพื่อแก้ไข
         </p>
       </div>
     )
@@ -93,9 +78,9 @@ export default function PropertiesPanel({
   }
 
   return (
-    <div className="space-y-4 text-sm">
-      <DisclosureSection title="รูปแบบกล่อง">
-        <Field label="เลย์เอาต์">
+    <div className="space-y-3 text-sm">
+      <DisclosureSection title="รูปแบบข้อความ">
+        <Field label="การวางข้อความ" className="gap-2">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <SelectField
               value={layoutMode}
@@ -111,8 +96,8 @@ export default function PropertiesPanel({
                 })
               }}
               options={[
-                { value: 'balloon_fit', label: 'พอดีบอลลูน' },
-                { value: 'artistic', label: 'ยืด/หมุนอิสระ' },
+                { value: 'balloon_fit', label: 'พอดีกล่อง' },
+                { value: 'artistic', label: 'อิสระ' },
               ]}
             />
             <div className="grid grid-cols-3 gap-1 rounded-[8px] border border-[var(--mg-border)] bg-black/20 p-1">
@@ -143,6 +128,7 @@ export default function PropertiesPanel({
             currentFont={region.fontId ?? region.suggestedFont ?? region.mood}
             mood={region.mood}
             onSelect={(fontId) => onUpdate(region.id, { fontId })}
+            compact
           />
         </Field>
 
@@ -167,112 +153,140 @@ export default function PropertiesPanel({
             {translating ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />}
             แปลใหม่
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowOriginalText((value) => !value)}
+          >
+            {showOriginalText ? 'ซ่อนต้นฉบับ' : 'ดูต้นฉบับ'}
+          </Button>
         </div>
 
-        <Field label="ข้อความแปล">
+        <Field label="ข้อความแปล" className="gap-2">
           <TextareaField
             {...editorHistoryShortcutProps}
-            rows={4}
-            className="resize-none"
+            rows={3}
+            className="min-h-[96px] resize-none"
             value={region.translatedText}
             onChange={(e) => onUpdate(region.id, { translatedText: e.target.value })}
           />
         </Field>
 
-        <DisclosureSection title="ข้อความต้นฉบับ" defaultOpen={false} className="bg-black/20">
-          <p className="font-mono text-xs leading-relaxed text-[var(--mg-muted)]">
-            {region.originalText || 'ไม่มีข้อความต้นฉบับ'}
-          </p>
-        </DisclosureSection>
+        {showOriginalText && (
+          <div className="rounded-[8px] border border-[var(--mg-border)] bg-black/20 px-3 py-2">
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">
+              ข้อความต้นฉบับ
+            </div>
+            <p className="font-mono text-xs leading-relaxed text-[var(--mg-muted)]">
+              {region.originalText || 'ไม่มีข้อความต้นฉบับ'}
+            </p>
+          </div>
+        )}
       </DisclosureSection>
 
-      <DisclosureSection title="หน้าตาข้อความ">
-        <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-          <SliderRow
-            label={layoutMode === 'balloon_fit' ? 'ขนาดสูงสุด' : 'ขนาด'}
-            value={`${Math.round(region.fontSize)}px`}
-          >
-            <input
-              {...editorHistoryShortcutProps}
-              type="range"
-              className="mg-slider"
-              min={8}
-              max={72}
-              value={region.fontSize}
-              onChange={(e) => onUpdate(region.id, { fontSize: Number(e.target.value) })}
-            />
-          </SliderRow>
-          <div className="space-y-1">
-            <span className="block text-xs font-bold text-[var(--mg-muted)]">สีตัวอักษร</span>
-            <input
-              {...editorHistoryShortcutProps}
-              type="color"
-              className="h-8 w-9 cursor-pointer rounded-[6px] border border-[var(--mg-border)] bg-transparent"
-              value={region.fontColor}
-              onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
-              aria-label="สีตัวอักษร"
-            />
+      <DisclosureSection title="ตัวอักษรและขอบ">
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="rounded-[10px] border border-[var(--mg-border)] bg-black/20 p-2.5">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">ตัวอักษร</div>
+            <div className="grid grid-cols-[minmax(0,1fr)_68px] items-center gap-2">
+              <label className="text-xs font-bold text-[var(--mg-muted)]">ขนาด</label>
+              <TextInput
+                {...editorHistoryShortcutProps}
+                type="number"
+                min={8}
+                max={72}
+                step={1}
+                value={Math.round(region.fontSize)}
+                className="h-8 text-right text-xs"
+                onChange={(e) => {
+                  const nextValue = Number(e.target.value)
+                  if (Number.isFinite(nextValue)) {
+                    onUpdate(region.id, { fontSize: clampNumber(nextValue, 8, 72) })
+                  }
+                }}
+              />
+              <label className="text-xs font-bold text-[var(--mg-muted)]">สี</label>
+              <input
+                {...editorHistoryShortcutProps}
+                type="color"
+                className="h-8 w-full cursor-pointer rounded-[8px] border border-[var(--mg-border)] bg-transparent"
+                value={region.fontColor}
+                onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
+                aria-label="สีตัวอักษร"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-[10px] border border-[var(--mg-border)] bg-black/20 p-2.5">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">ขอบ</div>
+            <div className="grid grid-cols-[minmax(0,1fr)_68px] items-center gap-2">
+              <label className="text-xs font-bold text-[var(--mg-muted)]">หนา</label>
+              <TextInput
+                {...editorHistoryShortcutProps}
+                type="number"
+                min={0}
+                max={8}
+                step={0.5}
+                value={region.strokeWidth}
+                className="h-8 text-right text-xs"
+                onChange={(e) => {
+                  const nextValue = Number(e.target.value)
+                  if (Number.isFinite(nextValue)) {
+                    onUpdate(region.id, { strokeWidth: clampNumber(nextValue, 0, 8) })
+                  }
+                }}
+              />
+              <label className="text-xs font-bold text-[var(--mg-muted)]">สี</label>
+              <input
+                {...editorHistoryShortcutProps}
+                type="color"
+                className="h-8 w-full cursor-pointer rounded-[8px] border border-[var(--mg-border)] bg-transparent"
+                value={region.strokeColor}
+                onChange={(e) => onUpdate(region.id, { strokeColor: e.target.value })}
+                aria-label="สีขอบ"
+              />
+            </div>
+            <Field label="ทรงขอบ" className="mt-2 gap-1.5">
+              <SelectField
+                value={region.strokeJoin ?? 'round'}
+                onChange={(strokeJoin: TextStrokeJoin) => onUpdate(region.id, { strokeJoin })}
+                options={STROKE_JOINS}
+              />
+            </Field>
+          </div>
+
+          <div className="col-span-2 rounded-[10px] border border-[var(--mg-border)] bg-black/20 p-2.5">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">องศา</div>
+            <div className="grid grid-cols-[minmax(0,1fr)_68px_auto] items-center gap-2">
+              <label className="text-xs font-bold text-[var(--mg-muted)]">เอียง</label>
+              <TextInput
+                {...editorHistoryShortcutProps}
+                type="number"
+                min={-180}
+                max={180}
+                step={1}
+                value={Math.round(region.rotation)}
+                className="h-8 text-right text-xs"
+                onChange={(e) => {
+                  const nextValue = Number(e.target.value)
+                  if (Number.isFinite(nextValue)) {
+                    onUpdate(region.id, { rotation: clampNumber(nextValue, -180, 180) })
+                  }
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 px-2"
+                disabled={region.rotation === 0}
+                onClick={() => onUpdate(region.id, { rotation: 0 })}
+                title="รีเซ็ตการหมุน"
+              >
+                <RotateCcw size={11} />
+              </Button>
+            </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-          <SliderRow label="เส้นขอบ" value={`${region.strokeWidth}px`}>
-            <input
-              {...editorHistoryShortcutProps}
-              type="range"
-              className="mg-slider"
-              min={0}
-              max={8}
-              step={0.5}
-              value={region.strokeWidth}
-              onChange={(e) => onUpdate(region.id, { strokeWidth: Number(e.target.value) })}
-            />
-          </SliderRow>
-          <div className="space-y-1">
-            <span className="block text-xs font-bold text-[var(--mg-muted)]">สีขอบ</span>
-            <input
-              {...editorHistoryShortcutProps}
-              type="color"
-              className="h-8 w-9 cursor-pointer rounded-[6px] border border-[var(--mg-border)] bg-transparent"
-              value={region.strokeColor}
-              onChange={(e) => onUpdate(region.id, { strokeColor: e.target.value })}
-              aria-label="สีขอบ"
-            />
-          </div>
-        </div>
-
-        <Field label="มุมเส้นขอบ">
-          <SelectField
-            value={region.strokeJoin ?? 'round'}
-            onChange={(strokeJoin: TextStrokeJoin) => onUpdate(region.id, { strokeJoin })}
-            options={STROKE_JOINS}
-          />
-        </Field>
-
-        <SliderRow label="หมุน" value={`${Math.round(region.rotation)}°`}>
-          <div className="flex items-center gap-2">
-            <input
-              {...editorHistoryShortcutProps}
-              type="range"
-              className="mg-slider"
-              min={-180}
-              max={180}
-              value={region.rotation}
-              onChange={(e) => onUpdate(region.id, { rotation: Number(e.target.value) })}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="shrink-0 px-2"
-              disabled={region.rotation === 0}
-              onClick={() => onUpdate(region.id, { rotation: 0 })}
-              title="รีเซ็ตการหมุน"
-            >
-              <RotateCcw size={11} />
-            </Button>
-          </div>
-        </SliderRow>
-
       </DisclosureSection>
 
       {onDelete && (
@@ -285,7 +299,7 @@ export default function PropertiesPanel({
             onClick={() => onDelete(region.id)}
           >
             <Trash2 size={14} />
-            ลบกล่องข้อความ
+            ลบข้อความนี้
           </Button>
         </>
       )}

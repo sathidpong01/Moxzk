@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
 import { Html } from 'react-konva-utils'
 import Konva from 'konva'
-import { Hand, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import type { ActiveTool, ImageEntry, TextRegion } from '../../types'
 import {
   ARTBOARD_COLUMNS,
@@ -15,6 +14,7 @@ import {
   useAppStore,
 } from '../../store/appStore'
 import { useAlbumStore } from '../../store/albumStore'
+import type { WorkspaceMode } from '../../types'
 import { resolveRegionFont } from '../../config/fonts'
 import { layoutTextInBox, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
 import { computeBrushFeather } from '../../services/brushStrokes'
@@ -33,9 +33,12 @@ import {
   getTextTransformerShiftBehavior,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
+import { translateSingleRegion } from '../../services/ollama'
+import { computeBoardViewport } from '../../services/workspaceViewport'
 import type { CanvasEditorHandle } from './CanvasEditor'
 import InlineTextEditor from './InlineTextEditor'
 import CanvasGrid from './CanvasGrid'
+import ContextualTextHud from './ContextualTextHud'
 import { Button, Modal } from '../ui/primitives'
 import { toast } from 'sonner'
 
@@ -58,22 +61,61 @@ interface LoadedImage {
   frameHeight: number
 }
 
+interface ReorderPreviewState {
+  entryId: string
+  sourceIndex: number
+  targetIndex: number
+  dragX: number
+  dragY: number
+}
+
 const statusLabel: Record<ImageEntry['status'], string> = {
-  pending: 'รอทำงาน',
+  pending: 'รอ',
   clean_queued: 'รอคลีน',
-  cleaning: 'กำลังคลีน',
+  cleaning: 'คลีน',
   clean_done: 'คลีนแล้ว',
   translate_queued: 'รอแปล',
-  translating: 'กำลังแปล',
-  processing: 'กำลังทำงาน',
-  done: 'เสร็จแล้ว',
-  error: 'ผิดพลาด',
+  translating: 'แปล',
+  processing: 'ทำงาน',
+  done: 'เสร็จ',
+  error: 'พลาด',
 }
 
 const ARTBOARD_FRAME_WIDTH = ARTBOARD_MAX_PREVIEW_WIDTH
 const ARTBOARD_FRAME_HEIGHT = Math.round(ARTBOARD_MAX_PREVIEW_WIDTH * 1.42)
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 8
+
+function easeOutCubic(value: number): number {
+  return 1 - ((1 - value) ** 3)
+}
+
+function getArtboardSurfaceMetrics(artboard: {
+  width: number
+  height: number
+  loaded?: LoadedImage
+}) {
+  const contentX = artboard.loaded?.offsetX ?? 0
+  const contentY = artboard.loaded?.offsetY ?? 0
+  const contentWidth = artboard.loaded?.width ?? artboard.width
+  const contentHeight = artboard.loaded?.height ?? artboard.height
+  const surfacePadding = artboard.loaded ? 12 : 0
+  const surfaceX = Math.max(0, contentX - surfacePadding)
+  const surfaceY = Math.max(0, contentY - surfacePadding)
+  const surfaceWidth = Math.min(artboard.width - surfaceX, contentWidth + surfacePadding * 2)
+  const surfaceHeight = Math.min(artboard.height - surfaceY, contentHeight + surfacePadding * 2)
+
+  return {
+    contentX,
+    contentY,
+    contentWidth,
+    contentHeight,
+    surfaceX,
+    surfaceY,
+    surfaceWidth,
+    surfaceHeight,
+  }
+}
 
 export default function ArtboardWorkspace({
   entries,
@@ -90,11 +132,11 @@ export default function ArtboardWorkspace({
 
   const activeImageId = useAppStore((s) => s.activeImageId)
   const activeTool = useAppStore((s) => s.activeTool)
+  const workspaceMode: WorkspaceMode = 'board'
   const switchImage = useAppStore((s) => s.switchImage)
   const updateImageEntry = useAppStore((s) => s.updateImageEntry)
   const removeImageEntry = useAppStore((s) => s.removeImageEntry)
   const reorderImages = useAppStore((s) => s.reorderImages)
-  const resetArtboardLayout = useAppStore((s) => s.resetArtboardLayout)
   const updateAlbumPage = useAlbumStore((s) => s.updatePage)
   const deleteAlbumPage = useAlbumStore((s) => s.deletePage)
   const reorderAlbumPages = useAlbumStore((s) => s.reorderPages)
@@ -103,6 +145,7 @@ export default function ArtboardWorkspace({
   const selectedRegionId = useAppStore((s) => s.selectedRegionId)
   const selectRegion = useAppStore((s) => s.selectRegion)
   const updateRegion = useAppStore((s) => s.updateRegion)
+  const deleteRegion = useAppStore((s) => s.deleteRegion)
   const addBrushStroke = useAppStore((s) => s.addBrushStroke)
   const setBrushColor = useAppStore((s) => s.setBrushColor)
   const brushColor = useAppStore((s) => s.brushColor)
@@ -111,9 +154,8 @@ export default function ArtboardWorkspace({
   const brushShadowBlur = useAppStore((s) => s.brushShadowBlur)
   const showTextOverlay = useAppStore((s) => s.showTextOverlay)
 
-  const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 })
   const [zoom, setZoom] = useState(1)
-  const [zoomInput, setZoomInput] = useState('100')
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
   const [loadedImages, setLoadedImages] = useState<Record<string, LoadedImage>>({})
   const [drawingLine, setDrawingLine] = useState<number[] | null>(null)
@@ -121,20 +163,23 @@ export default function ArtboardWorkspace({
   const [isDeletingPage, setIsDeletingPage] = useState(false)
   const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string; beforeRegions: TextRegion[] } | null>(null)
   const [eyedropPreview, setEyedropPreview] = useState<{ x: number; y: number; color: string } | null>(null)
+  const [hudTranslating, setHudTranslating] = useState(false)
+  const [hudHidden, setHudHidden] = useState(false)
+  const [previewOriginalRegionId, setPreviewOriginalRegionId] = useState<string | null>(null)
+  const [animatedArtboardPositions, setAnimatedArtboardPositions] = useState<Record<string, { x: number; y: number }>>({})
+  const [reorderPreview, setReorderPreview] = useState<ReorderPreviewState | null>(null)
   const eyedropCacheRef = useRef<ImageData | null>(null)
+  const artboardAnimationFrameRef = useRef<number | null>(null)
+  const animatedArtboardPositionsRef = useRef<Record<string, { x: number; y: number }>>({})
+  const initialViewportAppliedRef = useRef(false)
+  const reorderPreviewRef = useRef<ReorderPreviewState | null>(null)
+  const reorderPreviewPendingRef = useRef<ReorderPreviewState | null>(null)
+  const reorderPreviewAnimationFrameRef = useRef<number | null>(null)
 
   const activeEntry = entries.find((entry) => entry.id === activeImageId) ?? entries[0]
   const isPanning = activeTool === 'pan'
   const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
   const isEyedropper = activeTool === 'eyedropper'
-
-  useImperativeHandle(editorRef, () => ({
-    deselectAll: () => {
-      selectRegion(null)
-      transformerRef.current?.nodes([])
-      transformerRef.current?.getLayer()?.batchDraw()
-    },
-  }), [selectRegion])
 
   useEffect(() => {
     const container = containerRef.current
@@ -215,14 +260,152 @@ export default function ArtboardWorkspace({
       loaded,
     }
   }), [entries, loadedImages])
+  const artboardMotionKey = useMemo(
+    () => artboards
+      .map((artboard) => `${artboard.entry.id}:${Math.round(artboard.x)}:${Math.round(artboard.y)}`)
+      .join('|'),
+    [artboards],
+  )
 
-  const activeArtboard = artboards.find((artboard) => artboard.entry.id === activeImageId)
+  useEffect(() => {
+    const nextPositions = Object.fromEntries(
+      artboards.map((artboard) => [artboard.entry.id, { x: artboard.x, y: artboard.y }]),
+    )
+    const previousPositions = animatedArtboardPositionsRef.current
+    const nextIds = Object.keys(nextPositions)
+    const previousIds = Object.keys(previousPositions)
+
+    if (
+      nextIds.length === 0
+      || previousIds.length === 0
+      || nextIds.length !== previousIds.length
+      || nextIds.some((id) => !previousPositions[id])
+    ) {
+      if (artboardAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(artboardAnimationFrameRef.current)
+        artboardAnimationFrameRef.current = null
+      }
+      animatedArtboardPositionsRef.current = nextPositions
+      setAnimatedArtboardPositions(nextPositions)
+      return
+    }
+
+    const hasMotion = nextIds.some((id) => (
+      Math.round(previousPositions[id].x) !== Math.round(nextPositions[id].x)
+      || Math.round(previousPositions[id].y) !== Math.round(nextPositions[id].y)
+    ))
+    if (!hasMotion) return
+
+    if (artboardAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(artboardAnimationFrameRef.current)
+      artboardAnimationFrameRef.current = null
+    }
+
+    const startedAt = performance.now()
+    const duration = 190
+
+    const animate = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration)
+      const eased = easeOutCubic(progress)
+      const framePositions = Object.fromEntries(
+        nextIds.map((id) => {
+          const from = previousPositions[id]
+          const to = nextPositions[id]
+          return [
+            id,
+            {
+              x: from.x + (to.x - from.x) * eased,
+              y: from.y + (to.y - from.y) * eased,
+            },
+          ]
+        }),
+      )
+      animatedArtboardPositionsRef.current = framePositions
+      setAnimatedArtboardPositions(framePositions)
+
+      if (progress < 1) {
+        artboardAnimationFrameRef.current = requestAnimationFrame(animate)
+        return
+      }
+
+      animatedArtboardPositionsRef.current = nextPositions
+      setAnimatedArtboardPositions(nextPositions)
+      artboardAnimationFrameRef.current = null
+    }
+
+    artboardAnimationFrameRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (artboardAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(artboardAnimationFrameRef.current)
+        artboardAnimationFrameRef.current = null
+      }
+    }
+  }, [artboardMotionKey, artboards])
+
+  const renderedArtboards = useMemo(() => (
+    artboards.map((artboard) => {
+      const animatedPosition = animatedArtboardPositions[artboard.entry.id]
+      return {
+        ...artboard,
+        targetX: artboard.x,
+        targetY: artboard.y,
+        x: animatedPosition?.x ?? artboard.x,
+        y: animatedPosition?.y ?? artboard.y,
+      }
+    })
+  ), [animatedArtboardPositions, artboards])
+
+  const activeArtboard = renderedArtboards.find((artboard) => artboard.entry.id === activeImageId)
+  const applyViewportState = useCallback((next: { zoom: number; x: number; y: number }) => {
+    setZoom(next.zoom)
+    setStagePos({ x: next.x, y: next.y })
+  }, [])
+
+  const boardViewportBounds = useMemo(() => (
+    artboards.map((artboard) => {
+      return {
+        x: artboard.x - 28,
+        y: artboard.y - ARTBOARD_HEADER_HEIGHT,
+        width: artboard.width + 56,
+        height: artboard.height + ARTBOARD_HEADER_HEIGHT + 24,
+      }
+    })
+  ), [artboards])
+  const boardViewport = useMemo(() => (
+    computeBoardViewport({
+      stageSize,
+      artboards: boardViewportBounds,
+    })
+  ), [boardViewportBounds, stageSize])
+
+  useEffect(() => {
+    if (initialViewportAppliedRef.current) return
+    if (stageSize.width <= 0 || stageSize.height <= 0 || artboards.length === 0) return
+    applyViewportState(boardViewport)
+    initialViewportAppliedRef.current = true
+  }, [applyViewportState, artboards.length, boardViewport, stageSize.height, stageSize.width])
 
   const applyZoom = useCallback((nextZoom: number) => {
     const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom))
     setZoom(clamped)
-    setZoomInput(Math.round(clamped * 100).toString())
   }, [])
+
+  const fitView = useCallback(() => {
+    if (artboards.length === 0) return
+    applyViewportState(boardViewport)
+  }, [applyViewportState, artboards.length, boardViewport])
+
+  useImperativeHandle(editorRef, () => ({
+    deselectAll: () => {
+      selectRegion(null)
+      transformerRef.current?.nodes([])
+      transformerRef.current?.getLayer()?.batchDraw()
+    },
+    zoomIn: () => applyZoom(zoom + 0.1),
+    zoomOut: () => applyZoom(zoom - 0.1),
+    fitView,
+  }), [applyZoom, fitView, selectRegion, zoom])
 
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
@@ -236,7 +419,6 @@ export default function ArtboardWorkspace({
       y: (pointer.y - stagePos.y) / oldZoom,
     }
     setZoom(newZoom)
-    setZoomInput(Math.round(newZoom * 100).toString())
     setStagePos({
       x: pointer.x - mousePointTo.x * newZoom,
       y: pointer.y - mousePointTo.y * newZoom,
@@ -365,30 +547,6 @@ export default function ArtboardWorkspace({
     setDrawingLine(null)
   }, [activeTool, addBrushStroke, brushColor, brushOpacity, brushShadowBlur, brushSize])
 
-  const commitZoomInput = () => {
-    const value = Number.parseInt(zoomInput, 10)
-    if (Number.isFinite(value)) applyZoom(value / 100)
-    else setZoomInput(Math.round(zoom * 100).toString())
-  }
-
-  const resetView = () => {
-    setZoom(1)
-    setZoomInput('100')
-    setStagePos({ x: 0, y: 0 })
-  }
-
-  const resetLayout = () => {
-    resetArtboardLayout()
-    entries.forEach((entry, index) => {
-      if (!entry.albumPageId) return
-      const position = getDefaultArtboardPosition(index)
-      void updateAlbumPage(entry.albumPageId, {
-        artboard_x: Math.round(position.x),
-        artboard_y: Math.round(position.y),
-      })
-    })
-  }
-
   const updateEntryRegion = (
     entry: ImageEntry,
     regionId: string,
@@ -408,6 +566,19 @@ export default function ArtboardWorkspace({
 
   const selectedRegion = activeEntry?.regions.find((region) => region.id === selectedRegionId) ?? null
   const inlineEditRegion = inlineEdit ? activeEntry?.regions.find((region) => region.id === inlineEdit.id) ?? null : null
+  useEffect(() => {
+    if (!selectedRegionId || previewOriginalRegionId !== selectedRegionId) {
+      setPreviewOriginalRegionId(null)
+    }
+  }, [previewOriginalRegionId, selectedRegionId])
+  useEffect(() => {
+    if (activeTool !== 'select') {
+      setPreviewOriginalRegionId(null)
+    }
+  }, [activeTool])
+  useEffect(() => {
+    setHudHidden(false)
+  }, [activeTool, selectedRegionId])
   const inlineEditLayoutMode = normalizeTextLayoutMode(inlineEditRegion?.textLayoutMode)
   const inlineEditAlign = normalizeTextAlign(inlineEditRegion?.textAlign)
   const inlineEditFont = inlineEditRegion ? resolveRegionFont(inlineEditRegion) : null
@@ -457,6 +628,8 @@ export default function ArtboardWorkspace({
     (region: TextRegion) => {
       if (isBrushActive) return
       selectRegion(region.id)
+      setPreviewOriginalRegionId(null)
+      setHudHidden(false)
       setInlineEdit({ id: region.id, text: region.translatedText, beforeRegions: cloneRegions(activeEntry?.regions ?? []) })
     },
     [activeEntry?.regions, isBrushActive, selectRegion],
@@ -489,12 +662,57 @@ export default function ArtboardWorkspace({
     }, {
       historyBefore: inlineEdit.beforeRegions,
     })
+    setPreviewOriginalRegionId(null)
+    setHudHidden(false)
     setInlineEdit(null)
   }, [activeEntry, inlineEdit, inlineEditScale])
   const selectedRegionLayout = selectedRegion ? normalizeTextLayoutMode(selectedRegion.textLayoutMode) : 'balloon_fit'
+  const selectedRegionAnchorRect = useMemo(() => {
+    if (!selectedRegion || !activeArtboard) return null
+    const offsetX = activeArtboard.loaded?.offsetX ?? 0
+    const offsetY = activeArtboard.loaded?.offsetY ?? 0
+    const widthScale = selectedRegionLayout === 'artistic' ? Math.max(0.5, Math.abs(selectedRegion.textScaleX ?? 1)) : 1
+    const heightScale = selectedRegionLayout === 'artistic' ? Math.max(0.5, Math.abs(selectedRegion.textScaleY ?? 1)) : 1
+    return {
+      x: stagePos.x + (activeArtboard.x + offsetX + selectedRegion.bbox.x * activeArtboard.scale) * zoom,
+      y: stagePos.y + (activeArtboard.y + offsetY + selectedRegion.bbox.y * activeArtboard.scale) * zoom,
+      width: Math.max(40, selectedRegion.bbox.width * activeArtboard.scale * zoom * widthScale),
+      height: Math.max(28, selectedRegion.bbox.height * activeArtboard.scale * zoom * heightScale),
+    }
+  }, [activeArtboard, selectedRegion, selectedRegionLayout, stagePos.x, stagePos.y, zoom])
   const transformerAnchors = getTextTransformerAnchors(selectedRegionLayout)
   const transformerKeepRatio = getTextTransformerKeepRatio(selectedRegionLayout)
   const transformerShiftBehavior = getTextTransformerShiftBehavior(selectedRegionLayout)
+  const showTextHud = Boolean(
+    containerRef.current
+    && selectedRegion
+    && activeTool === 'select'
+    && showTextOverlay
+    && !hudHidden,
+  )
+
+  const handleTranslateSelectedRegion = useCallback(async () => {
+    if (!selectedRegion?.originalText || !activeEntry || hudTranslating) return
+    const settings = useAppStore.getState().settings
+    setHudTranslating(true)
+    try {
+      const translatedText = await translateSingleRegion(
+        selectedRegion.originalText,
+        settings.sourceLang,
+        {
+          ollamaUrl: settings.ollamaUrl,
+          ollamaModel: settings.ollamaModel,
+          ollamaApiKey: settings.ollamaApiKey,
+        },
+      )
+      updateEntryRegion(activeEntry, selectedRegion.id, { translatedText }, { historyKey: `hud:translate:${selectedRegion.id}` })
+      toast.success('แปลใหม่แล้ว')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'แปลใหม่ไม่สำเร็จ')
+    } finally {
+      setHudTranslating(false)
+    }
+  }, [activeEntry, hudTranslating, selectedRegion])
 
   const handleConfirmDeletePage = useCallback(async () => {
     if (!pendingDeleteEntry) return
@@ -511,13 +729,72 @@ export default function ArtboardWorkspace({
     }
   }, [deleteAlbumPage, pendingDeleteEntry, removeImageEntry])
 
-  const reorderFromDropPoint = useCallback((entryId: string, worldX: number, worldY: number) => {
-    const fromIndex = entries.findIndex((entry) => entry.id === entryId)
-    if (fromIndex < 0) return
+  const getReorderIndexFromPoint = useCallback((worldX: number, worldY: number) => {
     const columnWidth = ARTBOARD_FRAME_WIDTH + ARTBOARD_GAP_X
     const column = Math.max(0, Math.min(ARTBOARD_COLUMNS - 1, Math.round((worldX - 40) / columnWidth)))
     const row = Math.max(0, Math.round((worldY - 48) / ARTBOARD_ROW_HEIGHT))
-    const toIndex = Math.max(0, Math.min(entries.length - 1, row * ARTBOARD_COLUMNS + column))
+    return Math.max(0, Math.min(entries.length - 1, row * ARTBOARD_COLUMNS + column))
+  }, [entries.length])
+
+  const clearReorderPreview = useCallback(() => {
+    if (reorderPreviewAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(reorderPreviewAnimationFrameRef.current)
+      reorderPreviewAnimationFrameRef.current = null
+    }
+    reorderPreviewPendingRef.current = null
+    reorderPreviewRef.current = null
+    setReorderPreview(null)
+  }, [])
+
+  const pushReorderPreview = useCallback((nextPreview: ReorderPreviewState) => {
+    reorderPreviewPendingRef.current = nextPreview
+    if (reorderPreviewAnimationFrameRef.current !== null) return
+    reorderPreviewAnimationFrameRef.current = requestAnimationFrame(() => {
+      reorderPreviewAnimationFrameRef.current = null
+      const preview = reorderPreviewPendingRef.current
+      if (!preview) return
+      reorderPreviewRef.current = preview
+      setReorderPreview(preview)
+    })
+  }, [])
+
+  const startReorderPreview = useCallback((entryId: string, startX: number, startY: number) => {
+    const fromIndex = entries.findIndex((entry) => entry.id === entryId)
+    if (fromIndex < 0) return
+    const nextPreview = {
+      entryId,
+      sourceIndex: fromIndex,
+      targetIndex: fromIndex,
+      dragX: startX,
+      dragY: startY,
+    }
+    reorderPreviewPendingRef.current = nextPreview
+    reorderPreviewRef.current = nextPreview
+    setReorderPreview(nextPreview)
+  }, [entries])
+
+  const updateReorderPreview = useCallback((entryId: string, worldX: number, worldY: number) => {
+    const targetIndex = getReorderIndexFromPoint(worldX, worldY)
+    const currentPreview = reorderPreviewPendingRef.current ?? reorderPreviewRef.current
+    if (!currentPreview || currentPreview.entryId !== entryId) return
+    if (
+      currentPreview.targetIndex === targetIndex
+      && Math.round(currentPreview.dragX) === Math.round(worldX)
+      && Math.round(currentPreview.dragY) === Math.round(worldY)
+    ) return
+    pushReorderPreview({
+      ...currentPreview,
+      targetIndex,
+      dragX: worldX,
+      dragY: worldY,
+    })
+  }, [getReorderIndexFromPoint, pushReorderPreview])
+
+  const reorderFromDropPoint = useCallback((entryId: string, worldX: number, worldY: number) => {
+    const fromIndex = entries.findIndex((entry) => entry.id === entryId)
+    clearReorderPreview()
+    if (fromIndex < 0) return
+    const toIndex = getReorderIndexFromPoint(worldX, worldY)
     if (toIndex === fromIndex) return
 
     const orderedEntries = [...entries]
@@ -536,46 +813,62 @@ export default function ArtboardWorkspace({
         }))
       })()
     }
-  }, [currentAlbum, entries, reorderAlbumPages, reorderImages, updateAlbumPage])
+  }, [clearReorderPreview, currentAlbum, entries, getReorderIndexFromPoint, reorderAlbumPages, reorderImages, updateAlbumPage])
+
+  const reorderPreviewSlot = useMemo(() => {
+    if (!reorderPreview) return null
+    if (reorderPreview.targetIndex < 0 || reorderPreview.targetIndex >= entries.length) return null
+    const position = getDefaultArtboardPosition(reorderPreview.targetIndex)
+    return {
+      ...position,
+      index: reorderPreview.targetIndex,
+      width: ARTBOARD_FRAME_WIDTH,
+      height: ARTBOARD_FRAME_HEIGHT,
+    }
+  }, [entries.length, reorderPreview])
+  const draggedPreviewFrame = useMemo(() => {
+    if (!reorderPreview) return null
+    const draggedArtboard = artboards.find((artboard) => artboard.entry.id === reorderPreview.entryId)
+    if (!draggedArtboard) return null
+    return {
+      x: reorderPreview.dragX,
+      y: reorderPreview.dragY,
+      width: draggedArtboard.width,
+      height: draggedArtboard.height,
+      pageNumber: draggedArtboard.entry.pageNumber ?? reorderPreview.sourceIndex + 1,
+    }
+  }, [artboards, reorderPreview])
+
+  const showBoardChrome = entries.length > 1
 
   return (
     <div className="studio-canvas flex h-full flex-col">
-      <div className="pointer-events-auto absolute left-3 top-16 z-20 flex items-center gap-1 rounded-[8px] border border-[var(--mg-border)] bg-black/50 p-1 backdrop-blur">
-        <button className="mg-icon-button h-7 w-7" onClick={() => applyZoom(zoom - 0.1)} aria-label="ซูมออก">
-          <ZoomOut size={14} />
-        </button>
-        <input
-          className="h-7 w-12 rounded-[6px] border border-[var(--mg-border)] bg-black/40 text-center text-xs text-[var(--mg-text)]"
-          value={zoomInput}
-          onChange={(event) => setZoomInput(event.target.value.replace(/[^\d]/g, '').slice(0, 3))}
-          onBlur={commitZoomInput}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') commitZoomInput()
-          }}
-          aria-label="เปอร์เซ็นต์ซูม"
-        />
-        <button className="mg-icon-button h-7 w-7" onClick={() => applyZoom(zoom + 0.1)} aria-label="ซูมเข้า">
-          <ZoomIn size={14} />
-        </button>
-        <button
-          className={`mg-icon-button h-7 w-7 ${isPanning ? 'mg-tool-active' : ''}`}
-          onClick={() => {
-            setActiveTool(isPanning ? 'select' : 'pan')
-            if (!isPanning) selectRegion(null)
-          }}
-          aria-label="โหมดเลื่อนผ้าใบ"
-        >
-          <Hand size={14} />
-        </button>
-        <button className="mg-icon-button h-7 w-7" onClick={resetView} aria-label="รีเซ็ตมุมมอง">
-          <RotateCcw size={14} />
-        </button>
-        <button className="mg-button mg-button-ghost mg-button-sm" onClick={resetLayout}>
-          จัดเป็นกริดใหม่
-        </button>
-      </div>
-
       <div ref={containerRef} className="relative min-h-0 flex-1">
+        <ContextualTextHud
+          portalRoot={containerRef.current}
+          region={selectedRegion}
+          anchorRect={selectedRegionAnchorRect}
+          visible={showTextHud}
+          preferredPlacement={inlineEdit?.id === selectedRegion?.id ? 'bottom' : 'top'}
+          isTranslating={hudTranslating}
+          previewingOriginal={previewOriginalRegionId === selectedRegion?.id}
+          onUpdate={(updates, options) => {
+            if (!selectedRegion || !activeEntry) return
+            updateEntryRegion(activeEntry, selectedRegion.id, updates, options)
+          }}
+          onDelete={() => {
+            if (!selectedRegion) return
+            deleteRegion(selectedRegion.id)
+          }}
+          onTranslate={handleTranslateSelectedRegion}
+          onStartInlineEdit={() => {
+            if (selectedRegion) startInlineEdit(selectedRegion)
+          }}
+          onPreviewOriginalStart={() => {
+            if (selectedRegion?.originalText) setPreviewOriginalRegionId(selectedRegion.id)
+          }}
+          onPreviewOriginalEnd={() => setPreviewOriginalRegionId(null)}
+        />
         <Stage
           ref={stageRef}
           width={stageSize.width}
@@ -609,29 +902,87 @@ export default function ArtboardWorkspace({
           <Layer listening={false}>
             <CanvasGrid stageSize={stageSize} stagePos={stagePos} zoom={zoom} />
           </Layer>
+          <Layer listening={false}>
+            {draggedPreviewFrame && (
+              <>
+                <Rect
+                  x={draggedPreviewFrame.x - 14}
+                  y={draggedPreviewFrame.y - 14}
+                  width={draggedPreviewFrame.width + 28}
+                  height={draggedPreviewFrame.height + 28}
+                  cornerRadius={20}
+                  fill="rgba(245,158,11,0.06)"
+                  stroke="rgba(251,191,36,0.88)"
+                  strokeWidth={2}
+                  dash={[12, 7]}
+                />
+                <Text
+                  x={draggedPreviewFrame.x}
+                  y={draggedPreviewFrame.y - 34}
+                  width={draggedPreviewFrame.width}
+                  align="center"
+                  text={`กำลังลาก หน้า ${draggedPreviewFrame.pageNumber}`}
+                  fontSize={11}
+                  fontStyle="bold"
+                  fill="#fcd34d"
+                />
+              </>
+            )}
+            {reorderPreviewSlot && reorderPreview && reorderPreview.targetIndex !== reorderPreview.sourceIndex && (
+              <>
+                <Rect
+                  x={reorderPreviewSlot.x - 12}
+                  y={reorderPreviewSlot.y - 12}
+                  width={reorderPreviewSlot.width + 24}
+                  height={reorderPreviewSlot.height + 24}
+                  cornerRadius={18}
+                  fill="rgba(79,124,255,0.08)"
+                  stroke="rgba(79,124,255,0.72)"
+                  strokeWidth={2}
+                  dash={[10, 6]}
+                />
+                <Text
+                  x={reorderPreviewSlot.x}
+                  y={reorderPreviewSlot.y + reorderPreviewSlot.height + 14}
+                  width={reorderPreviewSlot.width}
+                  align="center"
+                  text={`แทนที่หน้า ${reorderPreviewSlot.index + 1}`}
+                  fontSize={11}
+                  fontStyle="bold"
+                  fill="#8fb0ff"
+                />
+              </>
+            )}
+          </Layer>
           <Layer>
-            {artboards.map((artboard) => (
+            {renderedArtboards.map((artboard) => (
               <ArtboardBase
                 key={artboard.entry.id}
                 artboard={artboard}
                 isActive={artboard.entry.id === activeImageId}
                 activeTool={activeTool}
+                showBoardChrome={showBoardChrome}
                 onActivate={() => {
                   if (artboard.entry.id !== activeImageId) switchImage(artboard.entry.id)
                 }}
                 onSelectRegion={selectRegion}
+                isBeingDragged={reorderPreview?.entryId === artboard.entry.id}
+                onReorderStart={(x, y) => startReorderPreview(artboard.entry.id, x, y)}
+                onReorderPreview={(x, y) => updateReorderPreview(artboard.entry.id, x, y)}
                 onReorderDrop={(x, y) => reorderFromDropPoint(artboard.entry.id, x, y)}
                 onRequestDelete={() => setPendingDeleteEntry(artboard.entry)}
               />
             ))}
           </Layer>
           <Layer>
-            {artboards.map((artboard) => (
+            {renderedArtboards.map((artboard) => (
               <ArtboardBrushOverlay
                 key={`${artboard.entry.id}-brush`}
                 artboard={artboard}
                 drawingLine={artboard.entry.id === activeImageId ? drawingLine : null}
                 activeTool={activeTool}
+                workspaceMode={workspaceMode}
+                isActive={artboard.entry.id === activeImageId}
                 brushPreview={{
                   color: activeTool === 'eraser' ? '#ff000080' : brushColor,
                   size: brushSize,
@@ -642,11 +993,12 @@ export default function ArtboardWorkspace({
             ))}
           </Layer>
           <Layer>
-            {artboards.map((artboard) => (
+            {renderedArtboards.map((artboard) => (
               <ArtboardTextOverlay
                 key={`${artboard.entry.id}-text`}
                 artboard={artboard}
                 isActive={artboard.entry.id === activeImageId}
+                workspaceMode={workspaceMode}
                 showTextOverlay={showTextOverlay}
                 activeTool={activeTool}
                 onActivate={() => {
@@ -655,6 +1007,9 @@ export default function ArtboardWorkspace({
                 onSelectRegion={selectRegion}
                 onRegionUpdate={(regionId, updates, options) => updateEntryRegion(artboard.entry, regionId, updates, options)}
                 editingRegionId={inlineEdit?.id ?? null}
+                previewOriginalRegionId={previewOriginalRegionId}
+                onRegionInteractionStart={() => setHudHidden(true)}
+                onRegionInteractionEnd={() => setHudHidden(false)}
                 onStartInlineEdit={startInlineEdit}
               />
             ))}
@@ -761,6 +1116,8 @@ interface ArtboardRenderProps {
     entry: ImageEntry
     x: number
     y: number
+    targetX?: number
+    targetY?: number
     scale: number
     width: number
     height: number
@@ -771,25 +1128,41 @@ interface ArtboardRenderProps {
 interface ArtboardBaseProps extends ArtboardRenderProps {
   isActive: boolean
   activeTool: string
+  showBoardChrome: boolean
+  isBeingDragged: boolean
   onActivate: () => void
   onSelectRegion: (id: string | null) => void
+  onReorderStart: (x: number, y: number) => void
+  onReorderPreview: (x: number, y: number) => void
   onReorderDrop: (x: number, y: number) => void
   onRequestDelete: () => void
 }
 
-function ArtboardBase({
+const ArtboardBase = memo(function ArtboardBase({
   artboard,
   isActive,
   activeTool,
+  showBoardChrome,
+  isBeingDragged,
   onActivate,
   onSelectRegion,
+  onReorderStart,
+  onReorderPreview,
   onReorderDrop,
   onRequestDelete,
 }: ArtboardBaseProps) {
   const { entry, loaded } = artboard
   const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
-  const canReorderArtboard = activeTool === 'select'
-  const reorderHandlePosition = { x: -30, y: -ARTBOARD_HEADER_HEIGHT + 4 }
+  const canReorderArtboard = showBoardChrome && activeTool === 'select'
+  const surface = getArtboardSurfaceMetrics(artboard)
+  const reorderHandlePosition = { x: surface.surfaceX - 30, y: surface.surfaceY - ARTBOARD_HEADER_HEIGHT + 4 }
+  const deleteHandleX = surface.surfaceX + surface.surfaceWidth + 4
+  const titleY = surface.surfaceY - ARTBOARD_HEADER_HEIGHT + 8
+  const statusX = surface.surfaceX + Math.max(0, surface.surfaceWidth - 92)
+  const getDroppedPosition = (offsetX: number, offsetY: number) => ({
+    x: (artboard.targetX ?? artboard.x) + offsetX,
+    y: (artboard.targetY ?? artboard.y) + offsetY,
+  })
 
   return (
     <Group
@@ -800,116 +1173,126 @@ function ArtboardBase({
         if (activeTool === 'select') onSelectRegion(null)
       }}
     >
-      <Rect
-        x={0}
-        y={0}
-        width={artboard.width}
-        height={artboard.height}
-        fill="rgba(0,0,0,0.01)"
-        shadowColor="black"
-        shadowBlur={isActive ? 20 : 12}
-        shadowOpacity={isActive ? 0.36 : 0.24}
-        shadowOffsetY={isActive ? 10 : 6}
-      />
       <Text
-        x={0}
-        y={-ARTBOARD_HEADER_HEIGHT + 8}
+        x={surface.surfaceX}
+        y={titleY}
         text={`หน้า ${entry.pageNumber ?? '?'}`}
         fontSize={12}
         fontStyle="bold"
         fill={isActive ? '#dbeafe' : '#f4f4f5'}
       />
       <Text
-        x={artboard.width - 120}
-        y={-ARTBOARD_HEADER_HEIGHT + 9}
-        width={110}
+        x={statusX}
+        y={titleY + 1}
+        width={82}
         align="right"
         text={statusLabel[entry.status]}
         fontSize={10}
         fill={entry.status === 'error' ? '#ff8a8a' : entry.status === 'done' ? '#7ee787' : '#a1a1aa'}
       />
-      <Group
-        x={reorderHandlePosition.x}
-        y={reorderHandlePosition.y}
-        draggable={canReorderArtboard}
-        onClick={(event) => {
-          event.cancelBubble = true
-          onActivate()
-        }}
-        onTap={(event) => {
-          event.cancelBubble = true
-          onActivate()
-        }}
-        onDragStart={(event) => {
-          event.cancelBubble = true
-          onActivate()
-        }}
-        onDragEnd={(event) => {
-          event.cancelBubble = true
-          const node = event.target
-          onReorderDrop(artboard.x + node.x(), artboard.y + node.y())
-          node.position(reorderHandlePosition)
-          node.getLayer()?.batchDraw()
-        }}
-      >
-        <Rect
-          width={22}
-          height={24}
-          fill="rgba(255,255,255,0.04)"
-          stroke="rgba(255,255,255,0.16)"
-          strokeWidth={1}
-          cornerRadius={5}
-          opacity={canReorderArtboard ? 1 : 0.35}
-        />
-        <Text
-          x={0}
-          y={5}
-          width={22}
-          text="⋮⋮"
-          align="center"
-          fontSize={11}
-          fontStyle="bold"
-          fill="#a1a1aa"
-          listening={false}
-        />
-      </Group>
-      <Group
-        x={artboard.width + 4}
-        y={-ARTBOARD_HEADER_HEIGHT + 2}
-        onClick={(event) => {
-          event.cancelBubble = true
-          onRequestDelete()
-        }}
-        onTap={(event) => {
-          event.cancelBubble = true
-          onRequestDelete()
-        }}
-      >
-        <Rect
-          width={24}
-          height={24}
-          fill="#000000"
-          opacity={0}
-        />
-        <Text
-          x={0}
-          y={-1}
-          width={24}
-          height={24}
-          text="×"
-          align="center"
-          verticalAlign="middle"
-          fontSize={22}
-          fontStyle="bold"
-          fill="#ff4d4f"
-          listening={false}
-        />
-      </Group>
+      {showBoardChrome && (
+        <>
+          <Group
+            x={reorderHandlePosition.x}
+            y={reorderHandlePosition.y}
+            draggable={canReorderArtboard}
+            onClick={(event) => {
+              event.cancelBubble = true
+              onActivate()
+            }}
+            onTap={(event) => {
+              event.cancelBubble = true
+              onActivate()
+            }}
+            onDragStart={(event) => {
+              event.cancelBubble = true
+              onActivate()
+              onReorderStart(artboard.targetX ?? artboard.x, artboard.targetY ?? artboard.y)
+            }}
+            onDragMove={(event) => {
+              event.cancelBubble = true
+              const node = event.target
+              const droppedPosition = getDroppedPosition(
+                node.x() - reorderHandlePosition.x,
+                node.y() - reorderHandlePosition.y,
+              )
+              onReorderPreview(droppedPosition.x, droppedPosition.y)
+            }}
+            onDragEnd={(event) => {
+              event.cancelBubble = true
+              const node = event.target
+              const droppedPosition = getDroppedPosition(
+                node.x() - reorderHandlePosition.x,
+                node.y() - reorderHandlePosition.y,
+              )
+              onReorderDrop(
+                droppedPosition.x,
+                droppedPosition.y,
+              )
+              node.position(reorderHandlePosition)
+              node.getLayer()?.batchDraw()
+            }}
+          >
+            <Rect
+              width={22}
+              height={24}
+              fill="rgba(255,255,255,0.04)"
+              stroke="rgba(255,255,255,0.16)"
+              strokeWidth={1}
+              cornerRadius={5}
+              opacity={canReorderArtboard ? 1 : 0.35}
+            />
+            <Text
+              x={0}
+              y={5}
+              width={22}
+              text="⋮⋮"
+              align="center"
+              fontSize={11}
+              fontStyle="bold"
+              fill="#a1a1aa"
+              listening={false}
+            />
+          </Group>
+          <Group
+            x={deleteHandleX}
+            y={surface.surfaceY - ARTBOARD_HEADER_HEIGHT + 2}
+            onClick={(event) => {
+              event.cancelBubble = true
+              onRequestDelete()
+            }}
+            onTap={(event) => {
+              event.cancelBubble = true
+              onRequestDelete()
+            }}
+          >
+            <Rect
+              width={24}
+              height={24}
+              fill="#000000"
+              opacity={0}
+            />
+            <Text
+              x={0}
+              y={-1}
+              width={24}
+              height={24}
+              text="×"
+              align="center"
+              verticalAlign="middle"
+              fontSize={22}
+              fontStyle="bold"
+              fill="#ff4d4f"
+              listening={false}
+            />
+          </Group>
+        </>
+      )}
       {isActive && (
         <Rect
-          x={0}
-          y={-7}
-          width={Math.min(72, artboard.width)}
+          x={surface.surfaceX}
+          y={surface.surfaceY - 7}
+          width={Math.min(72, surface.surfaceWidth)}
           height={2}
           fill="#4f7cff"
           cornerRadius={1}
@@ -924,27 +1307,33 @@ function ArtboardBase({
           height={loaded.height}
           onClick={onActivate}
           listening={!isBrushActive}
+          opacity={isBeingDragged ? 0.3 : 1}
         />
       ) : (
-        <Rect width={artboard.width} height={artboard.height} fill="#151515" />
+        <Rect width={artboard.width} height={artboard.height} fill="#151515" opacity={isBeingDragged ? 0.3 : 1} />
       )}
     </Group>
   )
-}
+})
 
 interface ArtboardBrushOverlayProps extends ArtboardRenderProps {
   drawingLine: number[] | null
   activeTool: string
+  workspaceMode: WorkspaceMode
+  isActive: boolean
   brushPreview: { color: string; size: number; opacity: number; shadowBlur: number }
 }
 
-function ArtboardBrushOverlay({
+const ArtboardBrushOverlay = memo(function ArtboardBrushOverlay({
   artboard,
   drawingLine,
   activeTool,
+  workspaceMode,
+  isActive,
   brushPreview,
 }: ArtboardBrushOverlayProps) {
   const { entry, loaded, scale } = artboard
+  if (workspaceMode === 'focus' && !isActive) return null
   if (!loaded || entry.imageLoaded === false) return null
 
   return (
@@ -985,10 +1374,11 @@ function ArtboardBrushOverlay({
       )}
     </Group>
   )
-}
+})
 
 interface ArtboardTextOverlayProps extends ArtboardRenderProps {
   isActive: boolean
+  workspaceMode: WorkspaceMode
   showTextOverlay: boolean
   activeTool: ActiveTool
   onActivate: () => void
@@ -999,21 +1389,29 @@ interface ArtboardTextOverlayProps extends ArtboardRenderProps {
     options?: RegionUpdateOptions,
   ) => void
   editingRegionId: string | null
+  previewOriginalRegionId: string | null
+  onRegionInteractionStart: () => void
+  onRegionInteractionEnd: () => void
   onStartInlineEdit: (region: TextRegion) => void
 }
 
-function ArtboardTextOverlay({
+const ArtboardTextOverlay = memo(function ArtboardTextOverlay({
   artboard,
   isActive,
+  workspaceMode,
   showTextOverlay,
   activeTool,
   onActivate,
   onSelectRegion,
   onRegionUpdate,
   editingRegionId,
+  previewOriginalRegionId,
+  onRegionInteractionStart,
+  onRegionInteractionEnd,
   onStartInlineEdit,
 }: ArtboardTextOverlayProps) {
   const { entry, loaded, scale } = artboard
+  if (workspaceMode === 'focus' && !isActive) return null
   const canRenderTextOverlay = showTextOverlay && entry.imageLoaded !== false && Boolean(loaded)
   if (!canRenderTextOverlay || !loaded) return null
 
@@ -1036,12 +1434,15 @@ function ArtboardTextOverlay({
           onUpdate={(updates, options) => onRegionUpdate(region.id, updates, options)}
           onLiveResize={(updates) => onRegionUpdate(region.id, updates, { trackHistory: false })}
           isEditing={editingRegionId === region.id}
+          previewOriginal={previewOriginalRegionId === region.id}
+          onInteractionStart={onRegionInteractionStart}
+          onInteractionEnd={onRegionInteractionEnd}
           onStartInlineEdit={() => onStartInlineEdit(region)}
         />
       ))}
     </Group>
   )
-}
+})
 
 function ArtboardText({
   region,
@@ -1055,6 +1456,9 @@ function ArtboardText({
   onUpdate,
   onLiveResize,
   isEditing,
+  previewOriginal,
+  onInteractionStart,
+  onInteractionEnd,
   onStartInlineEdit,
 }: {
   region: TextRegion
@@ -1068,6 +1472,9 @@ function ArtboardText({
   onUpdate: (updates: Partial<TextRegion>, options?: RegionUpdateOptions) => void
   onLiveResize: (updates: Partial<TextRegion>) => void
   isEditing: boolean
+  previewOriginal: boolean
+  onInteractionStart: () => void
+  onInteractionEnd: () => void
   onStartInlineEdit: () => void
 }) {
   const font = resolveRegionFont(region)
@@ -1076,7 +1483,7 @@ function ArtboardText({
   const isArtistic = layoutMode === 'artistic'
   const textScaleX = region.textScaleX ?? 1
   const textScaleY = region.textScaleY ?? 1
-  const text = region.translatedText || ' '
+  const text = (previewOriginal ? region.originalText : region.translatedText) || ' '
   const textLayout = isArtistic
     ? null
     : layoutTextInBox(text, region.bbox, region.fontSize, {
@@ -1154,6 +1561,7 @@ function ArtboardText({
       }}
       onDragStart={(event) => {
         event.cancelBubble = true
+        onInteractionStart()
         onSelect()
       }}
       onDragMove={(event) => {
@@ -1161,6 +1569,7 @@ function ArtboardText({
       }}
       onDragEnd={(event) => {
         event.cancelBubble = true
+        onInteractionEnd()
         const node = event.target
         onUpdate({
           bbox: {
@@ -1172,6 +1581,7 @@ function ArtboardText({
       }}
       onTransformEnd={(event) => {
         event.cancelBubble = true
+        onInteractionEnd()
         const node = event.target as Konva.Text
         const historyBefore = transformStartRegionsRef.current ?? undefined
         transformStartRegionsRef.current = null
@@ -1219,6 +1629,7 @@ function ArtboardText({
         }, historyOptions)
       }}
       onTransformStart={() => {
+        onInteractionStart()
         transformStartRegionsRef.current = cloneRegions(allRegions)
       }}
       onTransform={(event) => {

@@ -20,7 +20,8 @@ import {
   TabPanels,
 } from '@headlessui/react'
 import { Check, ChevronDown, X } from 'lucide-react'
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import { useState } from 'react'
+import type { ButtonHTMLAttributes, FocusEvent, InputHTMLAttributes, PointerEvent, ReactNode, TextareaHTMLAttributes } from 'react'
 
 export function cn(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(' ')
@@ -77,6 +78,7 @@ export function ToolButton({
   label,
   active,
   shortcut,
+  showShortcutBadge = false,
   className,
   children,
   ...props
@@ -84,6 +86,7 @@ export function ToolButton({
   label: string
   active?: boolean
   shortcut?: string
+  showShortcutBadge?: boolean
 }) {
   return (
     <button
@@ -93,12 +96,76 @@ export function ToolButton({
       className={cn('mg-tool relative', active && 'mg-tool-active', className)}
     >
       {children}
-      {shortcut && (
+      {shortcut && showShortcutBadge && (
         <span className="absolute -right-1 -top-1 rounded bg-black/70 px-1 text-[8px] font-bold text-white/70">
           {shortcut}
         </span>
       )}
     </button>
+  )
+}
+
+export function TooltipSurface({
+  label,
+  shortcut,
+  side = 'top',
+  className,
+  children,
+}: {
+  label: ReactNode
+  shortcut?: ReactNode
+  side?: 'top' | 'bottom'
+  className?: string
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+
+  const handleFocusCapture = (event: FocusEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (target instanceof HTMLElement && target.matches(':focus-visible')) {
+      setOpen(true)
+    }
+  }
+
+  const handleBlurCapture = (event: FocusEvent<HTMLDivElement>) => {
+    const nextTarget = event.relatedTarget as Node | null
+    if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+      setOpen(false)
+    }
+  }
+
+  const handlePointerDownCapture = (_event: PointerEvent<HTMLDivElement>) => {
+    setOpen(false)
+  }
+
+  return (
+    <div
+      className={cn('relative inline-flex overflow-visible', className)}
+      onPointerEnter={() => setOpen(true)}
+      onPointerLeave={() => setOpen(false)}
+      onFocusCapture={handleFocusCapture}
+      onBlurCapture={handleBlurCapture}
+      onPointerDownCapture={handlePointerDownCapture}
+    >
+      {children}
+      <div
+        className={cn(
+          'pointer-events-none absolute left-1/2 z-[360] min-w-max -translate-x-1/2 rounded-[10px] border border-white/10 bg-[rgba(10,10,10,0.98)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--mg-text)] shadow-[0_14px_28px_rgba(0,0,0,0.38)] transition duration-150',
+          open ? 'opacity-100' : 'opacity-0',
+          side === 'top' ? '-top-2 -translate-y-full' : '-bottom-2 translate-y-full',
+        )}
+        aria-hidden={!open}
+      >
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          <span>{label}</span>
+          {shortcut && (
+            <span className="rounded bg-white/8 px-1 py-0.5 text-[10px] font-bold text-[var(--mg-muted)]">
+              {shortcut}
+            </span>
+          )}
+        </span>
+      </div>
+    </div>
   )
 }
 

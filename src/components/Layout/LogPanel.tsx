@@ -22,7 +22,7 @@ export default function LogPanel({ logs }: { logs: string[] }) {
         บันทึกระบบ ({logs.length})
       </h3>
       {logs.length === 0 && (
-        <p className="py-4 text-center text-xs text-[var(--mg-dim)]">ยังไม่มีบันทึกระบบ กด AI อ่าน+แปลเพื่อเริ่ม</p>
+        <p className="py-4 text-center text-xs text-[var(--mg-dim)]">ยังไม่มีบันทึกระบบ กด AI แปลเพื่อเริ่ม</p>
       )}
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto font-mono text-xs">
         {logs.map((log, i) => (

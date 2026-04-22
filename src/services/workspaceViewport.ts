@@ -1,0 +1,94 @@
+interface StageSize {
+  width: number
+  height: number
+}
+
+interface ArtboardBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+interface WorkspaceViewport {
+  zoom: number
+  x: number
+  y: number
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+function roundZoom(value: number): number {
+  return Number(value.toFixed(2))
+}
+
+export function computeBoardViewport({
+  stageSize,
+  artboards,
+  paddingX = 120,
+  paddingY = 120,
+}: {
+  stageSize: StageSize
+  artboards: ArtboardBounds[]
+  paddingX?: number
+  paddingY?: number
+}): WorkspaceViewport {
+  if (artboards.length === 0 || stageSize.width <= 0 || stageSize.height <= 0) {
+    return { zoom: 1, x: 0, y: 0 }
+  }
+
+  const minX = Math.min(...artboards.map((artboard) => artboard.x))
+  const minY = Math.min(...artboards.map((artboard) => artboard.y))
+  const maxX = Math.max(...artboards.map((artboard) => artboard.x + artboard.width))
+  const maxY = Math.max(...artboards.map((artboard) => artboard.y + artboard.height))
+  const contentWidth = Math.max(1, maxX - minX)
+  const contentHeight = Math.max(1, maxY - minY)
+  const zoom = clamp(
+    Math.min(
+      (stageSize.width - paddingX) / contentWidth,
+      (stageSize.height - paddingY) / contentHeight,
+      1,
+    ),
+    0.2,
+    1,
+  )
+
+  return {
+    zoom: roundZoom(zoom),
+    x: stageSize.width / 2 - (minX + contentWidth / 2) * zoom,
+    y: stageSize.height / 2 - (minY + contentHeight / 2) * zoom,
+  }
+}
+
+export function computeFocusViewport({
+  stageSize,
+  artboard,
+  paddingX = 260,
+  paddingY = 180,
+}: {
+  stageSize: StageSize
+  artboard: ArtboardBounds
+  paddingX?: number
+  paddingY?: number
+}): WorkspaceViewport {
+  if (stageSize.width <= 0 || stageSize.height <= 0) {
+    return { zoom: 1, x: 0, y: 0 }
+  }
+
+  const zoom = clamp(
+    Math.min(
+      (stageSize.width - paddingX) / artboard.width,
+      (stageSize.height - paddingY) / artboard.height,
+    ),
+    0.65,
+    2.25,
+  )
+
+  return {
+    zoom: roundZoom(zoom),
+    x: stageSize.width / 2 - (artboard.x + artboard.width / 2) * zoom,
+    y: stageSize.height / 2 - (artboard.y + artboard.height / 2) * zoom,
+  }
+}

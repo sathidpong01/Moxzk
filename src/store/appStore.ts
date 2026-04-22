@@ -1,5 +1,14 @@
 import { create } from 'zustand'
-import type { AppStep, TextRegion, AppSettings, ExportFormat, ActiveTool, BrushStroke, ImageEntry } from '../types'
+import type {
+  AppStep,
+  TextRegion,
+  AppSettings,
+  ExportFormat,
+  ActiveTool,
+  BrushStroke,
+  ImageEntry,
+  WorkspaceMode,
+} from '../types'
 import type { AlbumPage } from '../types/database'
 import { DEFAULT_MOOD_MAP, restoreCustomFont } from '../config/fonts'
 import { loadSettings, saveSettings } from '../services/settingsStorage'
@@ -30,7 +39,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   translationStyleGuide: DEFAULT_TRANSLATION_STYLE_GUIDE,
 }
 
-export type PanelId = 'brush' | 'properties' | 'resource' | 'logs'
+export type PanelId = 'inspector' | 'resource' | 'logs'
 type ProcessKind = 'ai' | 'loading' | null
 export type RegionUpdateOptions = {
   trackHistory?: boolean
@@ -84,6 +93,8 @@ interface AppStore {
   updateArtboardPosition: (id: string, x: number, y: number) => void
   moveArtboardAndReorder: (id: string, x: number, y: number) => ImageEntry[]
   resetArtboardLayout: () => void
+  workspaceMode: WorkspaceMode
+  setWorkspaceMode: (mode: WorkspaceMode) => void
 
   // Regions
   regions: TextRegion[]
@@ -236,8 +247,7 @@ function compareArtboardOrder(a: ImageEntry, b: ImageEntry): number {
 }
 
 const DEFAULT_PANELS: Record<PanelId, boolean> = {
-  brush: false,
-  properties: true,
+  inspector: false,
   resource: false,
   logs: false,
 }
@@ -525,6 +535,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ...getDefaultArtboardCoordinates(index),
       })),
     })),
+  workspaceMode: 'board',
+  setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
 
   // Regions
   regions: [],
@@ -859,6 +871,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       brushStrokes: firstEntry?.brushStrokes ?? [],
       cleanedImageUrl: firstEntry?.cleanedImageUrl ?? null,
       processError: null,
+      workspaceMode: 'board',
       _textUndoStack: [],
       _textRedoStack: [],
       _editorUndoStack: [],
@@ -955,6 +968,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       translatedImageUrl: null,
       regions: [],
       selectedRegionId: null,
+      workspaceMode: 'board',
+      panels: { ...DEFAULT_PANELS },
       _textUndoStack: [],
       _textRedoStack: [],
       _editorUndoStack: [],
@@ -1113,6 +1128,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       isProcessing: true,
       processKind: 'loading',
       activeTool: 'select',
+      workspaceMode: 'board',
     })
 
     // Download full image for active page

@@ -38,11 +38,11 @@ interface ProcessingViewProps {
 type PipelineStep = 'detection' | 'ocr' | 'inpainting' | 'translating' | 'done' | 'error'
 
 const STEPS: { id: PipelineStep; label: string; icon: typeof Search }[] = [
-  { id: 'detection', label: 'Cleanup Backend', icon: Search },
+  { id: 'detection', label: 'คลีน', icon: Search },
   { id: 'ocr', label: 'OCR', icon: FileText },
-  { id: 'inpainting', label: 'Cleaned Image', icon: Paintbrush },
-  { id: 'translating', label: 'Gemma Vision', icon: Languages },
-  { id: 'done', label: 'Done', icon: CheckCircle2 },
+  { id: 'inpainting', label: 'ภาพคลีน', icon: Paintbrush },
+  { id: 'translating', label: 'แปล', icon: Languages },
+  { id: 'done', label: 'เสร็จ', icon: CheckCircle2 },
 ]
 
 function mapProgressToStep(message: string): PipelineStep | null {
@@ -263,23 +263,22 @@ export default function ProcessingView({
   const stepIndex = visibleSteps.findIndex((s) => s.id === currentStep)
 
   return (
-    <div className="w-full space-y-4 flex flex-col items-center">
-      {/* Image preview with blur overlay + spinner */}
+    <div className="flex w-full flex-col items-center space-y-3">
       <div className="relative w-fit">
         <img
           src={imagePreviewUrl}
           alt="กำลังประมวลผล"
-          className="max-w-full max-h-[56vh] rounded-lg object-contain opacity-20"
+          className="max-h-[38vh] max-w-full rounded-lg object-contain opacity-20"
         />
 
         {state.status !== 'done' && state.status !== 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="h-12 w-12 animate-spin text-[var(--mg-accent)]" />
-            <div className="max-w-xs rounded-[8px] bg-black/70 px-4 py-2 text-center backdrop-blur">
-              <p className="text-sm font-medium text-[var(--mg-text)]">
+            <Loader2 className="h-10 w-10 animate-spin text-[var(--mg-accent)]" />
+            <div className="max-w-xs rounded-[8px] bg-black/72 px-4 py-2 text-center backdrop-blur">
+              <p className="text-sm font-bold text-[var(--mg-text)]">
                 {visibleSteps[stepIndex]?.label ?? 'กำลังประมวลผล...'}
               </p>
-              <p className="mt-0.5 text-xs text-[var(--mg-muted)]">{state.message}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--mg-muted)]">{state.message}</p>
             </div>
           </div>
         )}
@@ -303,10 +302,9 @@ export default function ProcessingView({
         )}
       </div>
 
-      {/* Progress bar */}
-      <div className="space-y-1">
+      <div className="w-full max-w-sm space-y-1">
         <div className="flex justify-between text-xs text-[var(--mg-muted)]">
-          <span>{visibleSteps[stepIndex]?.label ?? 'Waiting...'}</span>
+          <span>{visibleSteps[stepIndex]?.label ?? 'กำลังทำงาน'}</span>
           <span>{state.progress}%</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
@@ -317,46 +315,6 @@ export default function ProcessingView({
         </div>
       </div>
 
-      {/* Step indicators — horizontal */}
-      <div className="flex items-center justify-between gap-1 px-2">
-        {visibleSteps.map((step, i) => {
-          const Icon = step.icon
-          const isActive = i === stepIndex
-          const isDone = i < stepIndex || currentStep === 'done'
-          const isError = currentStep === 'error'
-
-          return (
-            <div key={step.id} className="flex flex-col items-center gap-1 flex-1">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-                  isError && isActive
-                    ? 'bg-[var(--mg-danger)] text-white'
-                    : isDone
-                      ? 'bg-[var(--mg-accent)] text-white'
-                      : isActive
-                        ? 'bg-blue-500/20 text-blue-200 ring-2 ring-blue-400'
-                        : 'bg-white/8 text-[var(--mg-dim)]'
-                }`}
-              >
-                {isActive && !isDone && !isError ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Icon size={14} />
-                )}
-              </div>
-              <span
-                className={`text-[10px] text-center leading-tight ${
-                  isDone || isActive ? 'text-[var(--mg-text)]' : 'text-[var(--mg-dim)]'
-                }`}
-              >
-                {step.label.split(' ')[0]}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Queue label */}
       {state.queuePosition !== undefined && (
         <div className="text-center">
           <div className="mg-pill text-yellow-300">คิว: #{state.queuePosition}</div>

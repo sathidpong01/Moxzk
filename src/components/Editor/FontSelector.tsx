@@ -8,12 +8,14 @@ interface FontSelectorProps {
   currentFont: string
   mood: MoodType
   onSelect: (fontId: string) => void
+  compact?: boolean
 }
 
 export default function FontSelector({
   currentFont,
   mood,
   onSelect,
+  compact = false,
 }: FontSelectorProps) {
   const [customFonts, setCustomFonts] = useState<FontDefinition[]>([])
 
@@ -44,7 +46,7 @@ export default function FontSelector({
   const resolvedFamily = FONT_ID_MAP[currentFont]?.family ?? currentFont
 
   return (
-    <div className="space-y-2">
+    <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
       <SelectField
         value={currentFont}
         onChange={onSelect}
@@ -59,20 +61,20 @@ export default function FontSelector({
         <Button
           variant="soft"
           size="sm"
-          className="w-full"
+          className={compact ? 'w-full justify-between px-2' : 'w-full'}
           onClick={() => onSelect(moodFontId)}
         >
-          ใช้ฟอนต์ตามอารมณ์ข้อความ: {moodFont.name}
+          {compact ? 'ใช้ฟอนต์แนะนำ' : 'ใช้ฟอนต์ตามอารมณ์ข้อความ:'}
+          <span className="truncate">{moodFont.name}</span>
         </Button>
       )}
 
-      {/* Live preview */}
-      <div className="rounded-[8px] bg-black/30 p-2 text-center">
+      <div className={`rounded-[8px] bg-black/30 ${compact ? 'px-2 py-1.5 text-left' : 'p-2 text-center'}`}>
         <span
-          className="text-base"
+          className={compact ? 'text-sm leading-none' : 'text-base'}
           style={{ fontFamily: `"${resolvedFamily}", sans-serif` }}
         >
-          ตัวอย่างฟอนต์ — สวัสดีครับ!
+          {compact ? 'ตัวอย่างฟอนต์' : 'ตัวอย่างฟอนต์ — สวัสดีครับ!'}
         </span>
       </div>
     </div>

@@ -30,6 +30,9 @@ import { toast } from 'sonner'
 
 export interface CanvasEditorHandle {
   deselectAll: () => void
+  zoomIn: () => void
+  zoomOut: () => void
+  fitView: () => void
 }
 
 interface CanvasEditorProps {
@@ -94,15 +97,6 @@ export default function CanvasEditor({
   const isPanning = activeTool === 'pan'
   const isBrushActive = activeTool === 'brush' || activeTool === 'eraser'
   const isEyedropper = activeTool === 'eyedropper'
-
-  // Expose deselect for export
-  useImperativeHandle(editorRef, () => ({
-    deselectAll: () => {
-      onSelectedRegion(null)
-      transformerRef.current?.nodes([])
-      transformerRef.current?.getLayer()?.batchDraw()
-    },
-  }), [onSelectedRegion])
 
   // Load image
   useEffect(() => {
@@ -460,6 +454,17 @@ export default function CanvasEditor({
       setStagePos({ x: 0, y: 0 })
     }
   }, [image, scale])
+
+  useImperativeHandle(editorRef, () => ({
+    deselectAll: () => {
+      onSelectedRegion(null)
+      transformerRef.current?.nodes([])
+      transformerRef.current?.getLayer()?.batchDraw()
+    },
+    zoomIn: () => applyZoom(zoom + 0.1),
+    zoomOut: () => applyZoom(zoom - 0.1),
+    fitView: () => handleResetView(),
+  }), [applyZoom, handleResetView, onSelectedRegion, zoom])
 
   const handleStageDragEnd = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {

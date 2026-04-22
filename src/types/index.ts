@@ -93,6 +93,7 @@ export interface ExportOptions {
 export type AppStep = "upload" | "edit" | "export";
 
 export type ActiveTool = "select" | "pan" | "brush" | "eraser" | "eyedropper";
+export type WorkspaceMode = "focus" | "board";
 
 export interface BrushStroke {
   id: string;

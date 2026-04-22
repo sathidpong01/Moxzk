@@ -2,30 +2,21 @@ import { useState } from 'react'
 import type Konva from 'konva'
 import type { ProcessingMode } from '../../types'
 import { useAppStore } from '../../store/appStore'
-import CanvasEditor, { type CanvasEditorHandle } from '../Editor/CanvasEditor'
+import type { CanvasEditorHandle } from '../Editor/CanvasEditor'
 import ArtboardWorkspace from '../Editor/ArtboardWorkspace'
-import BrushToolbar from '../Editor/BrushToolbar'
-import FloatingProperties from '../Editor/FloatingProperties'
 import ImageStrip from '../Editor/ImageStrip'
 import ResourceMonitor from '../Processing/ResourceMonitor'
 import ProcessingView from '../Processing/ProcessingView'
 import LogPanel from '../Layout/LogPanel'
+import PanelToggleBar from '../Layout/PanelToggleBar'
 import OcrCorrectionModal from '../Editor/OcrCorrectionModal'
-import { Button } from '../ui/primitives'
+import { Button, DropdownItem, DropdownMenu } from '../ui/primitives'
 import type { BatchProgressState } from '../../services/batch-processing'
-import {
-  Loader2,
-  FileSearch,
-  Eye,
-  EyeOff,
-  RotateCcw,
-  Images,
-} from 'lucide-react'
+import { Cpu, Eye, EyeOff, FileSearch, Loader2, MoreHorizontal, RotateCcw, ScrollText } from 'lucide-react'
 
 interface EditStepProps {
   stageRef: React.RefObject<Konva.Stage | null>
   editorRef: React.RefObject<CanvasEditorHandle | null>
-  onScaleChange: (scale: number) => void
   onRetryFailedBatchAI: (mode: ProcessingMode) => void
   onRetryAI: () => void
   onCancelAI: () => void
@@ -38,7 +29,6 @@ interface EditStepProps {
 export default function EditStep({
   stageRef,
   editorRef,
-  onScaleChange,
   onRetryFailedBatchAI,
   onRetryAI,
   onCancelAI,
@@ -49,43 +39,28 @@ export default function EditStep({
 }: EditStepProps) {
   const store = useAppStore()
   const [showOcrModal, setShowOcrModal] = useState(false)
-  const [showArtboards, setShowArtboards] = useState(true)
   const [showFilmstrip, setShowFilmstrip] = useState(true)
   const [viewport, setViewport] = useState({ zoom: 1, imageWidth: 0, imageHeight: 0 })
 
-  const activeEntry = store.imageEntries.find((e) => e.id === store.activeImageId)
+  const activeEntry = store.imageEntries.find((entry) => entry.id === store.activeImageId)
   const activeFile = activeEntry?.file
   const processRunId = store.processRunId
   const isAiProcessing = store.isProcessing && store.processKind === 'ai'
   const isLoadingImage = store.isProcessing && store.processKind === 'loading'
   const hasMultipleImages = store.imageEntries.length > 1
-  const activeToolLabel = getToolLabel(store.activeTool)
-
-  const selectedRegion = store.regions.find((r) => r.id === store.selectedRegionId) ?? null
-  const editImageUrl = store.cleanedImageUrl || store.originalImageUrl
   const hasFailedPages = store.imageEntries.some((entry) => entry.status === 'error')
+  const activePageIndex = Math.max(0, store.imageEntries.findIndex((entry) => entry.id === store.activeImageId))
+  const showStatusCluster = isLoadingImage || (isBatchProcessing && batchStatus)
 
   return (
     <>
-      {/* Full-bleed Canvas */}
       <div className="absolute inset-0">
-        {hasMultipleImages && showArtboards ? (
+        {store.imageEntries.length > 0 ? (
           <ArtboardWorkspace
             entries={store.imageEntries}
             stageRef={stageRef}
             editorRef={editorRef}
             onViewportChange={setViewport}
-          />
-        ) : editImageUrl ? (
-          <CanvasEditor
-            imageUrl={editImageUrl}
-            regions={store.regions}
-            onRegionUpdate={store.updateRegion}
-            onSelectedRegion={store.selectRegion}
-            stageRef={stageRef}
-            onScaleChange={onScaleChange}
-            onViewportChange={setViewport}
-            editorRef={editorRef}
           />
         ) : (
           <div className="studio-canvas flex h-full items-center justify-center">
@@ -94,86 +69,9 @@ export default function EditStep({
         )}
       </div>
 
-      <div className="pointer-events-none absolute right-3 top-16 z-20">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-[8px] border border-[var(--mg-border)] bg-black/45 p-1 backdrop-blur">
-          {hasMultipleImages && (
-            <>
-              <Button
-                variant={showArtboards ? 'primary' : 'ghost'}
-                size="sm"
-                onClick={() => setShowArtboards((value) => !value)}
-                title={showArtboards ? 'โฟกัสหน้าเดียว' : 'โหมดจัดหน้า'}
-              >
-                <Images size={14} /> {showArtboards ? 'จัดหน้า' : 'หน้าเดียว'}
-              </Button>
-            </>
-          )}
-          {store.regions.length > 0 && !isAiProcessing && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowOcrModal(true)}
-                title="ตรวจสอบ OCR"
-              >
-                <FileSearch size={14} /> OCR
-              </Button>
-              <button
-                className={`mg-icon-button h-8 w-8 ${!store.showTextOverlay ? 'opacity-50' : ''}`}
-                onClick={() => store.toggleTextOverlay()}
-                aria-label={store.showTextOverlay ? 'ซ่อนข้อความ' : 'แสดงข้อความ'}
-                title={store.showTextOverlay ? 'ซ่อนข้อความ' : 'แสดงข้อความ'}
-              >
-                {store.showTextOverlay ? <Eye size={14} /> : <EyeOff size={14} />}
-              </button>
-            </>
-          )}
-          {!isAiProcessing && hasFailedPages && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onRetryFailedBatchAI(processingMode)}
-              disabled={isBatchProcessing}
-            >
-              ลองหน้าที่พลาด
-            </Button>
-          )}
-          {isAiProcessing && (
-            <span className="mg-button mg-button-soft mg-button-sm gap-1 opacity-70">
-              <Loader2 size={14} className="animate-spin" /> กำลังประมวลผล...
-            </span>
-          )}
-          {isLoadingImage && (
-            <span className="mg-button mg-button-soft mg-button-sm gap-1 opacity-70">
-              <Loader2 size={14} className="animate-spin" /> กำลังโหลดรูป...
-            </span>
-          )}
-          {isBatchProcessing && batchStatus && (
-            <div className="min-w-52 rounded-[7px] border border-[var(--mg-border)] bg-black/35 px-2 py-1">
-              <div className="flex items-center justify-between gap-3 text-[11px] font-bold text-[var(--mg-text)]">
-                <span className="truncate">{batchStatus.message}</span>
-                <span className="shrink-0 text-[var(--mg-muted)]">
-                  {batchStatus.currentIndex}/{batchStatus.total}
-                </span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-[var(--mg-accent)] transition-all"
-                  style={{ width: `${Math.max(0, Math.min(100, batchStatus.progress))}%` }}
-                />
-              </div>
-            </div>
-          )}
-          {isBatchProcessing && !batchStatus && (
-            <span className="mg-button mg-button-soft mg-button-sm opacity-70">กำลังเตรียม Batch...</span>
-          )}
-        </div>
-      </div>
-
-      {/* Inline Processing overlay */}
       {isAiProcessing && activeFile && (
         <div className="studio-canvas absolute inset-0 z-10 flex items-center justify-center">
-          <div className="w-full max-w-xl">
+          <div className="w-full max-w-lg px-4">
             <ProcessingView
               imageFile={activeFile}
               sourceLang={store.settings.sourceLang}
@@ -186,11 +84,11 @@ export default function EditStep({
               }}
               abortSignal={store.processAbortController?.signal}
               onComplete={(regions, cleanedUrl) => store.completeProcess(regions, cleanedUrl, processRunId)}
-              onError={(e) => store.setProcessError(e, processRunId)}
+              onError={(error) => store.setProcessError(error, processRunId)}
               onLog={store.addLog}
               retryCount={retryCount}
             />
-            <div className="mt-4 flex justify-center">
+            <div className="mt-3 flex justify-center">
               <Button variant="danger" size="sm" onClick={onCancelAI}>
                 ยกเลิกงานนี้
               </Button>
@@ -199,7 +97,6 @@ export default function EditStep({
         </div>
       )}
 
-      {/* Error retry overlay */}
       {!store.isProcessing && store.processError && (
         <div className="floating-panel panel-enter absolute bottom-16 left-1/2 z-20 max-w-sm -translate-x-1/2 px-4 py-3 text-center">
           <p className="mb-2 text-sm font-medium text-[var(--mg-danger)]">{store.processError}</p>
@@ -214,56 +111,119 @@ export default function EditStep({
         </div>
       )}
 
-      <div className="pointer-events-none fixed bottom-4 right-4 z-40 hidden items-center gap-3 rounded-[8px] border border-[var(--mg-border)] bg-black/45 px-3 py-2 text-xs font-bold text-[var(--mg-muted)] backdrop-blur sm:flex">
-        <span>{activeToolLabel}</span>
-        <span className="h-4 w-px bg-[var(--mg-border)]" />
-        <span>{store.regions.length} กล่องข้อความ</span>
-        <span>{store.brushStrokes.length} สโตรก</span>
-        <span className="h-4 w-px bg-[var(--mg-border)]" />
-        <span>{Math.round(viewport.zoom * 100)}%</span>
-        <span className="h-4 w-px bg-[var(--mg-border)]" />
-        <span>{viewport.imageWidth || 0} × {viewport.imageHeight || 0} px</span>
+      <ImageStrip
+        isOpen={showFilmstrip}
+        showToggle={hasMultipleImages}
+        onToggle={() => setShowFilmstrip((value) => !value)}
+      />
+
+      <div className="pointer-events-none absolute right-3 top-16 z-20 flex flex-col items-end gap-2">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-[16px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
+          <div className="rounded-[12px] bg-white/[0.04] px-3 py-2 text-right">
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">หน้า</div>
+            <div className="text-sm font-bold text-[var(--mg-text)]">
+              {Math.max(1, activePageIndex + 1)}/{Math.max(store.imageEntries.length, 1)}
+            </div>
+          </div>
+
+          <button
+            className={clusterButtonClass()}
+            onClick={() => setShowOcrModal(true)}
+            disabled={store.regions.length === 0}
+          >
+            <FileSearch size={14} />
+            <span>OCR</span>
+          </button>
+
+          <button
+            className={clusterButtonClass(store.showTextOverlay)}
+            onClick={() => store.toggleTextOverlay()}
+          >
+            {store.showTextOverlay ? <EyeOff size={14} /> : <Eye size={14} />}
+            <span>{store.showTextOverlay ? 'ซ่อนข้อความ' : 'แสดงข้อความ'}</span>
+          </button>
+
+          {hasFailedPages && (
+            <button
+              className={clusterButtonClass()}
+              onClick={() => onRetryFailedBatchAI(processingMode)}
+              disabled={isBatchProcessing}
+            >
+              {isBatchProcessing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+              <span>ลองหน้าที่พลาด</span>
+            </button>
+          )}
+
+          <DropdownMenu
+            trigger={(
+              <button className={clusterButtonClass()} aria-label="เพิ่มเติม">
+                <MoreHorizontal size={14} />
+              </button>
+            )}
+          >
+            {hasMultipleImages && (
+              <DropdownItem onClick={() => setShowFilmstrip((value) => !value)}>
+                {showFilmstrip ? 'ซ่อนแถบหน้า' : 'แสดงแถบหน้า'}
+              </DropdownItem>
+            )}
+            <DropdownItem onClick={() => store.togglePanel('logs')}>
+              <ScrollText size={14} /> {store.panels.logs ? 'ซ่อนบันทึกระบบ' : 'เปิดบันทึกระบบ'}
+            </DropdownItem>
+            <DropdownItem onClick={() => store.togglePanel('resource')}>
+              <Cpu size={14} /> {store.panels.resource ? 'ซ่อนทรัพยากรเครื่อง' : 'เปิดทรัพยากรเครื่อง'}
+            </DropdownItem>
+          </DropdownMenu>
+        </div>
+
+        {showStatusCluster && (
+          <div className="pointer-events-auto flex min-w-52 items-center gap-2 rounded-[14px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
+            {isLoadingImage && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--mg-text)]">
+                <Loader2 size={14} className="animate-spin" /> กำลังโหลดหน้า...
+              </span>
+            )}
+            {isBatchProcessing && batchStatus && (
+              <div className="min-w-44 flex-1">
+                <div className="flex items-center justify-between gap-3 text-[11px] font-bold text-[var(--mg-text)]">
+                  <span className="truncate">{batchStatus.message}</span>
+                  <span className="shrink-0 text-[var(--mg-muted)]">
+                    {batchStatus.currentIndex}/{batchStatus.total}
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-[var(--mg-accent)] transition-all"
+                    style={{ width: `${Math.max(0, Math.min(100, batchStatus.progress))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Multi-image thumbnail strip */}
-      <ImageStrip isOpen={showFilmstrip} onToggle={() => setShowFilmstrip((value) => !value)} />
-
-      {/* Floating Brush Toolbar */}
-      {store.panels.brush && (
-        <BrushToolbar onClose={() => store.togglePanel('brush', false)} />
-      )}
-
-      {/* Floating Properties Panel */}
-      {store.panels.properties && selectedRegion && (
-        <FloatingProperties
-          region={selectedRegion}
-          onUpdate={store.updateRegion}
-          onDelete={store.deleteRegion}
-        />
-      )}
-
-      {/* Floating Resource Monitor */}
       {store.panels.resource && (
         <ResourceMonitor isProcessing={store.isProcessing} />
       )}
 
-      {/* Floating Logs — always show when panel toggled on */}
       {store.panels.logs && (
         <div className="fixed bottom-16 left-3 z-40 h-52 w-96">
           <LogPanel logs={store.logs} />
         </div>
       )}
 
-      {/* OCR Correction Modal */}
+      <PanelToggleBar editorRef={editorRef} viewportZoom={viewport.zoom} />
+
       <OcrCorrectionModal isOpen={showOcrModal} onClose={() => setShowOcrModal(false)} />
     </>
   )
 }
 
-function getToolLabel(tool: string): string {
-  if (tool === 'brush') return 'แปรง'
-  if (tool === 'eraser') return 'ยางลบ'
-  if (tool === 'eyedropper') return 'ดูดสี'
-  if (tool === 'pan') return 'เลื่อนผ้าใบ'
-  return 'เลือก'
+function clusterButtonClass(active = false): string {
+  return [
+    'inline-flex h-10 items-center gap-2 rounded-[12px] px-3 text-sm font-bold transition',
+    active
+      ? 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)]'
+      : 'bg-white/[0.04] text-[var(--mg-text)] hover:bg-white/[0.08]',
+  ].join(' ')
 }

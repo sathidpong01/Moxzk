@@ -14,10 +14,11 @@ export default function CanvasGrid({
   cellSize = 28,
 }: CanvasGridProps) {
   const safeZoom = Math.max(0.05, zoom)
-  const left = -stagePos.x / safeZoom
-  const top = -stagePos.y / safeZoom
-  const right = left + stageSize.width / safeZoom
-  const bottom = top + stageSize.height / safeZoom
+  const overscan = cellSize * 2
+  const left = -stagePos.x / safeZoom - overscan
+  const top = -stagePos.y / safeZoom - overscan
+  const right = left + stageSize.width / safeZoom + overscan * 2
+  const bottom = top + stageSize.height / safeZoom + overscan * 2
   const startX = Math.floor(left / cellSize) * cellSize
   const endX = Math.ceil(right / cellSize) * cellSize
   const startY = Math.floor(top / cellSize) * cellSize

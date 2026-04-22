@@ -1,22 +1,19 @@
 import { useCallback, useRef, useState } from 'react'
-import type Konva from 'konva'
 import type { ProcessingMode } from '../types'
 import type { CanvasEditorHandle } from '../components/Editor/CanvasEditor'
 import { useAppStore } from '../store/appStore'
 import { useAuthStore } from '../store/authStore'
 import { useAlbumStore } from '../store/albumStore'
-import { renderStageToDataUrl, exportFromDataUrl, exportImageEntries } from '../services/exporter'
+import { renderImageEntryToDataUrl, exportFromDataUrl, exportImageEntries } from '../services/exporter'
 import { runBatchAiQueue, type BatchProgressState } from '../services/batch-processing'
 import { downloadImage } from '../services/storageService'
 import { toast } from 'sonner'
 
 interface UseEditorActionsOptions {
-  stageRef: React.RefObject<Konva.Stage | null>
   editorRef: React.RefObject<CanvasEditorHandle | null>
-  canvasScale: number
 }
 
-export function useEditorActions({ stageRef, editorRef, canvasScale }: UseEditorActionsOptions) {
+export function useEditorActions({ editorRef }: UseEditorActionsOptions) {
   const store = useAppStore()
   const [retryCount, setRetryCount] = useState(0)
   const [isBatchProcessing, setIsBatchProcessing] = useState(false)
@@ -36,27 +33,28 @@ export function useEditorActions({ stageRef, editorRef, canvasScale }: UseEditor
     store.goToEdit()
   }, [store])
 
-  const handleContinueToExport = useCallback(() => {
+  const handleContinueToExport = useCallback(async () => {
     store.saveActiveEntryState()
     if (store.imageEntries.length > 1) {
       store.setTranslatedImageUrl(null)
       store.setStep('export')
       return
     }
-    const stage = stageRef.current
-    if (!stage) {
-      toast.error('ไม่พบ canvas สำหรับ export')
+    editorRef.current?.deselectAll()
+    const current = useAppStore.getState()
+    const entry = current.imageEntries.find((item) => item.id === current.activeImageId)
+    if (!entry) {
+      toast.error('ไม่พบหน้าสำหรับ export')
       return
     }
-    // Deselect all to hide transformer handles before capture
-    editorRef.current?.deselectAll()
-    // Small delay to let the deselect render
-    setTimeout(() => {
-      const dataUrl = renderStageToDataUrl(stage, canvasScale)
+    try {
+      const dataUrl = await renderImageEntryToDataUrl(entry)
       store.setTranslatedImageUrl(dataUrl)
       store.setStep('export')
-    }, 50)
-  }, [canvasScale, store, stageRef, editorRef])
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'เตรียมภาพส่งออกไม่สำเร็จ')
+    }
+  }, [editorRef, store])
 
   const handleExport = useCallback(async (selectedIds?: string[]) => {
     store.saveActiveEntryState()

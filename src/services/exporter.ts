@@ -145,6 +145,11 @@ export async function renderImageEntryToBlob(
   })
 }
 
+export async function renderImageEntryToDataUrl(entry: ImageEntry): Promise<string> {
+  const blob = await renderImageEntryToBlob(entry, 'png', 1)
+  return blobToDataUrl(blob)
+}
+
 function dataUrlToBlob(dataUrl: string): Blob {
   const parts = dataUrl.split(',')
   const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png'
@@ -154,6 +159,15 @@ function dataUrlToBlob(dataUrl: string): Blob {
     array[i] = binary.charCodeAt(i)
   }
   return new Blob([array], { type: mime })
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('อ่านไฟล์ export preview ไม่สำเร็จ'))
+    reader.readAsDataURL(blob)
+  })
 }
 
 function drawTextRegions(ctx: CanvasRenderingContext2D, regions: TextRegion[]) {
