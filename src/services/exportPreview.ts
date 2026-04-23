@@ -25,3 +25,12 @@ export function getNextExportPreviewId(
   if (currentId && selectedEntries.some((entry) => entry.id === currentId)) return currentId
   return selectedEntries[0].id
 }
+
+export function getExportPreviewRenderQueue(
+  selectedEntries: Array<Pick<ImageEntry, 'id'>>,
+  currentId: string | null,
+): string[] {
+  const nextId = getNextExportPreviewId(selectedEntries, currentId)
+  if (!nextId) return []
+  return [nextId, ...selectedEntries.map((entry) => entry.id).filter((id) => id !== nextId)]
+}

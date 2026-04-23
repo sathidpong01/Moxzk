@@ -3,10 +3,10 @@ import { saveAs } from 'file-saver'
 import type { ExportFormat, ImageEntry, TextRegion } from '../types'
 import type { AlbumPage } from '../types/database'
 import { resolveRegionFont } from '../config/fonts'
-import { layoutTextInBox, normalizeTextAlign, normalizeTextLayoutMode } from '../utils/textLayout'
 import { drawBrushOverlay } from './brushStrokes'
 import { downloadImage } from './storageService'
 import { webRuntime } from '../runtime/webRuntime'
+import { getExportTextRegionLayout, resolveImageEntryExportSource } from './exportRendering'
 
 const MIME_TYPES: Record<ExportFormat, string> = {
   png: 'image/png',
@@ -125,24 +125,31 @@ export async function renderImageEntryToBlob(
   format: ExportFormat,
   quality: number,
 ): Promise<Blob> {
-  const image = await loadHtmlImage(entry.cleanedImageUrl || entry.originalUrl)
-  const canvas = document.createElement('canvas')
-  canvas.width = image.naturalWidth || image.width
-  canvas.height = image.naturalHeight || image.height
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas is not available')
+  const source = await resolveImageEntryExportSource(entry)
+  try {
+    const image = await loadHtmlImage(source.src)
+    const canvas = document.createElement('canvas')
+    canvas.width = image.naturalWidth || image.width
+    canvas.height = image.naturalHeight || image.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas is not available')
 
-  ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
-  drawBrushOverlay(ctx, canvas.width, canvas.height, entry.brushStrokes)
-  drawTextRegions(ctx, entry.regions)
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+    drawBrushOverlay(ctx, canvas.width, canvas.height, entry.brushStrokes)
+    drawTextRegions(ctx, entry.regions)
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => blob ? resolve(blob) : reject(new Error('Export canvas failed')),
-      MIME_TYPES[format],
-      format === 'png' ? undefined : quality,
-    )
-  })
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => blob ? resolve(blob) : reject(new Error('Export canvas failed')),
+        MIME_TYPES[format],
+        format === 'png' ? undefined : quality,
+      )
+    })
+  } finally {
+    if (source.revokeAfterUse && source.src.startsWith('blob:')) {
+      URL.revokeObjectURL(source.src)
+    }
+  }
 }
 
 export async function renderImageEntryToDataUrl(entry: ImageEntry): Promise<string> {
@@ -172,47 +179,38 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 
 function drawTextRegions(ctx: CanvasRenderingContext2D, regions: TextRegion[]) {
   for (const region of regions) {
-    const text = region.translatedText || ''
-    if (!text.trim()) continue
     const font = resolveRegionFont(region)
-    const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
-    const textAlign = normalizeTextAlign(region.textAlign)
     const weight = font.weight >= 700 ? '700' : '400'
     const style = font.style === 'italic' ? 'italic ' : ''
     const fontFamily = font.family.includes(' ') ? `"${font.family}"` : font.family
-    const layout = layoutMode === 'artistic'
-      ? null
-      : layoutTextInBox(text, region.bbox, region.fontSize, {
-          fontFamily: font.family,
-          fontWeight: weight,
-          fontStyle: font.style,
-        })
-    const size = layoutMode === 'artistic' ? Math.max(8, region.fontSize) : layout!.fontSize
+    const plan = getExportTextRegionLayout(region, (value, fontSize) => {
+      if (!value) return 0
+      ctx.save()
+      ctx.font = `${style}${weight} ${fontSize}px ${fontFamily}, sans-serif`
+      const width = ctx.measureText(value).width
+      ctx.restore()
+      return width
+    })
+    if (!plan) continue
 
     ctx.save()
-    ctx.translate(region.bbox.x + region.bbox.width / 2, region.bbox.y + region.bbox.height / 2)
+    ctx.translate(region.bbox.x, region.bbox.y)
     ctx.rotate((region.rotation || 0) * Math.PI / 180)
-    ctx.font = `${style}${weight} ${size}px ${fontFamily}, sans-serif`
+    if (plan.mode === 'artistic') {
+      ctx.scale(plan.scaleX, plan.scaleY)
+    }
+    ctx.font = `${style}${weight} ${plan.fontSize}px ${fontFamily}, sans-serif`
     ctx.fillStyle = region.fontColor
     ctx.strokeStyle = region.strokeColor
     ctx.lineWidth = region.strokeWidth
     ctx.lineJoin = region.strokeJoin ?? 'round'
-    ctx.textBaseline = 'middle'
-    ctx.textAlign = textAlign
+    ctx.textBaseline = 'top'
+    ctx.textAlign = plan.textAlign
 
-    const lines = layout?.lines ?? text.split(/\r?\n/)
-    const lineHeight = size * 1.18
-    const totalHeight = lines.length * lineHeight
-    const startY = -totalHeight / 2 + lineHeight / 2
-    const textX = textAlign === 'left'
-      ? -region.bbox.width / 2
-      : textAlign === 'right'
-        ? region.bbox.width / 2
-        : 0
-    for (let i = 0; i < lines.length; i += 1) {
-      const y = startY + i * lineHeight
-      if (region.strokeWidth > 0) ctx.strokeText(lines[i], textX, y)
-      ctx.fillText(lines[i], textX, y)
+    for (let i = 0; i < plan.lines.length; i += 1) {
+      const y = plan.startY + i * plan.lineHeightPx
+      if (region.strokeWidth > 0) ctx.strokeText(plan.lines[i], plan.startX, y)
+      ctx.fillText(plan.lines[i], plan.startX, y)
     }
     ctx.restore()
   }

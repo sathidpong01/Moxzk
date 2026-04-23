@@ -100,6 +100,12 @@ interface AppStore {
   regions: TextRegion[]
   setRegions: (regions: TextRegion[]) => void
   updateRegion: (id: string, updates: Partial<TextRegion>, options?: RegionUpdateOptions) => void
+  updateEntryRegion: (
+    entryId: string,
+    regionId: string,
+    updates: Partial<TextRegion>,
+    options?: RegionUpdateOptions,
+  ) => void
   deleteRegion: (id: string) => void
   selectedRegionId: string | null
   selectRegion: (id: string | null) => void
@@ -262,6 +268,16 @@ function syncActiveEntryRegions(
   if (!activeImageId) return entries
   return entries.map((entry) =>
     entry.id === activeImageId ? { ...entry, regions } : entry,
+  )
+}
+
+function syncEntryRegions(
+  entries: ImageEntry[],
+  entryId: string,
+  regions: TextRegion[],
+): ImageEntry[] {
+  return entries.map((entry) =>
+    entry.id === entryId ? { ...entry, regions } : entry,
   )
 }
 
@@ -571,6 +587,73 @@ export const useAppStore = create<AppStore>((set, get) => ({
                 before: historyBefore,
                 after: nextRegions,
                 selectedRegionId: state.selectedRegionId,
+                key: options?.historyKey,
+              }),
+              _textRedoStack: [],
+              _editorRedoStack: [],
+            }
+          : {}),
+      }
+    }),
+  updateEntryRegion: (entryId, regionId, updates, options) =>
+    set((state) => {
+      if (entryId === state.activeImageId) {
+        const before = state.regions
+        const nextRegions = before.map((region) => (region.id === regionId ? { ...region, ...updates } : region))
+        const trackHistory = options?.trackHistory ?? true
+        const historyBefore = options?.historyBefore ?? before
+        return {
+          regions: nextRegions,
+          imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, nextRegions),
+          ...(trackHistory
+            ? {
+                _textUndoStack: pushTextHistory(state._textUndoStack, {
+                  activeImageId: state.activeImageId,
+                  before: historyBefore,
+                  after: nextRegions,
+                  selectedRegionId: state.selectedRegionId,
+                  key: options?.historyKey,
+                }),
+                _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+                  kind: 'text',
+                  activeImageId: state.activeImageId,
+                  before: historyBefore,
+                  after: nextRegions,
+                  selectedRegionId: state.selectedRegionId,
+                  key: options?.historyKey,
+                }),
+                _textRedoStack: [],
+                _editorRedoStack: [],
+              }
+            : {}),
+        }
+      }
+
+      const targetEntry = state.imageEntries.find((entry) => entry.id === entryId)
+      if (!targetEntry) return {}
+
+      const before = targetEntry.regions
+      const nextRegions = before.map((region) => (region.id === regionId ? { ...region, ...updates } : region))
+      const trackHistory = options?.trackHistory ?? true
+      const historyBefore = options?.historyBefore ?? before
+
+      return {
+        imageEntries: syncEntryRegions(state.imageEntries, entryId, nextRegions),
+        ...(trackHistory
+          ? {
+              _textUndoStack: pushTextHistory(state._textUndoStack, {
+                activeImageId: entryId,
+                before: historyBefore,
+                after: nextRegions,
+                selectedRegionId: null,
+                key: options?.historyKey,
+              }),
+              _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+                kind: 'text',
+                activeImageId: entryId,
+                before: historyBefore,
+                after: nextRegions,
+                selectedRegionId: null,
                 key: options?.historyKey,
               }),
               _textRedoStack: [],

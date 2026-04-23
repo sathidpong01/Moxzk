@@ -115,3 +115,21 @@ test('export active preview falls back to the first selected page', async () => 
     'page-1',
   )
 })
+
+test('export preview render queue prioritizes the active page before background thumbnails', async () => {
+  const { getExportPreviewRenderQueue } = await exportPreview
+
+  assert.deepEqual(
+    getExportPreviewRenderQueue([{ id: 'page-1' }, { id: 'page-2' }, { id: 'page-3' }], 'page-2'),
+    ['page-2', 'page-1', 'page-3'],
+  )
+})
+
+test('export preview render queue falls back to the first selected page when active is missing', async () => {
+  const { getExportPreviewRenderQueue } = await exportPreview
+
+  assert.deepEqual(
+    getExportPreviewRenderQueue([{ id: 'page-1' }, { id: 'page-2' }], 'page-9'),
+    ['page-1', 'page-2'],
+  )
+})

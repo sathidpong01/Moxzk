@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ExportFormat } from '../../types'
 import type { ImageEntry } from '../../types'
 import {
   getExportCompareOriginalUrl,
+  getExportPreviewRenderQueue,
   getExportThumbnailUrl,
   getNextExportPreviewId,
 } from '../../services/exportPreview'
@@ -39,6 +40,8 @@ export default function ExportStep({
   const [renderedPreviewUrls, setRenderedPreviewUrls] = useState<Record<string, string>>({})
   const [renderedPreviewErrors, setRenderedPreviewErrors] = useState<Record<string, string>>({})
   const [isRenderingPreview, setIsRenderingPreview] = useState(false)
+  const renderedPreviewUrlsRef = useRef<Record<string, string>>({})
+  const renderedPreviewErrorsRef = useRef<Record<string, string>>({})
   const sortedEntries = useMemo(
     () => [...imageEntries].sort((a, b) => (a.pageNumber ?? 0) - (b.pageNumber ?? 0)),
     [imageEntries],
@@ -58,6 +61,35 @@ export default function ExportStep({
   }, [activePreviewId, selectedEntries])
 
   useEffect(() => {
+    renderedPreviewUrlsRef.current = renderedPreviewUrls
+  }, [renderedPreviewUrls])
+
+  useEffect(() => {
+    renderedPreviewErrorsRef.current = renderedPreviewErrors
+  }, [renderedPreviewErrors])
+
+  const previewRenderQueue = useMemo(
+    () => getExportPreviewRenderQueue(selectedEntries, activePreviewId)
+      .map((id) => selectedEntries.find((entry) => entry.id === id))
+      .filter((entry): entry is ImageEntry => Boolean(entry)),
+    [activePreviewId, selectedEntries],
+  )
+
+  useEffect(() => {
+    return () => {
+      for (const url of Object.values(renderedPreviewUrlsRef.current)) {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    for (const url of Object.values(renderedPreviewUrlsRef.current)) {
+      if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+    }
+    renderedPreviewUrlsRef.current = {}
+    renderedPreviewErrorsRef.current = {}
+
     if (sortedEntries.length <= 1 || selectedEntries.length === 0) {
       setRenderedPreviewUrls({})
       setRenderedPreviewErrors({})
@@ -65,50 +97,79 @@ export default function ExportStep({
       return
     }
 
-    let cancelled = false
-    const objectUrls: string[] = []
-    setIsRenderingPreview(true)
     setRenderedPreviewUrls({})
     setRenderedPreviewErrors({})
+    setIsRenderingPreview(true)
+  }, [exportFormat, exportQuality, selectedEntries, sortedEntries.length])
 
-    void Promise.all(
-      selectedEntries.map(async (entry) => {
+  useEffect(() => {
+    if (sortedEntries.length <= 1 || selectedEntries.length === 0) {
+      setIsRenderingPreview(false)
+      return
+    }
+
+    const hasPending = previewRenderQueue.some((entry) =>
+      !renderedPreviewUrlsRef.current[entry.id] && !renderedPreviewErrorsRef.current[entry.id],
+    )
+    if (!hasPending) {
+      setIsRenderingPreview(false)
+      return
+    }
+
+    let cancelled = false
+    setIsRenderingPreview(true)
+
+    void (async () => {
+      for (let index = 0; index < previewRenderQueue.length; index += 1) {
+        const entry = previewRenderQueue[index]
+        if (cancelled) return
+        if (renderedPreviewUrlsRef.current[entry.id] || renderedPreviewErrorsRef.current[entry.id]) continue
+
         try {
           const blob = await renderImageEntryToBlob(entry, exportFormat, exportQuality / 100)
           const url = URL.createObjectURL(blob)
           if (cancelled) {
             URL.revokeObjectURL(url)
-            return { id: entry.id, url: null, error: null }
+            return
           }
-          objectUrls.push(url)
-          return { id: entry.id, url, error: null }
+
+          setRenderedPreviewUrls((current) => {
+            const previous = current[entry.id]
+            if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
+            const next = { ...current, [entry.id]: url }
+            renderedPreviewUrlsRef.current = next
+            return next
+          })
+          setRenderedPreviewErrors((current) => {
+            if (!(entry.id in current)) return current
+            const next = { ...current }
+            delete next[entry.id]
+            renderedPreviewErrorsRef.current = next
+            return next
+          })
         } catch (error) {
-          return {
-            id: entry.id,
-            url: null,
-            error: error instanceof Error ? error.message : 'สร้างตัวอย่างล้มเหลว',
-          }
+          if (cancelled) return
+          setRenderedPreviewErrors((current) => {
+            const next = {
+              ...current,
+              [entry.id]: error instanceof Error ? error.message : 'สร้างตัวอย่างล้มเหลว',
+            }
+            renderedPreviewErrorsRef.current = next
+            return next
+          })
         }
-      }),
-    ).then((results) => {
-      if (cancelled) return
-      const urls: Record<string, string> = {}
-      const errors: Record<string, string> = {}
-      for (const result of results) {
-        if (result.url) urls[result.id] = result.url
-        if (result.error) errors[result.id] = result.error
+
+        if (index > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, 0))
+        }
       }
-      setRenderedPreviewUrls(urls)
-      setRenderedPreviewErrors(errors)
-    }).finally(() => {
       if (!cancelled) setIsRenderingPreview(false)
-    })
+    })()
 
     return () => {
       cancelled = true
-      for (const url of objectUrls) URL.revokeObjectURL(url)
     }
-  }, [exportFormat, exportQuality, selectedEntries, sortedEntries.length])
+  }, [exportFormat, exportQuality, previewRenderQueue, selectedEntries.length, sortedEntries.length])
 
   const allSelected = sortedEntries.length > 0 && selectedIds.length === sortedEntries.length
   const activeEntry = selectedEntries.find((entry) => entry.id === activePreviewId) ?? null

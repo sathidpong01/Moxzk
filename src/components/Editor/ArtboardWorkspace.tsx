@@ -134,7 +134,6 @@ export default function ArtboardWorkspace({
   const activeTool = useAppStore((s) => s.activeTool)
   const workspaceMode: WorkspaceMode = 'board'
   const switchImage = useAppStore((s) => s.switchImage)
-  const updateImageEntry = useAppStore((s) => s.updateImageEntry)
   const removeImageEntry = useAppStore((s) => s.removeImageEntry)
   const reorderImages = useAppStore((s) => s.reorderImages)
   const updateAlbumPage = useAlbumStore((s) => s.updatePage)
@@ -144,7 +143,7 @@ export default function ArtboardWorkspace({
   const setActiveTool = useAppStore((s) => s.setActiveTool)
   const selectedRegionId = useAppStore((s) => s.selectedRegionId)
   const selectRegion = useAppStore((s) => s.selectRegion)
-  const updateRegion = useAppStore((s) => s.updateRegion)
+  const updateEntryRegionStore = useAppStore((s) => s.updateEntryRegion)
   const deleteRegion = useAppStore((s) => s.deleteRegion)
   const addBrushStroke = useAppStore((s) => s.addBrushStroke)
   const setBrushColor = useAppStore((s) => s.setBrushColor)
@@ -547,22 +546,14 @@ export default function ArtboardWorkspace({
     setDrawingLine(null)
   }, [activeTool, addBrushStroke, brushColor, brushOpacity, brushShadowBlur, brushSize])
 
-  const updateEntryRegion = (
-    entry: ImageEntry,
+  const applyEntryRegionUpdate = useCallback((
+    entryId: string,
     regionId: string,
     updates: Partial<TextRegion>,
     options?: RegionUpdateOptions,
   ) => {
-    if (entry.id === activeImageId) {
-      updateRegion(regionId, updates, options)
-      return
-    }
-    updateImageEntry(entry.id, {
-      regions: entry.regions.map((region) =>
-        region.id === regionId ? { ...region, ...updates } : region,
-      ),
-    })
-  }
+    updateEntryRegionStore(entryId, regionId, updates, options)
+  }, [updateEntryRegionStore])
 
   const selectedRegion = activeEntry?.regions.find((region) => region.id === selectedRegionId) ?? null
   const inlineEditRegion = inlineEdit ? activeEntry?.regions.find((region) => region.id === inlineEdit.id) ?? null : null
@@ -637,7 +628,7 @@ export default function ArtboardWorkspace({
   const updateInlineEditText = useCallback((text: string) => {
     if (!inlineEdit || !activeEntry) return
     setInlineEdit((current) => current ? { ...current, text } : current)
-    updateEntryRegion(activeEntry, inlineEdit.id, { translatedText: text }, { trackHistory: false })
+    applyEntryRegionUpdate(activeEntry.id, inlineEdit.id, { translatedText: text }, { trackHistory: false })
   }, [activeEntry, inlineEdit])
   const finishInlineEdit = useCallback((metrics: InlineTextEditorCommitMetrics | undefined, finalText: string) => {
     if (!inlineEdit || !activeEntry) return
@@ -655,7 +646,7 @@ export default function ArtboardWorkspace({
           fontStyle: font.style,
         }).fontSize
       : undefined
-    updateEntryRegion(activeEntry, inlineEdit.id, {
+    applyEntryRegionUpdate(activeEntry.id, inlineEdit.id, {
       translatedText: finalText,
       ...(nextBbox ? { bbox: nextBbox } : {}),
       ...(nextFontSize !== undefined ? { fontSize: nextFontSize } : {}),
@@ -694,10 +685,13 @@ export default function ArtboardWorkspace({
   const handleTranslateSelectedRegion = useCallback(async () => {
     if (!selectedRegion?.originalText || !activeEntry || hudTranslating) return
     const settings = useAppStore.getState().settings
+    const entryId = activeEntry.id
+    const regionId = selectedRegion.id
+    const originalText = selectedRegion.originalText
     setHudTranslating(true)
     try {
       const translatedText = await translateSingleRegion(
-        selectedRegion.originalText,
+        originalText,
         settings.sourceLang,
         {
           ollamaUrl: settings.ollamaUrl,
@@ -705,14 +699,14 @@ export default function ArtboardWorkspace({
           ollamaApiKey: settings.ollamaApiKey,
         },
       )
-      updateEntryRegion(activeEntry, selectedRegion.id, { translatedText }, { historyKey: `hud:translate:${selectedRegion.id}` })
+      applyEntryRegionUpdate(entryId, regionId, { translatedText }, { historyKey: `hud:translate:${regionId}` })
       toast.success('แปลใหม่แล้ว')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'แปลใหม่ไม่สำเร็จ')
     } finally {
       setHudTranslating(false)
     }
-  }, [activeEntry, hudTranslating, selectedRegion])
+  }, [activeEntry, applyEntryRegionUpdate, hudTranslating, selectedRegion])
 
   const handleConfirmDeletePage = useCallback(async () => {
     if (!pendingDeleteEntry) return
@@ -854,7 +848,7 @@ export default function ArtboardWorkspace({
           previewingOriginal={previewOriginalRegionId === selectedRegion?.id}
           onUpdate={(updates, options) => {
             if (!selectedRegion || !activeEntry) return
-            updateEntryRegion(activeEntry, selectedRegion.id, updates, options)
+            applyEntryRegionUpdate(activeEntry.id, selectedRegion.id, updates, options)
           }}
           onDelete={() => {
             if (!selectedRegion) return
@@ -1005,7 +999,7 @@ export default function ArtboardWorkspace({
                   if (artboard.entry.id !== activeImageId) switchImage(artboard.entry.id)
                 }}
                 onSelectRegion={selectRegion}
-                onRegionUpdate={(regionId, updates, options) => updateEntryRegion(artboard.entry, regionId, updates, options)}
+                onRegionUpdate={(regionId, updates, options) => applyEntryRegionUpdate(artboard.entry.id, regionId, updates, options)}
                 editingRegionId={inlineEdit?.id ?? null}
                 previewOriginalRegionId={previewOriginalRegionId}
                 onRegionInteractionStart={() => setHudHidden(true)}

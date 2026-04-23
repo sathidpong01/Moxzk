@@ -479,6 +479,48 @@ test('text region updates can be undone and redone with active entry sync', asyn
   assert.equal(useAppStore.getState().imageEntries[0].regions[0].translatedText, 'หลัง')
 })
 
+test('background region updates stay on their original page and record history against that entry', async () => {
+  const { useAppStore } = await loadAppStore()
+  const firstPageRegion = region({ id: 'r1', translatedText: 'หน้าหนึ่ง' })
+  const secondPageRegion = region({ id: 'r2', translatedText: 'ก่อนแปลใหม่' })
+
+  useAppStore.setState({
+    activeImageId: 'page-1',
+    regions: [firstPageRegion],
+    brushStrokes: [],
+    imageEntries: [
+      {
+        id: 'page-1',
+        originalUrl: 'data:image/png;base64,page1',
+        cleanedImageUrl: null,
+        regions: [firstPageRegion],
+        brushStrokes: [],
+      },
+      {
+        id: 'page-2',
+        originalUrl: 'data:image/png;base64,page2',
+        cleanedImageUrl: null,
+        regions: [secondPageRegion],
+        brushStrokes: [],
+      },
+    ],
+    selectedRegionId: 'r1',
+    _textUndoStack: [],
+    _textRedoStack: [],
+    _editorUndoStack: [],
+    _editorRedoStack: [],
+    _brushRedoStack: [],
+  })
+
+  useAppStore.getState().updateEntryRegion('page-2', 'r2', { translatedText: 'หลังแปลใหม่' }, { historyKey: 'hud:translate:r2' })
+
+  let state = useAppStore.getState()
+  assert.equal(state.regions[0].translatedText, 'หน้าหนึ่ง')
+  assert.equal(state.imageEntries[1].regions[0].translatedText, 'หลังแปลใหม่')
+  assert.equal(state._textUndoStack.at(-1)?.activeImageId, 'page-2')
+  assert.equal(state._editorUndoStack.at(-1)?.activeImageId, 'page-2')
+})
+
 test('live inline text edit saves immediately and creates one undo step at finish', async () => {
   const { useAppStore } = await loadAppStore()
   const first = region({ id: 'r1', translatedText: 'ก่อน' })
