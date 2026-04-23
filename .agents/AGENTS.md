@@ -21,6 +21,15 @@ The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollam
 - Read before editing. Load the file to change, nearby tests, and one similar existing pattern.
 - Prefer existing local services, stores, and UI primitives over new abstractions.
 - Keep changes scoped to the requested behavior.
+- Use the `_wiki/` layer with balanced defaults:
+  - For research, repeated questions, architecture direction, or work that likely depends on accumulated knowledge, read `_wiki/podcast.md` first, then `_wiki/index.md`, then only the relevant pages.
+  - For narrow implementation work, targeted bug fixes, or obvious local code edits, do not load `_wiki/` by default.
+  - Do not read the entire wiki at session start unless the task explicitly requires a broad wiki audit.
+- When a completed task produces durable knowledge worth reusing, update `_wiki/` without waiting for a separate save request:
+  - save or update the relevant page
+  - refresh `_wiki/podcast.md`
+  - update `_wiki/index.md` when navigation changes
+  - append `_wiki/log.md`
 - For browser-facing work, verify layout and runtime behavior in a real browser when practical.
 - For Worker, D1, auth, storage, and export behavior, add or update focused tests.
 - Do not add secrets, local sample images, generated output, or private notes to git.

@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ProcessingMode } from '../types'
-import type { CanvasEditorHandle } from '../components/Editor/CanvasEditor'
 import { useAppStore } from '../store/appStore'
 import { useAuthStore } from '../store/authStore'
 import { useAlbumStore } from '../store/albumStore'
@@ -10,10 +9,10 @@ import { downloadImage } from '../services/storageService'
 import { toast } from 'sonner'
 
 interface UseEditorActionsOptions {
-  editorRef: React.RefObject<CanvasEditorHandle | null>
+  onOpenExportDrawer: () => void
 }
 
-export function useEditorActions({ editorRef }: UseEditorActionsOptions) {
+export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions) {
   const store = useAppStore()
   const [retryCount, setRetryCount] = useState(0)
   const [isBatchProcessing, setIsBatchProcessing] = useState(false)
@@ -23,8 +22,6 @@ export function useEditorActions({ editorRef }: UseEditorActionsOptions) {
   const activeEntry = store.imageEntries.find((e) => e.id === store.activeImageId)
   const activeFile = activeEntry?.file
 
-  const originalFileName = activeFile?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
-
   const handleGoToEdit = useCallback(() => {
     if (store.images.length === 0) return
     if (store.imageEntries.length === 0) {
@@ -33,33 +30,18 @@ export function useEditorActions({ editorRef }: UseEditorActionsOptions) {
     store.goToEdit()
   }, [store])
 
-  const handleContinueToExport = useCallback(async () => {
+  const handleOpenExportDrawer = useCallback(() => {
     store.saveActiveEntryState()
-    if (store.imageEntries.length > 1) {
-      store.setTranslatedImageUrl(null)
-      store.setStep('export')
-      return
-    }
-    editorRef.current?.deselectAll()
-    const current = useAppStore.getState()
-    const entry = current.imageEntries.find((item) => item.id === current.activeImageId)
-    if (!entry) {
-      toast.error('ไม่พบหน้าสำหรับ export')
-      return
-    }
-    try {
-      const dataUrl = await renderImageEntryToDataUrl(entry)
-      store.setTranslatedImageUrl(dataUrl)
-      store.setStep('export')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'เตรียมภาพส่งออกไม่สำเร็จ')
-    }
-  }, [editorRef, store])
+    onOpenExportDrawer()
+  }, [onOpenExportDrawer, store])
 
   const handleExport = useCallback(async (selectedIds?: string[]) => {
     store.saveActiveEntryState()
-    const entries = useAppStore.getState().imageEntries
+    const currentState = useAppStore.getState()
+    const entries = currentState.imageEntries
     if (entries.length > 1) {
+      const currentActiveFile = currentState.imageEntries.find((entry) => entry.id === currentState.activeImageId)?.file
+      const originalFileName = currentActiveFile?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
       const album = useAlbumStore.getState().currentAlbum
       const ids = selectedIds && selectedIds.length > 0 ? selectedIds : entries.map((entry) => entry.id)
       try {
@@ -70,24 +52,33 @@ export function useEditorActions({ editorRef }: UseEditorActionsOptions) {
           selectedIds: ids,
         })
         toast.success(mode === 'folder' ? 'ส่งออกลงโฟลเดอร์สำเร็จ' : 'ส่งออกเป็น ZIP สำเร็จ')
+        return true
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
         toast.error(error instanceof Error ? error.message : 'ส่งออกล้มเหลว')
+        return false
       }
-      return
     }
 
-    const url = store.translatedImageUrl
-    if (!url) {
-      toast.error('ไม่มีรูปที่แปลแล้ว')
-      return
+    const entry = currentState.imageEntries.find((item) => item.id === currentState.activeImageId) ?? currentState.imageEntries[0]
+    if (!entry) {
+      toast.error('ไม่พบหน้าสำหรับ export')
+      return false
     }
-    exportFromDataUrl(url, originalFileName, {
-      format: store.exportFormat,
-      quality: store.exportQuality / 100,
-    })
-    toast.success('ดาวน์โหลดสำเร็จ!')
-  }, [store, originalFileName])
+    const originalFileName = entry.file?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
+    try {
+      const dataUrl = await renderImageEntryToDataUrl(entry)
+      exportFromDataUrl(dataUrl, originalFileName, {
+        format: store.exportFormat,
+        quality: store.exportQuality / 100,
+      })
+      toast.success('ดาวน์โหลดสำเร็จ!')
+      return true
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'ส่งออกล้มเหลว')
+      return false
+    }
+  }, [store])
 
   const handleStartAI = useCallback(() => {
     if (!activeFile) return
@@ -198,9 +189,8 @@ export function useEditorActions({ editorRef }: UseEditorActionsOptions) {
     retryCount,
     isBatchProcessing,
     batchStatus,
-    originalFileName,
     handleGoToEdit,
-    handleContinueToExport,
+    handleOpenExportDrawer,
     handleExport,
     handleStartAI,
     handleStartBatchAI,

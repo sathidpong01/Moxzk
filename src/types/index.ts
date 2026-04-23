@@ -90,7 +90,7 @@ export interface ExportOptions {
   scale: number;
 }
 
-export type AppStep = "upload" | "edit" | "export";
+export type AppStep = "upload" | "edit";
 
 export type ActiveTool = "select" | "pan" | "brush" | "eraser" | "eyedropper";
 export type WorkspaceMode = "focus" | "board";

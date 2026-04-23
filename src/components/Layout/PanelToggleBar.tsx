@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 import { ChevronDown, Eraser, Hand, MousePointer2, Paintbrush, Pipette, Redo2, Search, Undo2, ZoomIn, ZoomOut } from 'lucide-react'
 import { useAppStore } from '../../store/appStore'
 import type { EditorHistoryEntry, TextHistoryEntry } from '../../store/appStore'
@@ -16,13 +16,19 @@ const TOOL_ICONS: { id: ActiveTool; icon: typeof MousePointer2; label: string; s
 
 interface PanelToggleBarProps {
   editorRef: RefObject<CanvasEditorHandle | null>
-  viewportZoom: number
+  viewportZoomPercent: number
 }
 
-export default function PanelToggleBar({ editorRef, viewportZoom }: PanelToggleBarProps) {
+export default function PanelToggleBar({ editorRef, viewportZoomPercent }: PanelToggleBarProps) {
   const store = useAppStore()
+  const [zoomInput, setZoomInput] = useState(Math.round(viewportZoomPercent).toString())
   const activeTool = store.activeTool
   const step = store.currentStep
+
+  useEffect(() => {
+    setZoomInput(Math.round(viewportZoomPercent).toString())
+  }, [viewportZoomPercent])
+
   if (step !== 'edit') return null
 
   const undoEntries = store._editorUndoStack.filter((entry) => entry.activeImageId === store.activeImageId)
@@ -36,6 +42,15 @@ export default function PanelToggleBar({ editorRef, viewportZoom }: PanelToggleB
     if (id !== 'select') {
       store.selectRegion(null)
     }
+  }
+
+  const handleZoomCommit = () => {
+    const nextPercent = Number.parseInt(zoomInput, 10)
+    if (Number.isFinite(nextPercent) && nextPercent > 0) {
+      editorRef.current?.setZoomPercent(nextPercent)
+      return
+    }
+    setZoomInput(Math.round(viewportZoomPercent).toString())
   }
 
   return (
@@ -186,9 +201,27 @@ export default function PanelToggleBar({ editorRef, viewportZoom }: PanelToggleB
               <ZoomOut size={15} />
             </button>
           </TooltipSurface>
-          <div className="min-w-[3.5rem] px-2 text-center text-xs font-bold text-[var(--mg-text)]">
-            {Math.round(viewportZoom * 100)}%
-          </div>
+          <TooltipSurface label="เปอร์เซ็นต์ซูม">
+            <label className="flex h-9 w-[4rem] items-center justify-center rounded-[12px] px-1.5 text-xs font-bold text-[var(--mg-text)] transition hover:bg-white/[0.06]">
+              <span className="grid w-full grid-cols-[0.6rem_minmax(0,1fr)_0.6rem] items-center">
+                <span className="invisible text-center text-[var(--mg-dim)]">%</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={zoomInput}
+                  aria-label="เปอร์เซ็นต์ซูม"
+                  onChange={(event) => setZoomInput(event.target.value.replace(/[^\d]/g, ''))}
+                  onBlur={handleZoomCommit}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') handleZoomCommit()
+                    if (event.key === 'Escape') setZoomInput(Math.round(viewportZoomPercent).toString())
+                  }}
+                  className="w-full bg-transparent px-0 text-center font-mono tabular-nums outline-none"
+                />
+                <span className="text-center text-[var(--mg-dim)]">%</span>
+              </span>
+            </label>
+          </TooltipSurface>
           <TooltipSurface label="ซูมเข้า">
             <button className={dockButtonClass(true)} onClick={() => editorRef.current?.zoomIn()} aria-label="ซูมเข้า">
               <ZoomIn size={15} />

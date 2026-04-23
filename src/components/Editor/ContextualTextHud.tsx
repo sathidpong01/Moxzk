@@ -22,7 +22,11 @@ import { computeTextHudPosition, type TextHudPlacement } from '../../services/te
 import type { RegionUpdateOptions } from '../../store/appStore'
 import type { TextAlign, TextRegion, TextStrokeJoin } from '../../types'
 import { normalizeTextLayoutMode } from '../../utils/textLayout'
-import { SelectField, TooltipSurface, cn } from '../ui/primitives'
+import { StrokeJoinPreviewIcon, StrokeJoinToggleGroup } from './StrokeJoinPreview'
+import { TooltipSurface, cn } from '../ui/primitives'
+
+const HUD_SURFACE_CLASS = 'flex h-9 items-center rounded-[12px] bg-white/[0.04] transition hover:bg-white/[0.08]'
+const HUD_GROUP_SURFACE_CLASS = `${HUD_SURFACE_CLASS} gap-1 px-1`
 
 interface ContextualTextHudProps {
   portalRoot: HTMLElement | null
@@ -52,12 +56,6 @@ const TEXT_ALIGNS: Array<{ value: TextAlign; label: string; icon: typeof AlignLe
   { value: 'left', label: 'ชิดซ้าย', icon: AlignLeft },
   { value: 'center', label: 'กึ่งกลาง', icon: AlignCenter },
   { value: 'right', label: 'ชิดขวา', icon: AlignRight },
-]
-
-const STROKE_JOINS: Array<{ value: TextStrokeJoin; label: string }> = [
-  { value: 'round', label: 'มน' },
-  { value: 'bevel', label: 'ตัด' },
-  { value: 'miter', label: 'คม' },
 ]
 
 function isBoldWeight(weight: number): boolean {
@@ -263,11 +261,11 @@ export default function ContextualTextHud({
         style={{ left: placement.left, top: placement.top }}
       >
         <div className="flex min-w-[1040px] w-max flex-nowrap items-center gap-1.5 overflow-visible rounded-[18px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
-          <div className="flex items-center gap-1 rounded-[12px] bg-white/[0.04] px-1 py-1">
+          <div className={HUD_GROUP_SURFACE_CLASS}>
             <TooltipSurface label="พอดีกล่อง">
               <button
                 type="button"
-                className={hudButtonClass(layoutMode === 'balloon_fit')}
+                className={hudSegmentButtonClass(layoutMode === 'balloon_fit')}
                 onClick={() => onUpdate({
                   textLayoutMode: 'balloon_fit',
                   ...(layoutMode === 'artistic' ? convertArtisticRegionToBalloon(region) : {}),
@@ -280,7 +278,7 @@ export default function ContextualTextHud({
             <TooltipSurface label="อิสระ">
               <button
                 type="button"
-                className={hudButtonClass(layoutMode === 'artistic')}
+                className={hudSegmentButtonClass(layoutMode === 'artistic')}
                 onClick={() => onUpdate({
                   textLayoutMode: 'artistic',
                   ...(layoutMode === 'balloon_fit' ? convertBalloonRegionToArtistic(region) : {}),
@@ -292,14 +290,14 @@ export default function ContextualTextHud({
             </TooltipSurface>
           </div>
 
-          <div className="flex items-center gap-1 rounded-[12px] bg-white/[0.04] px-1 py-1">
+          <div className={HUD_GROUP_SURFACE_CLASS}>
             {TEXT_ALIGNS.map((option) => {
               const Icon = option.icon
               return (
                 <TooltipSurface key={option.value} label={option.label}>
                   <button
                     type="button"
-                    className={hudButtonClass(textAlign === option.value)}
+                    className={hudSegmentButtonClass(textAlign === option.value)}
                     onClick={() => onUpdate({ textAlign: option.value }, { historyKey: `hud:align:${region.id}` })}
                     aria-label={option.label}
                   >
@@ -365,11 +363,11 @@ export default function ContextualTextHud({
             )}
           </div>
 
-          <div className="flex items-center gap-1 rounded-[12px] bg-white/[0.04] px-1 py-1">
+          <div className={HUD_GROUP_SURFACE_CLASS}>
             <TooltipSurface label={boldVariant ? (boldActive ? 'ปิดตัวหนา' : 'ตัวหนา') : 'ฟอนต์นี้ไม่รองรับตัวหนา'}>
               <button
                 type="button"
-                className={hudButtonClass(boldActive)}
+                className={hudSegmentButtonClass(boldActive)}
                 disabled={!boldVariant}
                 onClick={() => {
                   if (!boldVariant) return
@@ -383,7 +381,7 @@ export default function ContextualTextHud({
             <TooltipSurface label={italicVariant ? (italicActive ? 'ปิดตัวเอียง' : 'ตัวเอียง') : 'ฟอนต์นี้ไม่รองรับตัวเอียง'}>
               <button
                 type="button"
-                className={hudButtonClass(italicActive)}
+                className={hudSegmentButtonClass(italicActive)}
                 disabled={!italicVariant}
                 onClick={() => {
                   if (!italicVariant) return
@@ -412,17 +410,12 @@ export default function ContextualTextHud({
             step={1}
           />
 
-          <TooltipSurface label="สีตัวอักษร">
-            <label className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-[12px] bg-white/[0.04] transition hover:bg-white/[0.08]">
-              <input
-                type="color"
-                value={region.fontColor}
-                onChange={(event) => onUpdate({ fontColor: event.target.value }, { historyKey: `hud:fontColor:${region.id}` })}
-                className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent"
-                aria-label="สีตัวอักษร"
-              />
-            </label>
-          </TooltipSurface>
+          <ColorHudInput
+            tooltip="สีตัวอักษร"
+            value={region.fontColor}
+            onChange={(fontColor) => onUpdate({ fontColor }, { historyKey: `hud:fontColor:${region.id}` })}
+            ariaLabel="สีตัวอักษร"
+          />
 
           <NumericHudInput
             icon={<OutlineStrokeIcon />}
@@ -440,27 +433,24 @@ export default function ContextualTextHud({
             step={0.5}
           />
 
-          <TooltipSurface label="สีขอบ">
-            <label className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-[12px] bg-white/[0.04] transition hover:bg-white/[0.08]">
-              <input
-                type="color"
-                value={region.strokeColor}
-                onChange={(event) => onUpdate({ strokeColor: event.target.value }, { historyKey: `hud:strokeColor:${region.id}` })}
-                className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent"
-                aria-label="สีขอบ"
-              />
-            </label>
-          </TooltipSurface>
+          <ColorHudInput
+            tooltip="สีขอบ"
+            value={region.strokeColor}
+            onChange={(strokeColor) => onUpdate({ strokeColor }, { historyKey: `hud:strokeColor:${region.id}` })}
+            ariaLabel="สีขอบ"
+          />
 
-          <TooltipSurface label="ทรงขอบ">
-            <SelectField
-              value={region.strokeJoin ?? 'round'}
-              onChange={(strokeJoin: TextStrokeJoin) => onUpdate({ strokeJoin }, { historyKey: `hud:strokeJoin:${region.id}` })}
-              options={STROKE_JOINS}
-              className="w-[4.9rem]"
-              buttonClassName="h-9 min-h-0 rounded-[12px] border-white/8 bg-white/[0.04] px-3 py-0 text-sm text-[var(--mg-text)] hover:bg-white/[0.08]"
-            />
-          </TooltipSurface>
+          {region.strokeWidth > 0 && (
+            <div className={HUD_GROUP_SURFACE_CLASS}>
+              <StrokeJoinToggleGroup
+                value={region.strokeJoin ?? 'round'}
+                onChange={(strokeJoin: TextStrokeJoin) => onUpdate({ strokeJoin }, { historyKey: `hud:strokeJoin:${region.id}` })}
+                className="gap-0.5"
+                iconClassName="h-[18px] w-[18px]"
+                size="sm"
+              />
+            </div>
+          )}
 
           <NumericHudInput
             icon={<RotateCcw size={14} />}
@@ -569,7 +559,7 @@ function NumericHudInput({
 }) {
   return (
     <TooltipSurface label={tooltip}>
-      <label className="flex h-9 items-center gap-2 rounded-[12px] bg-white/[0.04] px-2 text-[var(--mg-muted)] transition hover:bg-white/[0.08]">
+      <label className={cn(HUD_SURFACE_CLASS, 'gap-2 px-2 text-[var(--mg-muted)]')}>
         <span className="shrink-0">{icon}</span>
         <input
           type="number"
@@ -579,7 +569,38 @@ function NumericHudInput({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onBlur={onBlur}
-          className="w-14 bg-transparent text-right text-sm text-[var(--mg-text)] outline-none"
+          className="h-full w-14 bg-transparent text-right text-sm leading-none text-[var(--mg-text)] outline-none"
+        />
+      </label>
+    </TooltipSurface>
+  )
+}
+
+function ColorHudInput({
+  tooltip,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  tooltip: string
+  value: string
+  onChange: (value: string) => void
+  ariaLabel: string
+}) {
+  return (
+    <TooltipSurface label={tooltip}>
+      <label className={cn(HUD_SURFACE_CLASS, 'relative w-9 cursor-pointer justify-center overflow-hidden')}>
+        <input
+          type="color"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          aria-label={ariaLabel}
+        />
+        <span
+          className="pointer-events-none absolute inset-[5px] rounded-[7px]"
+          style={{ backgroundColor: value }}
+          aria-hidden="true"
         />
       </label>
     </TooltipSurface>
@@ -587,36 +608,19 @@ function NumericHudInput({
 }
 
 function OutlineStrokeIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      aria-hidden="true"
-      className="shrink-0"
-    >
-      <path
-        d="M7 2.2L10.85 11.8H8.95L8.15 9.7H5.85L5.05 11.8H3.15L7 2.2Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6.35 8.2H7.65"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-        opacity="0.92"
-      />
-    </svg>
-  )
+  return <StrokeJoinPreviewIcon join="round" className="h-4 w-4" />
 }
 
 function hudButtonClass(active: boolean): string {
   return cn(
     'flex h-9 w-9 items-center justify-center rounded-[12px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
+    active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
+  )
+}
+
+function hudSegmentButtonClass(active: boolean): string {
+  return cn(
+    'flex h-8 w-8 items-center justify-center rounded-[10px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
     active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
   )
 }

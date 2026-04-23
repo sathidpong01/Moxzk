@@ -40,7 +40,7 @@ export default function EditStep({
   const store = useAppStore()
   const [showOcrModal, setShowOcrModal] = useState(false)
   const [showFilmstrip, setShowFilmstrip] = useState(true)
-  const [viewport, setViewport] = useState({ zoom: 1, imageWidth: 0, imageHeight: 0 })
+  const [viewport, setViewport] = useState({ zoom: 1, zoomPercent: 100, imageWidth: 0, imageHeight: 0 })
 
   const activeEntry = store.imageEntries.find((entry) => entry.id === store.activeImageId)
   const activeFile = activeEntry?.file
@@ -212,7 +212,7 @@ export default function EditStep({
         </div>
       )}
 
-      <PanelToggleBar editorRef={editorRef} viewportZoom={viewport.zoom} />
+      <PanelToggleBar editorRef={editorRef} viewportZoomPercent={viewport.zoomPercent} />
 
       <OcrCorrectionModal isOpen={showOcrModal} onClose={() => setShowOcrModal(false)} />
     </>

@@ -78,8 +78,6 @@ interface AppStore {
   setImages: (files: File[]) => void
   cleanedImageUrl: string | null
   originalImageUrl: string | null
-  translatedImageUrl: string | null
-  setTranslatedImageUrl: (url: string | null) => void
 
   // Multi-image
   imageEntries: ImageEntry[]
@@ -417,8 +415,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setImages: (files) => set({ images: files }),
   cleanedImageUrl: null,
   originalImageUrl: null,
-  translatedImageUrl: null,
-  setTranslatedImageUrl: (url) => set({ translatedImageUrl: url }),
 
   // Multi-image
   imageEntries: [],
@@ -1048,7 +1044,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeImageId: null,
       cleanedImageUrl: null,
       originalImageUrl: null,
-      translatedImageUrl: null,
       regions: [],
       selectedRegionId: null,
       workspaceMode: 'board',

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { createProjectDraftSnapshot } from '../src/services/projectDraftStorage.ts'
+import { createProjectDraftSnapshot, normalizeProjectDraft } from '../src/services/projectDraftStorage.ts'
 import { buildOcrReviewSummary, sortRegionsForReview } from '../src/services/translationReview.ts'
 
 function region(overrides = {}) {
@@ -87,6 +87,24 @@ test('project draft snapshot keeps full page list and active page edits', () => 
   assert.equal(draft.imageEntries[1].regions[0].id, 'active-region')
   assert.equal(draft.imageEntries[1].originalUrl, 'blob:active-original')
   assert.equal(draft.imageEntries[1].cleanedImageUrl, 'blob:cleaned')
+})
+
+test('legacy export-step drafts normalize back to edit mode', () => {
+  const draft = normalizeProjectDraft({
+    version: 1,
+    savedAt: Date.now(),
+    currentStep: 'export',
+    activeImageId: 'p1',
+    imageEntries: [imageEntry()],
+    regions: [],
+    brushStrokes: [],
+    cleanedImageUrl: null,
+    originalImageUrl: 'blob:old',
+    settings: settings(),
+  })
+
+  assert.ok(draft)
+  assert.equal(draft.currentStep, 'edit')
 })
 
 test('translation review flags low confidence and sorts review-first', () => {

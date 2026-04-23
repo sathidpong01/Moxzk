@@ -72,10 +72,10 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
       <div className="w-full" onPaste={handlePaste}>
         <div
           {...rootProps}
-          className={`w-full cursor-pointer rounded-[8px] border border-dashed p-12 transition ${
+          className={`mg-upload-dropzone w-full cursor-pointer px-6 py-14 transition ${
             isDragActive
-              ? 'scale-[1.01] border-[var(--mg-accent)] bg-blue-500/10'
-              : 'border-[var(--mg-border-strong)] bg-white/[0.025] hover:border-white/30'
+              ? 'scale-[1.01] border-[var(--mg-accent)] bg-blue-500/[0.08]'
+              : 'hover:border-white/24 hover:bg-white/[0.04]'
           }`}
         >
           <input {...inputProps} />
@@ -86,10 +86,10 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
               <ImageIcon className="h-12 w-12 text-[var(--mg-dim)]" aria-hidden="true" />
             )}
             <div className="text-center">
-              <p className="text-lg text-[var(--mg-muted)]">
+              <p className="text-lg font-bold text-[var(--mg-text)]">
                 {isDragActive ? 'วางรูปที่นี่' : 'ลากรูปมาวาง, วาง (Ctrl+V), หรือคลิกเลือก'}
               </p>
-              <p className="text-xs text-[var(--mg-dim)]">
+              <p className="mt-1 text-xs leading-5 text-[var(--mg-dim)]">
                 รองรับ JPG, PNG, WebP และเลือกได้หลายรูป
               </p>
             </div>
@@ -133,8 +133,8 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
         {previews.map((url, i) => (
-          <div key={i} className="group relative overflow-hidden rounded-[8px] border border-[var(--mg-border)] bg-white/[0.03]">
-            <div className="absolute left-1.5 top-1.5 z-10 rounded-[6px] bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white/90 backdrop-blur">
+          <div key={i} className="group relative overflow-hidden rounded-[16px] border border-white/10 bg-white/[0.04]">
+            <div className="absolute left-2 top-2 z-10 rounded-[8px] bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white/90 backdrop-blur">
               หน้า {i + 1}
             </div>
             <img
@@ -143,7 +143,7 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
               className="aspect-3/4 w-full object-cover"
             />
             <button
-              className="mg-icon-button absolute right-1 top-1 h-6 w-6 bg-red-500/80 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+              className="mg-icon-button absolute right-2 top-2 h-7 w-7 rounded-[10px] bg-red-500/82 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
               onClick={(e) => {
                 e.stopPropagation()
                 handleRemove(i)

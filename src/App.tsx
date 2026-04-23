@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Konva from 'konva'
 import { useAppStore } from './store/appStore'
-import type { ExportFormat } from './types'
 import { useAutoSave } from './hooks/useAutoSave'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useEditorActions } from './hooks/useEditorActions'
@@ -11,11 +10,12 @@ import type { CanvasEditorHandle } from './components/Editor/CanvasEditor'
 import AuthModal from './components/Auth/AuthModal'
 import UserMenu from './components/Auth/UserMenu'
 import AlbumListModal from './components/Albums/AlbumListModal'
+import ExportDrawer from './components/Editor/ExportDrawer'
 import UploadStep from './components/Steps/UploadStep'
 import EditStep from './components/Steps/EditStep'
-import ExportStep from './components/Steps/ExportStep'
 import SettingsPanel from './components/Settings/SettingsPanel'
 import FontConfigPage from './components/Settings/FontConfigPage'
+import WorkspaceBackdrop from './components/Layout/WorkspaceBackdrop'
 import { Button, DropdownItem, DropdownMenu, IconButton, Modal, SelectField } from './components/ui/primitives'
 import { Toaster } from 'sonner'
 import { BookOpen, Download, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
@@ -38,6 +38,7 @@ function App() {
   const [processingMode, setProcessingMode] = useState<ProcessingMode>('gemma_vision_full')
   const [batchStopConfirmOpen, setBatchStopConfirmOpen] = useState(false)
   const [clearProjectConfirmOpen, setClearProjectConfirmOpen] = useState(false)
+  const [exportDrawerOpen, setExportDrawerOpen] = useState(false)
   const albumTitle = albumStore.currentAlbum?.title?.trim() || 'โปรเจกต์ใหม่'
   const activePageIndex = Math.max(0, store.imageEntries.findIndex((entry) => entry.id === store.activeImageId))
   const headerStatus = getHeaderStatus({
@@ -63,11 +64,16 @@ function App() {
       console.warn('[auth] Failed to refresh Google session:', error)
     })
   }, [])
+  useEffect(() => {
+    if (store.currentStep !== 'edit') {
+      setExportDrawerOpen(false)
+    }
+  }, [store.currentStep])
   // Consolidated editor action callbacks
   const {
     retryCount,
     handleGoToEdit,
-    handleContinueToExport,
+    handleOpenExportDrawer,
     handleExport,
     handleStartAI,
     handleStartBatchAI,
@@ -78,7 +84,9 @@ function App() {
     handleSaveToAlbum,
     isBatchProcessing,
     batchStatus,
-  } = useEditorActions({ editorRef })
+  } = useEditorActions({
+    onOpenExportDrawer: () => setExportDrawerOpen(true),
+  })
 
   const requestAI = (target: 'single' | 'batch') => {
     if (store.isProcessing || isBatchProcessing) return
@@ -90,7 +98,7 @@ function App() {
   // Global keyboard shortcuts (Ctrl+Z, B, E, etc.)
   useKeyboardShortcuts({
     onSave: handleSaveToAlbum,
-    onExport: handleContinueToExport,
+    onExport: handleOpenExportDrawer,
     onStartAI: () => requestAI('single'),
   })
 
@@ -118,7 +126,8 @@ function App() {
   }
 
   return (
-    <div className="studio-shell relative h-screen overflow-hidden">
+    <div className="studio-shell relative isolate h-screen overflow-hidden">
+      <WorkspaceBackdrop />
       <header className="pointer-events-none fixed left-3 right-3 top-3 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
         <div className="floating-panel-sm mg-header-panel pointer-events-auto flex w-fit max-w-full min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
           <BookOpen size={16} className="hidden shrink-0 text-[var(--mg-muted)] sm:block" />
@@ -177,7 +186,7 @@ function App() {
                   หยุดหลังหน้านี้
                 </button>
               )}
-              <button className="mg-button mg-button-primary mg-button-sm gap-1 px-2 sm:px-3" onClick={handleContinueToExport}>
+              <button className="mg-button mg-button-primary mg-button-sm gap-1 px-2 sm:px-3" onClick={handleOpenExportDrawer}>
                 <Download size={14} />
                 <span className="hidden sm:inline">ส่งออก</span>
               </button>
@@ -235,7 +244,7 @@ function App() {
         </div>
       </header>
 
-      <main className="relative h-full overflow-hidden">
+      <main className="relative z-10 h-full overflow-hidden">
         {store.currentStep === 'upload' && (
           <UploadStep
             images={store.images}
@@ -259,20 +268,21 @@ function App() {
           />
         )}
 
-        {store.currentStep === 'export' && (
-          <ExportStep
-            originalImageUrl={store.originalImageUrl}
-            translatedImageUrl={store.translatedImageUrl}
-            exportFormat={store.exportFormat}
-            exportQuality={store.exportQuality}
-            imageEntries={store.imageEntries}
-            onExportFormatChange={(f: ExportFormat) => store.setExportFormat(f)}
-            onExportQualityChange={store.setExportQuality}
-            onExport={handleExport}
-            onBack={() => store.setStep('edit')}
-          />
-        )}
       </main>
+
+      {store.currentStep === 'edit' && exportDrawerOpen && (
+        <ExportDrawer
+          isOpen={exportDrawerOpen}
+          activeImageId={store.activeImageId}
+          exportFormat={store.exportFormat}
+          exportQuality={store.exportQuality}
+          imageEntries={store.imageEntries}
+          onClose={() => setExportDrawerOpen(false)}
+          onExportFormatChange={store.setExportFormat}
+          onExportQualityChange={store.setExportQuality}
+          onExport={handleExport}
+        />
+      )}
 
       {/* ── Modals ── */}
       <SettingsPanel
@@ -351,6 +361,7 @@ function App() {
             <Button
               variant="danger"
               onClick={() => {
+                setExportDrawerOpen(false)
                 store.resetToUpload()
                 setClearProjectConfirmOpen(false)
               }}
@@ -373,7 +384,7 @@ function getHeaderStatus({
   regions,
   strokes,
 }: {
-  step: 'upload' | 'edit' | 'export'
+  step: 'upload' | 'edit'
   queuedImages: number
   pageCount: number
   activePageIndex: number
@@ -382,9 +393,6 @@ function getHeaderStatus({
 }): string {
   if (step === 'upload') {
     return queuedImages > 0 ? `${queuedImages} หน้าในคิว` : 'ลากรูป วางจากคลิปบอร์ด หรือเปิดจากอัลบั้ม'
-  }
-  if (step === 'export') {
-    return `${Math.max(pageCount, 1)} หน้า · ตรวจไฟล์ก่อนดาวน์โหลด`
   }
   const pageText = pageCount > 1 ? `หน้า ${activePageIndex + 1}/${pageCount}` : 'หน้าเดียว'
   return `${pageText} · ${regions} ข้อความ · ${strokes} รอยแปรง`

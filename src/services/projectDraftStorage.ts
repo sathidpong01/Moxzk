@@ -61,7 +61,7 @@ export async function loadProjectDraft(): Promise<RuntimeProjectDraft | null> {
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly')
       const req = tx.objectStore(STORE_NAME).get(DRAFT_KEY)
-      req.onsuccess = () => resolve(normalizeDraft(req.result))
+      req.onsuccess = () => resolve(normalizeProjectDraft(req.result))
       req.onerror = () => resolve(null)
     })
   } catch {
@@ -79,11 +79,22 @@ export async function clearProjectDraft(): Promise<void> {
   }
 }
 
-function normalizeDraft(value: unknown): RuntimeProjectDraft | null {
+export function normalizeProjectDraft(value: unknown): RuntimeProjectDraft | null {
   if (!value || typeof value !== 'object') return null
   const draft = value as Partial<RuntimeProjectDraft>
   if (draft.version !== 1 || !Array.isArray(draft.imageEntries)) return null
-  return draft as RuntimeProjectDraft
+  const currentStep = normalizeDraftStep(draft.currentStep)
+  if (!currentStep) return null
+  return {
+    ...draft,
+    currentStep,
+  } as RuntimeProjectDraft
+}
+
+function normalizeDraftStep(value: unknown): AppStep | null {
+  if (value === 'upload' || value === 'edit') return value
+  if (value === 'export') return 'edit'
+  return null
 }
 
 function openDB(): Promise<IDBDatabase> {

@@ -24,7 +24,6 @@ import {
 } from '../../services/inlineTextEditor'
 import type { RegionUpdateOptions } from '../../store/appStore'
 import InlineTextEditor from './InlineTextEditor'
-import CanvasGrid from './CanvasGrid'
 import { Hand, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -33,6 +32,7 @@ export interface CanvasEditorHandle {
   zoomIn: () => void
   zoomOut: () => void
   fitView: () => void
+  setZoomPercent: (percent: number) => void
 }
 
 interface CanvasEditorProps {
@@ -42,12 +42,13 @@ interface CanvasEditorProps {
   onSelectedRegion: (id: string | null) => void
   stageRef?: React.RefObject<Konva.Stage | null>
   onScaleChange?: (scale: number) => void
-  onViewportChange?: (state: { zoom: number; imageWidth: number; imageHeight: number }) => void
+  onViewportChange?: (state: { zoom: number; zoomPercent: number; imageWidth: number; imageHeight: number }) => void
   editorRef?: React.RefObject<CanvasEditorHandle | null>
 }
 
 const MIN_ZOOM = 0.1
-const MAX_ZOOM = 8
+const MAX_ZOOM = 24
+const ZOOM_PERCENT_STEP = 10
 
 export default function CanvasEditor({
   imageUrl,
@@ -82,6 +83,8 @@ export default function CanvasEditor({
   const [eyedropPreview, setEyedropPreview] = useState<{x: number; y: number; color: string} | null>(null)
   const eyedropCacheRef = useRef<ImageData | null>(null)
 
+  const zoomPercent = Math.round(zoom * 100)
+
   // Store
   const activeTool = useAppStore((s) => s.activeTool)
   const brushColor = useAppStore((s) => s.brushColor)
@@ -113,10 +116,11 @@ export default function CanvasEditor({
   useEffect(() => {
     onViewportChange?.({
       zoom,
+      zoomPercent,
       imageWidth: image?.naturalWidth ?? image?.width ?? 0,
       imageHeight: image?.naturalHeight ?? image?.height ?? 0,
     })
-  }, [image, onViewportChange, zoom])
+  }, [image, onViewportChange, zoom, zoomPercent])
 
   const fitImageToContainer = useCallback((img: HTMLImageElement) => {
     const cw = containerRef.current?.clientWidth ?? 800
@@ -393,6 +397,29 @@ export default function CanvasEditor({
   )
 
   // Scroll wheel zoom to pointer
+  const applyZoom = useCallback((newZoom: number, anchor?: { x: number; y: number }) => {
+    const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom))
+    const nextAnchor = anchor ?? {
+      x: stageSize.width / 2,
+      y: stageSize.height / 2,
+    }
+    const worldPoint = {
+      x: (nextAnchor.x - stagePos.x) / zoom,
+      y: (nextAnchor.y - stagePos.y) / zoom,
+    }
+    setZoom(clamped)
+    setZoomInput(Math.round(clamped * 100).toString())
+    setStagePos({
+      x: nextAnchor.x - worldPoint.x * clamped,
+      y: nextAnchor.y - worldPoint.y * clamped,
+    })
+  }, [stagePos.x, stagePos.y, stageSize.height, stageSize.width, zoom])
+
+  const applyZoomPercent = useCallback((percent: number) => {
+    const clampedPercent = Math.max(MIN_ZOOM * 100, Math.min(MAX_ZOOM * 100, percent))
+    applyZoom(clampedPercent / 100)
+  }, [applyZoom])
+
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault()
@@ -402,42 +429,20 @@ export default function CanvasEditor({
       const pointer = stage.getPointerPosition()
       if (!pointer) return
 
-      const oldZoom = zoom
-      const newZoom = Math.max(
-        MIN_ZOOM,
-        Math.min(MAX_ZOOM, e.evt.deltaY > 0 ? oldZoom * 0.9 : oldZoom * 1.1),
-      )
-
-      const mousePointTo = {
-        x: (pointer.x - stagePos.x) / oldZoom,
-        y: (pointer.y - stagePos.y) / oldZoom,
-      }
-
-      setZoom(newZoom)
-      setZoomInput(Math.round(newZoom * 100).toString())
-      setStagePos({
-        x: pointer.x - mousePointTo.x * newZoom,
-        y: pointer.y - mousePointTo.y * newZoom,
-      })
+      const nextZoom = e.evt.deltaY > 0 ? zoom * 0.9 : zoom * 1.1
+      applyZoom(nextZoom, pointer)
     },
-    [zoom, stagePos, stageRef],
+    [applyZoom, stageRef, zoom],
   )
-
-  // Zoom helpers
-  const applyZoom = useCallback((newZoom: number) => {
-    const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom))
-    setZoom(clamped)
-    setZoomInput(Math.round(clamped * 100).toString())
-  }, [])
 
   const handleZoomInputCommit = useCallback(() => {
     const val = parseInt(zoomInput, 10)
     if (!isNaN(val) && val >= MIN_ZOOM * 100 && val <= MAX_ZOOM * 100) {
-      applyZoom(val / 100)
+      applyZoomPercent(val)
     } else {
-      setZoomInput(Math.round(zoom * 100).toString())
+      setZoomInput(zoomPercent.toString())
     }
-  }, [zoomInput, zoom, applyZoom])
+  }, [applyZoomPercent, zoomInput, zoomPercent])
 
   const handleResetView = useCallback(() => {
     setZoom(1)
@@ -461,10 +466,11 @@ export default function CanvasEditor({
       transformerRef.current?.nodes([])
       transformerRef.current?.getLayer()?.batchDraw()
     },
-    zoomIn: () => applyZoom(zoom + 0.1),
-    zoomOut: () => applyZoom(zoom - 0.1),
+    zoomIn: () => applyZoomPercent(zoomPercent + ZOOM_PERCENT_STEP),
+    zoomOut: () => applyZoomPercent(zoomPercent - ZOOM_PERCENT_STEP),
     fitView: () => handleResetView(),
-  }), [applyZoom, handleResetView, onSelectedRegion, zoom])
+    setZoomPercent: (percent: number) => applyZoomPercent(percent),
+  }), [applyZoomPercent, handleResetView, onSelectedRegion, zoomPercent])
 
   const handleStageDragEnd = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -640,11 +646,6 @@ export default function CanvasEditor({
           onDragEnd={handleStageDragEnd}
           style={{ cursor: getEditorToolCursor(activeTool) }}
         >
-          {/* Layer 0: Zoom-aware workspace grid */}
-          <Layer listening={false}>
-            <CanvasGrid stageSize={stageSize} stagePos={stagePos} zoom={zoom} />
-          </Layer>
-
           {/* Layer 1: Background image */}
           <Layer>
             {image && (

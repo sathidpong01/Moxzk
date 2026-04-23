@@ -20,6 +20,7 @@ export const SHORTCUT_LIST: ShortcutDef[] = [
   { key: 'z', ctrl: true, label: 'Ctrl+Z', action: 'Undo' },
   { key: 'z', ctrl: true, shift: true, label: 'Ctrl+Shift+Z', action: 'Redo' },
   { key: 's', ctrl: true, label: 'Ctrl+S', action: 'Save (prevent default)' },
+  { key: 'e', ctrl: true, label: 'Ctrl+E', action: 'Export drawer' },
   { key: 'b', label: 'B', action: 'Brush tool' },
   { key: 'e', label: 'E', action: 'Eraser' },
   { key: 'v', label: 'V', action: 'Select tool' },
@@ -98,15 +99,15 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}): void {
         return
       }
 
-      if (ctrl && key === 'Enter') {
-        e.preventDefault()
-        handlersRef.current.onExport?.()
-        return
-      }
-
       if (ctrl && key === 'k') {
         e.preventDefault()
         handlersRef.current.onStartAI?.()
+        return
+      }
+
+      if (ctrl && key === 'e') {
+        e.preventDefault()
+        handlersRef.current.onExport?.()
         return
       }
 

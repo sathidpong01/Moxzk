@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { createServer } from 'vite'
 import {
   appendBrushStroke,
@@ -268,6 +269,22 @@ test('keyboard shortcuts use physical key codes across Thai keyboard layout', ()
   assert.equal(getEditorShortcutKey({ key: 'ำ', code: 'KeyE' }), 'e')
   assert.equal(getEditorShortcutKey({ key: ' ', code: 'Space' }), ' ')
   assert.equal(getEditorShortcutKey({ key: 'Enter', code: 'Enter' }), 'Enter')
+})
+
+test('editor export shortcut uses Ctrl+E and no longer binds Ctrl+Enter', async () => {
+  const { SHORTCUT_LIST } = await loadViteModule('/src/hooks/useKeyboardShortcuts.ts')
+  const source = fs.readFileSync('src/hooks/useKeyboardShortcuts.ts', 'utf8')
+
+  assert.equal(
+    SHORTCUT_LIST.some((item) => item.ctrl && item.key === 'e' && item.label === 'Ctrl+E'),
+    true,
+  )
+  assert.equal(
+    SHORTCUT_LIST.some((item) => item.label === 'Ctrl+Enter'),
+    false,
+  )
+  assert.match(source, /ctrl && key === 'e'/)
+  assert.equal(/ctrl && key === 'Enter'/.test(source), false)
 })
 
 test('brush undo and redo keep history state deterministic', () => {

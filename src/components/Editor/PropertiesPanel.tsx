@@ -6,6 +6,7 @@ import { normalizeTextLayoutMode } from '../../utils/textLayout'
 import { translateSingleRegion } from '../../services/ollama'
 import { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } from '../../services/textRegionMode'
 import FontSelector from './FontSelector'
+import { StrokeJoinToggleGroup } from './StrokeJoinPreview'
 import { AlignCenter, AlignLeft, AlignRight, Trash2, RotateCcw, Languages, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, DisclosureSection, Field, SelectField, TextInput, TextareaField } from '../ui/primitives'
@@ -17,11 +18,6 @@ interface PropertiesPanelProps {
 }
 
 const MOODS: MoodType[] = ['normal', 'shouting', 'whisper', 'comedy', 'narration', 'sfx']
-const STROKE_JOINS: Array<{ value: TextStrokeJoin; label: string }> = [
-  { value: 'round', label: 'มน' },
-  { value: 'bevel', label: 'ปาดมุม' },
-  { value: 'miter', label: 'คม' },
-]
 const TEXT_ALIGNS: Array<{ value: TextAlign; label: string; icon: typeof AlignLeft }> = [
   { value: 'left', label: 'ชิดซ้าย', icon: AlignLeft },
   { value: 'center', label: 'กึ่งกลาง', icon: AlignCenter },
@@ -246,13 +242,18 @@ export default function PropertiesPanel({
                 aria-label="สีขอบ"
               />
             </div>
-            <Field label="ทรงขอบ" className="mt-2 gap-1.5">
-              <SelectField
-                value={region.strokeJoin ?? 'round'}
-                onChange={(strokeJoin: TextStrokeJoin) => onUpdate(region.id, { strokeJoin })}
-                options={STROKE_JOINS}
-              />
-            </Field>
+            {region.strokeWidth > 0 && (
+              <Field label="ทรงขอบ" className="mt-2 gap-1.5">
+                <StrokeJoinToggleGroup
+                  value={region.strokeJoin ?? 'round'}
+                  onChange={(strokeJoin: TextStrokeJoin) => onUpdate(region.id, { strokeJoin })}
+                  className="rounded-[8px] border border-[var(--mg-border)] bg-black/20 p-1"
+                  iconClassName="h-[18px] w-[18px]"
+                  tooltipSide="bottom"
+                  size="sm"
+                />
+              </Field>
+            )}
           </div>
 
           <div className="col-span-2 rounded-[10px] border border-[var(--mg-border)] bg-black/20 p-2.5">

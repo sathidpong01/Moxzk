@@ -220,18 +220,20 @@ export function Field({
   hint,
   children,
   className,
+  as: Component = 'label',
 }: {
   label?: ReactNode
   hint?: ReactNode
   children: ReactNode
   className?: string
+  as?: 'label' | 'div' | 'fieldset'
 }) {
   return (
-    <label className={cn('mg-field', className)}>
-      {label && <span className="mg-label">{label}</span>}
+    <Component className={cn('mg-field', className)}>
+      {label && (Component === 'fieldset' ? <legend className="mg-label px-0">{label}</legend> : <span className="mg-label">{label}</span>)}
       {children}
       {hint && <span className="text-xs text-[var(--mg-dim)]">{hint}</span>}
-    </label>
+    </Component>
   )
 }
 

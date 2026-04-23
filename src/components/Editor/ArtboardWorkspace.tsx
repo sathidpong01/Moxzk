@@ -34,10 +34,9 @@ import {
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import { translateSingleRegion } from '../../services/ollama'
-import { computeBoardViewport } from '../../services/workspaceViewport'
+import { computeBoardViewport, computeFocusViewport } from '../../services/workspaceViewport'
 import type { CanvasEditorHandle } from './CanvasEditor'
 import InlineTextEditor from './InlineTextEditor'
-import CanvasGrid from './CanvasGrid'
 import ContextualTextHud from './ContextualTextHud'
 import { Button, Modal } from '../ui/primitives'
 import { toast } from 'sonner'
@@ -46,7 +45,7 @@ interface ArtboardWorkspaceProps {
   entries: ImageEntry[]
   stageRef?: React.RefObject<Konva.Stage | null>
   editorRef?: React.RefObject<CanvasEditorHandle | null>
-  onViewportChange?: (state: { zoom: number; imageWidth: number; imageHeight: number }) => void
+  onViewportChange?: (state: { zoom: number; zoomPercent: number; imageWidth: number; imageHeight: number }) => void
 }
 
 interface LoadedImage {
@@ -84,10 +83,15 @@ const statusLabel: Record<ImageEntry['status'], string> = {
 const ARTBOARD_FRAME_WIDTH = ARTBOARD_MAX_PREVIEW_WIDTH
 const ARTBOARD_FRAME_HEIGHT = Math.round(ARTBOARD_MAX_PREVIEW_WIDTH * 1.42)
 const MIN_ZOOM = 0.1
-const MAX_ZOOM = 8
+const MAX_ZOOM = 24
+const ZOOM_PERCENT_STEP = 10
 
 function easeOutCubic(value: number): number {
   return 1 - ((1 - value) ** 3)
+}
+
+function roundZoom(value: number): number {
+  return Number(value.toFixed(2))
 }
 
 function getArtboardSurfaceMetrics(artboard: {
@@ -224,15 +228,6 @@ export default function ArtboardWorkspace({
     })
     return () => { cancelled = true }
   }, [entries, loadedImages])
-
-  useEffect(() => {
-    const activeImage = activeEntry ? loadedImages[activeEntry.id] : null
-    onViewportChange?.({
-      zoom,
-      imageWidth: activeImage?.image.naturalWidth ?? 0,
-      imageHeight: activeImage?.image.naturalHeight ?? 0,
-    })
-  }, [activeEntry, loadedImages, onViewportChange, zoom])
 
   useEffect(() => {
     const transformer = transformerRef.current
@@ -377,6 +372,38 @@ export default function ArtboardWorkspace({
       artboards: boardViewportBounds,
     })
   ), [boardViewportBounds, stageSize])
+  const activeFocusBounds = useMemo(() => {
+    if (!activeArtboard) return null
+    const metrics = getArtboardSurfaceMetrics(activeArtboard)
+    return {
+      x: activeArtboard.x + metrics.surfaceX,
+      y: activeArtboard.y + metrics.surfaceY,
+      width: metrics.surfaceWidth,
+      height: metrics.surfaceHeight,
+    }
+  }, [activeArtboard])
+  const activeFocusViewport = useMemo(() => (
+    activeFocusBounds
+      ? computeFocusViewport({
+        stageSize,
+        artboard: activeFocusBounds,
+        paddingX: 260,
+        paddingY: 140,
+      })
+      : null
+  ), [activeFocusBounds, stageSize])
+  const zoomPercentBase = Math.max(activeFocusViewport?.zoom ?? 1, MIN_ZOOM)
+  const zoomPercent = Math.max(1, Math.round((zoom / zoomPercentBase) * 100))
+
+  useEffect(() => {
+    const activeImage = activeEntry ? loadedImages[activeEntry.id] : null
+    onViewportChange?.({
+      zoom,
+      zoomPercent,
+      imageWidth: activeImage?.image.naturalWidth ?? 0,
+      imageHeight: activeImage?.image.naturalHeight ?? 0,
+    })
+  }, [activeEntry, loadedImages, onViewportChange, zoom, zoomPercent])
 
   useEffect(() => {
     if (initialViewportAppliedRef.current) return
@@ -385,10 +412,42 @@ export default function ArtboardWorkspace({
     initialViewportAppliedRef.current = true
   }, [applyViewportState, artboards.length, boardViewport, stageSize.height, stageSize.width])
 
-  const applyZoom = useCallback((nextZoom: number) => {
+  const applyZoom = useCallback((nextZoom: number, anchor?: { x: number; y: number }) => {
     const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom))
-    setZoom(clamped)
-  }, [])
+    const nextAnchor = anchor ?? {
+      x: stageSize.width / 2,
+      y: stageSize.height / 2,
+    }
+    const worldPoint = {
+      x: (nextAnchor.x - stagePos.x) / zoom,
+      y: (nextAnchor.y - stagePos.y) / zoom,
+    }
+    setZoom(roundZoom(clamped))
+    setStagePos({
+      x: nextAnchor.x - worldPoint.x * clamped,
+      y: nextAnchor.y - worldPoint.y * clamped,
+    })
+  }, [stagePos.x, stagePos.y, stageSize.height, stageSize.width, zoom])
+
+  const applyZoomPercent = useCallback((percent: number) => {
+    const minPercent = Math.max(1, Math.round((MIN_ZOOM / zoomPercentBase) * 100))
+    const maxPercent = Math.round((MAX_ZOOM / zoomPercentBase) * 100)
+    const clampedPercent = Math.max(minPercent, Math.min(maxPercent, percent))
+    const nextZoom = roundZoom(zoomPercentBase * (clampedPercent / 100))
+
+    if (activeFocusBounds) {
+      const centerX = activeFocusBounds.x + activeFocusBounds.width / 2
+      const centerY = activeFocusBounds.y + activeFocusBounds.height / 2
+      applyViewportState({
+        zoom: nextZoom,
+        x: stageSize.width / 2 - centerX * nextZoom,
+        y: stageSize.height / 2 - centerY * nextZoom,
+      })
+      return
+    }
+
+    applyZoom(nextZoom)
+  }, [activeFocusBounds, applyViewportState, applyZoom, stageSize.height, stageSize.width, zoomPercentBase])
 
   const fitView = useCallback(() => {
     if (artboards.length === 0) return
@@ -401,28 +460,20 @@ export default function ArtboardWorkspace({
       transformerRef.current?.nodes([])
       transformerRef.current?.getLayer()?.batchDraw()
     },
-    zoomIn: () => applyZoom(zoom + 0.1),
-    zoomOut: () => applyZoom(zoom - 0.1),
+    zoomIn: () => applyZoomPercent(zoomPercent + ZOOM_PERCENT_STEP),
+    zoomOut: () => applyZoomPercent(zoomPercent - ZOOM_PERCENT_STEP),
     fitView,
-  }), [applyZoom, fitView, selectRegion, zoom])
+    setZoomPercent: (percent: number) => applyZoomPercent(percent),
+  }), [applyZoomPercent, fitView, selectRegion, zoomPercent])
 
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
     const stage = stageRef.current
     const pointer = stage?.getPointerPosition()
     if (!pointer) return
-    const oldZoom = zoom
-    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, e.evt.deltaY > 0 ? oldZoom * 0.9 : oldZoom * 1.1))
-    const mousePointTo = {
-      x: (pointer.x - stagePos.x) / oldZoom,
-      y: (pointer.y - stagePos.y) / oldZoom,
-    }
-    setZoom(newZoom)
-    setStagePos({
-      x: pointer.x - mousePointTo.x * newZoom,
-      y: pointer.y - mousePointTo.y * newZoom,
-    })
-  }, [stageRef, stagePos, zoom])
+    const nextZoom = e.evt.deltaY > 0 ? zoom * 0.9 : zoom * 1.1
+    applyZoom(nextZoom, pointer)
+  }, [applyZoom, stageRef, zoom])
 
   const pointerToActiveImagePoint = useCallback(() => {
     const stage = stageRef.current
@@ -893,9 +944,6 @@ export default function ArtboardWorkspace({
           }}
           style={{ cursor: getEditorToolCursor(activeTool) }}
         >
-          <Layer listening={false}>
-            <CanvasGrid stageSize={stageSize} stagePos={stagePos} zoom={zoom} />
-          </Layer>
           <Layer listening={false}>
             {draggedPreviewFrame && (
               <>

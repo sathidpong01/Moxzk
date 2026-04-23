@@ -52,17 +52,103 @@ textarea {
 .studio-shell {
   background: var(--mg-bg);
   color: var(--mg-text);
+  isolation: isolate;
+}
+
+.mg-dot-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  --mg-pointer-x: 62%;
+  --mg-pointer-y: 18%;
+}
+
+.mg-dot-backdrop__base,
+.mg-dot-backdrop__dots,
+.mg-dot-backdrop__glow {
+  position: absolute;
+  inset: 0;
+}
+
+.mg-dot-backdrop__base {
+  background: var(--mg-bg);
+}
+
+.mg-dot-backdrop__dots {
+  inset: -24px;
+  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.14) 0 1px, transparent 1.45px);
+  background-size: 12px 12px;
+  background-position: 0 0;
+  opacity: 0.34;
+}
+
+.mg-dot-backdrop__glow {
+  background: transparent;
+  opacity: 0;
+}
+
+.mg-dot-backdrop__dots--highlight {
+  opacity: 0.52;
+  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.46) 0 1.1px, transparent 1.55px);
+  background-size: 12px 12px;
+  background-position: 0 0;
+  -webkit-mask-image: radial-gradient(
+    190px circle at var(--mg-pointer-x) var(--mg-pointer-y),
+    rgba(0, 0, 0, 0.78) 0,
+    rgba(0, 0, 0, 0.78) 22%,
+    rgba(0, 0, 0, 0.34) 46%,
+    transparent 78%
+  );
+  mask-image: radial-gradient(
+    190px circle at var(--mg-pointer-x) var(--mg-pointer-y),
+    rgba(0, 0, 0, 0.78) 0,
+    rgba(0, 0, 0, 0.78) 22%,
+    rgba(0, 0, 0, 0.34) 46%,
+    transparent 78%
+  );
+}
+
+.mg-upload-stage {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--mg-border);
+  border-radius: 28px;
+  background: rgba(18, 18, 18, 0.88);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(22px);
+}
+
+.mg-upload-stage::before {
+  content: none;
+}
+
+.mg-upload-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
+.mg-upload-dropzone {
+  position: relative;
+  overflow: hidden;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.mg-upload-dropzone::before {
+  content: none;
+}
+
+.mg-upload-dropzone > * {
+  position: relative;
+  z-index: 1;
 }
 
 .studio-canvas,
 .upload-canvas {
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 42%),
-    var(--mg-canvas);
-  background-position: 0 0, 0 0, 0 0;
-  background-size: 28px 28px, 28px 28px, auto;
+  background: transparent;
 }
 
 .studio-chrome {
