@@ -32,6 +32,9 @@ The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollam
   - append `_wiki/log.md`
 - For browser-facing work, verify layout and runtime behavior in a real browser when practical.
 - For Worker, D1, auth, storage, and export behavior, add or update focused tests.
+- During implementation, run the smallest relevant focused test group first; reserve full `npm test` for pre-commit/pre-push, broad refactors, and shared cross-cutting changes.
+- Run `npm run build` when TypeScript, React, runtime contracts, or shared interfaces change.
+- Run `npm run worker:check` only when Worker/Cloudflare files are touched.
 - Do not add secrets, local sample images, generated output, or private notes to git.
 - Preserve Thai text and project copy as UTF-8.
 
@@ -40,6 +43,13 @@ The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollam
 - `npm run dev`
 - `npm run build`
 - `npm test`
+- `npm run test:settings`
+- `npm run test:runtime`
+- `npm run test:editor`
+- `npm run test:export`
+- `npm run test:album`
+- `npm run test:cleanup`
+- `npm run test:cache`
 - `npm run worker:check`
 - `npm run context:refresh`
 

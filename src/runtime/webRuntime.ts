@@ -20,6 +20,7 @@ export class WebRuntime implements AppRuntime {
   readonly ollama = {
     getServerStatus: defaultOllamaClient.getStatus.bind(defaultOllamaClient),
     listModels: defaultOllamaClient.listModels.bind(defaultOllamaClient),
+    pullModel: defaultOllamaClient.pullModel.bind(defaultOllamaClient),
   }
 
   readonly panelCleaner = {

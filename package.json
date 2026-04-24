@@ -15,6 +15,13 @@
     "worker:deploy": "wrangler deploy",
     "context:refresh": "python scripts/update_repo_context.py --max-depth 5",
     "test": "node --test scripts/*.test.mjs",
+    "test:album": "node --test scripts/album-*.test.mjs",
+    "test:cache": "node --test scripts/cache-services.test.mjs scripts/story-context.test.mjs",
+    "test:cleanup": "node --test scripts/panelcleaner-csv.test.mjs scripts/batch-processing.test.mjs",
+    "test:editor": "node --test scripts/editor-*.test.mjs scripts/inline-text-editor.test.mjs scripts/text-*.test.mjs scripts/viewer-zoom.test.mjs scripts/workspace-viewport.test.mjs",
+    "test:export": "node --test scripts/export-*.test.mjs scripts/exporter.test.mjs",
+    "test:runtime": "node --test scripts/oop-boundaries.test.mjs scripts/pre-electron-readiness.test.mjs",
+    "test:settings": "node --test scripts/oop-boundaries.test.mjs scripts/settings-model-guide.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -25,6 +25,18 @@ export interface OllamaModelTag {
   size?: number
 }
 
+export interface OllamaPullProgress {
+  status: string
+  digest?: string
+  total?: number
+  completed?: number
+}
+
+export interface OllamaPullOptions extends OllamaOptions {
+  model: string
+  onProgress?: (progress: OllamaPullProgress) => void
+}
+
 interface OllamaChatResponse {
   message?: { content?: string }
   response?: string
@@ -577,6 +589,10 @@ export class OllamaClient {
   listModels(options: OllamaOptions = {}): Promise<OllamaModelTag[]> {
     return listOllamaModels(options)
   }
+
+  pullModel(options: OllamaPullOptions): Promise<OllamaPullProgress> {
+    return pullOllamaModel(options)
+  }
 }
 
 export const defaultOllamaClient = new OllamaClient()
@@ -745,4 +761,63 @@ export async function listOllamaModels(options: OllamaOptions = {}): Promise<Oll
   })
   const data = await parseJsonResponse<{ models?: OllamaModelTag[] }>(res)
   return Array.isArray(data.models) ? data.models : []
+}
+
+export async function pullOllamaModel(options: OllamaPullOptions): Promise<OllamaPullProgress> {
+  const model = options.model.trim()
+  if (!model) throw new Error('กรุณาระบุชื่อโมเดล Ollama')
+
+  const url = normalizeOllamaBaseUrl(options.ollamaUrl)
+  if (isOllamaCloudUrl(url)) {
+    throw new Error('การติดตั้งโมเดลในเครื่องรองรับเฉพาะ Local Ollama endpoint')
+  }
+
+  const res = await fetch(buildOllamaApiUrl(url, '/api/pull'), {
+    method: 'POST',
+    headers: buildHeaders(options),
+    signal: options.signal,
+    body: JSON.stringify({ model, stream: true }),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Ollama error ${res.status}: ${text || res.statusText}`)
+  }
+
+  if (!res.body) {
+    const data = await parseJsonResponse<OllamaPullProgress>(res)
+    options.onProgress?.(data)
+    return data
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let latest: OllamaPullProgress = { status: 'starting' }
+
+  const consumeLine = (line: string) => {
+    const trimmed = line.trim()
+    if (!trimmed) return
+    const event = JSON.parse(trimmed) as OllamaPullProgress & { error?: string }
+    if (event.error) throw new Error(event.error)
+    latest = {
+      status: event.status || latest.status,
+      ...(event.digest ? { digest: event.digest } : {}),
+      ...(typeof event.total === 'number' ? { total: event.total } : {}),
+      ...(typeof event.completed === 'number' ? { completed: event.completed } : {}),
+    }
+    options.onProgress?.(latest)
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done })
+    const lines = buffer.split(/\r?\n/)
+    buffer = lines.pop() ?? ''
+    for (const line of lines) consumeLine(line)
+    if (done) break
+  }
+
+  consumeLine(buffer)
+  return latest
 }

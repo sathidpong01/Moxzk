@@ -1,5 +1,5 @@
 import type { AppSettings, AppStep, BrushStroke, ImageEntry, TextRegion } from '../types'
-import type { OllamaModelTag, OllamaOptions, OllamaStatus } from '../services/ollama'
+import type { OllamaModelTag, OllamaOptions, OllamaPullOptions, OllamaPullProgress, OllamaStatus } from '../services/ollama'
 import type { PanelCleanerOptions, PanelCleanerStatus } from '../services/panelcleaner-api'
 
 export type RuntimeKind = 'web' | 'electron'
@@ -35,6 +35,7 @@ export interface AppRuntime {
   ollama: {
     getServerStatus(options: OllamaOptions): Promise<OllamaStatus>
     listModels(options: OllamaOptions): Promise<OllamaModelTag[]>
+    pullModel(options: OllamaPullOptions): Promise<OllamaPullProgress>
   }
   panelCleaner: {
     getStatus(options: PanelCleanerOptions): Promise<PanelCleanerStatus>

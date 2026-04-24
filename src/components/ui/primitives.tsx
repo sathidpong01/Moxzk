@@ -302,12 +302,14 @@ export function Modal({
   title,
   children,
   className,
+  hideHeader = false,
 }: {
   isOpen: boolean
   onClose: () => void
   title: ReactNode
   children: ReactNode
   className?: string
+  hideHeader?: boolean
 }) {
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-[200]">
@@ -315,12 +317,16 @@ export function Modal({
       <div className="fixed inset-0 overflow-y-auto p-4">
         <div className="flex min-h-full items-center justify-center">
           <DialogPanel className={cn('mg-panel w-full max-w-lg p-5', className)}>
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <DialogTitle className="text-lg font-bold">{title}</DialogTitle>
-              <IconButton label="ปิด" onClick={onClose}>
-                <X size={16} />
-              </IconButton>
-            </div>
+            {hideHeader ? (
+              <DialogTitle className="sr-only">{title}</DialogTitle>
+            ) : (
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <DialogTitle className="text-lg font-bold">{title}</DialogTitle>
+                <IconButton label="ปิด" onClick={onClose}>
+                  <X size={16} />
+                </IconButton>
+              </div>
+            )}
             {children}
           </DialogPanel>
         </div>

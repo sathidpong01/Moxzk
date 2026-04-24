@@ -23,6 +23,7 @@ test('web runtime is exposed as an AppRuntime class instance', async () => {
   assert.equal(webRuntime.capabilities.canStartLocalServices, false)
   assert.equal(typeof webRuntime.ollama.getServerStatus, 'function')
   assert.equal(typeof webRuntime.files.saveExportFiles, 'function')
+  assert.equal(typeof webRuntime.ollama.pullModel, 'function')
 })
 
 test('OllamaClient preserves cloud API key and api path behavior', async () => {
@@ -61,6 +62,69 @@ test('OllamaClient keeps cloud status guard without an API key', async () => {
     await client.getStatus({ ollamaUrl: 'https://ollama.com' }),
     { ok: false, url: 'https://ollama.com', error: 'Ollama Cloud ต้องใช้ API key' },
   )
+})
+
+test('OllamaClient pulls a local model and reports streaming progress', async () => {
+  const { OllamaClient } = await loadViteModule('/src/services/ollama.ts')
+  const client = new OllamaClient()
+  const originalFetch = globalThis.fetch
+  const progress = []
+  let captured = null
+
+  globalThis.fetch = async (url, init = {}) => {
+    captured = {
+      url: String(url),
+      method: init.method,
+      headers: init.headers,
+      body: JSON.parse(String(init.body)),
+    }
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder()
+        controller.enqueue(encoder.encode('{"status":"pulling manifest"}\n'))
+        controller.enqueue(encoder.encode('{"status":"downloading","digest":"sha256:abc","total":100,"completed":40}\n'))
+        controller.enqueue(encoder.encode('{"status":"success"}\n'))
+        controller.close()
+      },
+    })
+    return new Response(stream, { status: 200 })
+  }
+
+  try {
+    const result = await client.pullModel({
+      ollamaUrl: 'http://localhost:11434/api',
+      model: 'gemma3:4b',
+      onProgress: (event) => progress.push(event),
+    })
+
+    assert.equal(captured.url, 'http://localhost:11434/api/pull')
+    assert.equal(captured.method, 'POST')
+    assert.equal(captured.headers['Content-Type'], 'application/json')
+    assert.deepEqual(captured.body, { model: 'gemma3:4b', stream: true })
+    assert.deepEqual(progress.map((event) => event.status), ['pulling manifest', 'downloading', 'success'])
+    assert.deepEqual(result, { status: 'success' })
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('OllamaClient reports pull network failures', async () => {
+  const { OllamaClient } = await loadViteModule('/src/services/ollama.ts')
+  const client = new OllamaClient()
+  const originalFetch = globalThis.fetch
+
+  globalThis.fetch = async () => {
+    return new Response('offline', { status: 503, statusText: 'Service Unavailable' })
+  }
+
+  try {
+    await assert.rejects(
+      () => client.pullModel({ ollamaUrl: 'http://localhost:11434', model: 'gemma3:4b' }),
+      /Ollama error 503: offline/,
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })
 
 test('PanelCleanerClient posts status checks to the normalized bridge URL', async () => {

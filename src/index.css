@@ -175,6 +175,167 @@ button:disabled {
   color: var(--mg-text);
 }
 
+.SettingsWorkspace {
+  --settings-divider: rgba(255, 255, 255, 0.055);
+  max-width: min(72rem, calc(100vw - 3rem)) !important;
+  padding: 0 !important;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--mg-surface-2) 96%, transparent);
+}
+
+.SettingsFrame {
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.SettingsSidebar {
+  border-bottom-left-radius: 8px;
+  border-top-left-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.008)),
+    color-mix(in srgb, var(--mg-surface-2) 92%, black);
+}
+
+.SettingsMain {
+  background: transparent;
+}
+
+.SettingsHeader {
+  background: transparent;
+}
+
+.settings-nav-item {
+  background: transparent;
+  color: var(--mg-muted);
+}
+
+.settings-nav-idle:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--mg-text);
+}
+
+.settings-nav-active {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: var(--mg-text);
+}
+
+.settings-sheet {
+  padding: 0;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.75fr) minmax(0, 1.6fr);
+  gap: 2rem;
+  border-bottom: 1px solid var(--settings-divider);
+  padding: 1.75rem 0;
+}
+
+.settings-row-label h3 {
+  color: var(--mg-text);
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.settings-row-label p {
+  margin-top: 0.35rem;
+  color: var(--mg-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.settings-row-control {
+  min-width: 0;
+}
+
+.settings-status-tile,
+.settings-step,
+.settings-model-preset {
+  border: 1px solid var(--mg-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.settings-status-tile {
+  padding: 1rem;
+}
+
+.settings-step {
+  display: flex;
+  min-height: 12rem;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.settings-model-preset {
+  padding: 1rem;
+}
+
+.settings-choice-row {
+  border: 1px solid var(--mg-border);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0.55rem 0.75rem;
+  color: var(--mg-text);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.settings-choice-row:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.settings-toggle-row {
+  display: flex;
+  cursor: pointer;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border: 1px solid var(--mg-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+.settings-pill,
+.settings-pill-success {
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+.settings-pill {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--mg-muted);
+}
+
+.settings-pill-success {
+  background: rgba(52, 211, 153, 0.14);
+  color: var(--mg-success);
+}
+
+.settings-command {
+  margin-top: 0.75rem;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.5rem 0.75rem;
+  color: var(--mg-text);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .settings-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
 .floating-panel-sm {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
 }
