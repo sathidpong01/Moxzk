@@ -58,6 +58,30 @@ export function getPanelCleanerBridgeUrl(url?: string): string {
     .replace(/\/+$/, '')
 }
 
+export class PanelCleanerClient {
+  processImage(
+    file: File,
+    options: PanelCleanerOptions = {},
+    onProgress?: (progress: StreamProgress) => void,
+  ): Promise<TranslatorResponse> {
+    return processImageWithPanelCleaner(file, options, onProgress)
+  }
+
+  processBatch(
+    images: PanelCleanerBatchInput[],
+    options: PanelCleanerOptions = {},
+    onProgress?: (progress: StreamProgress) => void,
+  ): Promise<PanelCleanerBatchResult[]> {
+    return processImagesWithPanelCleanerBatch(images, options, onProgress)
+  }
+
+  getStatus(options: PanelCleanerOptions = {}): Promise<PanelCleanerStatus> {
+    return getPanelCleanerStatus(options)
+  }
+}
+
+export const defaultPanelCleanerClient = new PanelCleanerClient()
+
 export async function processImageWithPanelCleaner(
   file: File,
   options: PanelCleanerOptions = {},

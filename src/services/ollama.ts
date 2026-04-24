@@ -519,6 +519,68 @@ function parseDetectedLanguageResponse(content: string): 'ja' | 'zh' | 'en' | 'a
   return normalizeSourceLanguage(tokenMatch?.[1])
 }
 
+export class OllamaClient {
+  detectSourceLanguageFromImage(
+    imageFile: File,
+    options: OllamaOptions = {},
+  ): Promise<'ja' | 'zh' | 'en' | 'auto'> {
+    return detectSourceLanguageFromImage(imageFile, options)
+  }
+
+  translateImage(
+    imageFile: File,
+    ocrTexts: string[],
+    bboxes: BoundingBox[],
+    sourceLang: string = 'auto',
+    options: OllamaOptions = {},
+  ): Promise<TextRegion[]> {
+    return translateWithOllamaImage(imageFile, ocrTexts, bboxes, sourceLang, options)
+  }
+
+  translateBoxedVision(
+    imageFile: File,
+    bboxes: BoundingBox[],
+    sourceLang: string = 'auto',
+    options: OllamaOptions = {},
+  ): Promise<TextRegion[]> {
+    return translateWithOllamaBoxedVision(imageFile, bboxes, sourceLang, options)
+  }
+
+  translateVision(
+    imageFile: File,
+    sourceLang: string = 'auto',
+    options: OllamaOptions = {},
+  ): Promise<TextRegion[]> {
+    return translateWithOllamaVision(imageFile, sourceLang, options)
+  }
+
+  translateText(
+    text: string,
+    sourceLang: string,
+    options: OllamaOptions = {},
+  ): Promise<string> {
+    return translateWithOllamaText(text, sourceLang, options)
+  }
+
+  translateSingleRegion(
+    text: string,
+    sourceLang: string,
+    options: OllamaOptions = {},
+  ): Promise<string> {
+    return translateSingleRegion(text, sourceLang, options)
+  }
+
+  getStatus(options: OllamaOptions = {}): Promise<OllamaStatus> {
+    return getOllamaStatus(options)
+  }
+
+  listModels(options: OllamaOptions = {}): Promise<OllamaModelTag[]> {
+    return listOllamaModels(options)
+  }
+}
+
+export const defaultOllamaClient = new OllamaClient()
+
 export async function detectSourceLanguageFromImage(
   imageFile: File,
   options: OllamaOptions = {},

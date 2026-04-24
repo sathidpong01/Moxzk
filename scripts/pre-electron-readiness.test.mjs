@@ -60,8 +60,9 @@ test('runtime contract covers pre-Electron native seams', () => {
   assert.match(contract, /saveFile/)
   assert.match(contract, /saveExportFiles/)
   assert.match(contract, /projectDraft/)
+  assert.match(webRuntime, /class WebRuntime implements AppRuntime/)
   assert.match(webRuntime, /canStartLocalServices:\s*false/)
-  assert.match(webRuntime, /getStatus:\s*getPanelCleanerStatus/)
+  assert.match(webRuntime, /defaultPanelCleanerClient\.getStatus/)
 })
 
 test('project draft snapshot keeps full page list and active page edits', () => {

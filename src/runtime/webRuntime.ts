@@ -1,38 +1,44 @@
 import {
-  getOllamaStatus,
-  listOllamaModels,
+  defaultOllamaClient,
 } from '../services/ollama'
 import JSZip from 'jszip'
-import { saveAs } from 'file-saver'
-import { getPanelCleanerStatus } from '../services/panelcleaner-api'
+import * as FileSaver from 'file-saver'
+import { defaultPanelCleanerClient } from '../services/panelcleaner-api'
 import { clearProjectDraft, loadProjectDraft, saveProjectDraft } from '../services/projectDraftStorage'
 import type { AppRuntime, RuntimeExportFile } from './types'
 
-export const webRuntime: AppRuntime = {
-  kind: 'web',
-  capabilities: {
+export class WebRuntime implements AppRuntime {
+  readonly kind = 'web'
+
+  readonly capabilities = {
     canStartLocalServices: false,
     canPickNativeFolders: typeof window !== 'undefined' && 'showDirectoryPicker' in window,
     canSecureStoreSecrets: false,
     canUseCustomProtocolAuth: false,
-  },
-  ollama: {
-    getServerStatus: getOllamaStatus,
-    listModels: listOllamaModels,
-  },
-  panelCleaner: {
-    getStatus: getPanelCleanerStatus,
-  },
-  files: {
+  }
+
+  readonly ollama = {
+    getServerStatus: defaultOllamaClient.getStatus.bind(defaultOllamaClient),
+    listModels: defaultOllamaClient.listModels.bind(defaultOllamaClient),
+  }
+
+  readonly panelCleaner = {
+    getStatus: defaultPanelCleanerClient.getStatus.bind(defaultPanelCleanerClient),
+  }
+
+  readonly files = {
     saveFile,
     saveExportFiles,
-  },
-  projectDraft: {
+  }
+
+  readonly projectDraft = {
     save: saveProjectDraft,
     load: loadProjectDraft,
     clear: clearProjectDraft,
-  },
+  }
 }
+
+export const webRuntime: AppRuntime = new WebRuntime()
 
 type DirectoryPicker = () => Promise<{
   getFileHandle: (name: string, options: { create: boolean }) => Promise<{
@@ -44,7 +50,7 @@ type DirectoryPicker = () => Promise<{
 }>
 
 async function saveFile(file: RuntimeExportFile): Promise<void> {
-  saveAs(file.blob, file.name)
+  FileSaver.saveAs(file.blob, file.name)
 }
 
 async function saveExportFiles(files: RuntimeExportFile[], archiveName: string): Promise<'folder' | 'zip'> {
@@ -72,7 +78,7 @@ async function saveExportFiles(files: RuntimeExportFile[], archiveName: string):
     zip.file(file.name, file.blob)
   }
   const content = await zip.generateAsync({ type: 'blob' })
-  saveAs(content, `${safeArchiveName(archiveName)}.zip`)
+  FileSaver.saveAs(content, `${safeArchiveName(archiveName)}.zip`)
   return 'zip'
 }
 

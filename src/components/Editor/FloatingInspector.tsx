@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useFloatingPanel } from '../../hooks/useFloatingPanel'
 import { useAppStore } from '../../store/appStore'
 import type { ProcessingMode, TextRegion } from '../../types'
-import { Cpu, Eye, EyeOff, FileSearch, GripVertical, LayoutGrid, List, Loader2, ScrollText, Trash2, X } from 'lucide-react'
+import { Cpu, Eye, EyeOff, FileSearch, GripVertical, Loader2, ScrollText, Trash2, X } from 'lucide-react'
 import PropertiesPanel from './PropertiesPanel'
 import { Badge, Button, DisclosureSection, IconButton, TabPanel, Tabs } from '../ui/primitives'
 import type { ActiveTool } from '../../types'
@@ -57,7 +57,7 @@ export default function FloatingInspector({
     defaultVisible: true,
   })
   const store = useAppStore()
-  const { activeTool, workspaceMode, panels } = store
+  const { activeTool, panels } = store
   const brushToolActive = activeTool === 'brush' || activeTool === 'eraser' || activeTool === 'eyedropper'
   const preferredTab: InspectorTab = region ? 'text' : brushToolActive ? 'brush' : 'page'
   const [activeTab, setActiveTab] = useState<InspectorTab>(preferredTab)
@@ -226,27 +226,7 @@ export default function FloatingInspector({
 
           <TabPanel className="space-y-4 pt-3">
             <DisclosureSection title="การแสดงผล">
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant={workspaceMode === 'focus' ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={() => store.setWorkspaceMode('focus')}
-                >
-                  <List size={12} />
-                  หน้าเดียว
-                </Button>
-                <Button
-                  variant={workspaceMode === 'board' ? 'primary' : 'ghost'}
-                  size="sm"
-                  disabled={pageCount <= 1}
-                  onClick={() => store.setWorkspaceMode('board')}
-                >
-                  <LayoutGrid size={12} />
-                  รวมหน้า
-                </Button>
-              </div>
-
-              {pageCount > 1 && workspaceMode === 'board' && (
+              {pageCount > 1 && (
                 <Button variant="ghost" size="sm" onClick={onToggleFilmstrip}>
                   {showFilmstrip ? 'ซ่อนแถบหน้า' : 'แสดงแถบหน้า'}
                 </Button>

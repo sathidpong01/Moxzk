@@ -80,6 +80,9 @@ Root: `MG_Translater`
 |   |-- batch-processing.test.mjs
 |   |-- d1-schema.test.mjs
 |   |-- editor-model.test.mjs
+|   |-- export-drawer.test.mjs
+|   |-- export-preview-cache.test.mjs
+|   |-- export-preview-viewport.test.mjs
 |   |-- export-preview.test.mjs
 |   |-- exporter.test.mjs
 |   |-- inline-text-editor.test.mjs
@@ -157,8 +160,11 @@ Root: `MG_Translater`
 |   |   |-- cleanup-provider.ts
 |   |   |-- cloudflareApi.ts
 |   |   |-- editorCursor.ts
+|   |   |-- exportDrawer.ts
 |   |   |-- exporter.ts
 |   |   |-- exportPreview.ts
+|   |   |-- exportPreviewCache.ts
+|   |   |-- exportPreviewViewport.ts
 |   |   |-- exportRendering.ts
 |   |   |-- fontStorage.ts
 |   |   |-- imageCache.ts
@@ -206,16 +212,6 @@ Root: `MG_Translater`
 |   |-- index.css
 |   |-- main.tsx
 |   `-- vite-env.d.ts
-|-- supabase/
-|   |-- functions/
-|   |   |-- _shared/
-|   |   |   `-- cors.ts
-|   |   |-- r2-upload/
-|   |   |   `-- index.ts
-|   |   `-- r2-url/
-|   |       `-- index.ts
-|   `-- migrations/
-|       `-- 001_initial_schema.sql
 |-- .diff.txt
 |-- .gitignore
 |-- .store_new.ts

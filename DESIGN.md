@@ -45,6 +45,11 @@ MG_Translater คือเครื่องมือทำความสะอ
    - object ใน R2 ต้องมี metadata ใน D1 และต้องผ่าน ownership checks ก่อนเข้าถึง
    - ห้ามให้ browser หรือ client code เชื่อ key/path เพียงอย่างเดียว
 
+7. `Clear editor affordances`
+   - สิ่งที่คลิกได้ต้องแสดง cursor แบบ clickable ให้ชัดเจน
+   - สิ่งที่ปิดใช้งานต้องดูและรู้สึกต่างจาก action ปกติ
+   - drag handle, canvas tool cursor, และ resize/transform affordance ต้องไม่ถูกทำให้เหมือนปุ่มทั่วไป
+
 ## Explicit Non-Goals
 
 - ไม่ทำ mobile-first UI ในเฟสปัจจุบัน
@@ -83,7 +88,7 @@ React + Vite App
 - `Local AI/cleanup runtime` สำหรับงานประมวลผลภาพและโมเดลที่ต้องรันใกล้เครื่องผู้ใช้
 - `Cloud persistence layer` สำหรับ auth, albums, metadata, และ object storage
 
-หมายเหตุ: repo ยังมี artifact เก่าบางส่วน เช่น `supabase/` แต่เส้นทางที่รองรับและใช้งานจริงในปัจจุบันคือ Cloudflare Worker + D1 + R2 เท่านั้น เว้นแต่จะมีการตัดสินใจ migration ใหม่อย่างชัดเจน
+หมายเหตุ: เส้นทางที่รองรับและใช้งานจริงในปัจจุบันคือ Cloudflare Worker + D1 + R2 เท่านั้น เว้นแต่จะมีการตัดสินใจ migration ใหม่อย่างชัดเจน
 
 ## Core Architecture
 
@@ -106,7 +111,16 @@ UI ถูกออกแบบให้ editor เป็นแกนกลาง
 
 - `UploadStep` สำหรับนำรูปเข้า
 - `EditStep` สำหรับ workflow หลักของโปรดักต์
-- `ExportStep` สำหรับส่งออกไฟล์
+- `ExportDrawer` สำหรับ preview, เลือก format/quality, และส่งออกไฟล์โดยไม่พาผู้ใช้ออกจาก editor
+
+surface ปัจจุบันของ editor ประกอบด้วย:
+
+- `ArtboardWorkspace` เป็น canvas หลักแบบ multi-artboard ที่แสดงหลายหน้าใน workspace เดียว
+- `PanelToggleBar` เป็น toolbar สำหรับ tool, undo/redo, zoom, fit view, และ workspace navigation
+- `FloatingInspector` เป็นแผงปรับข้อความ แปรง และงานระดับหน้า
+- `ContextualTextHud` เป็น HUD ที่โผล่ใกล้ text region สำหรับแก้ typography/translate/delete เร็ว
+- `ImageStrip` เป็น filmstrip สำหรับสลับหน้าในงานหลายหน้า
+- `AlbumListModal` และ `ExportDrawer` เป็น modal/drawer เสริม workflow โดยไม่เปลี่ยน model หลักของ editor
 
 ### 2. Editor Model
 
@@ -128,6 +142,8 @@ entity สำคัญ:
 - หน้าเป็นหน่วยงานหลักของระบบ
 - ผู้ใช้แก้ active page แต่ยังต้องมองเห็น context ของงานหลายหน้าได้
 - draft snapshot ต้องเก็บทั้งรายการหน้า ไม่ใช่เฉพาะหน้าที่กำลังเปิด
+- workspace ปัจจุบันเป็น multi-artboard board-first: เห็นหลายหน้าและจัดลำดับหน้าใน canvas เดียว
+- artboard position และ page order เป็น state ของหน้าและต้อง sync กลับ album เมื่อบันทึก
 
 ### 3. Text Layout Strategy
 
@@ -307,9 +323,12 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 แต่ละ page เก็บ:
 
 - page order
+- artboard position
 - original/cleaned keys
 - thumbnail/hash metadata
 - serialized edit payload
+
+ตอนเปิด album ระบบ fetch page payload แบบเต็มเพื่อสร้าง `ImageEntry` ทุกหน้า แล้ว hydrate รูปของ active page ก่อน ส่วนรูปหน้าอื่นสามารถโหลดต่อแบบ background ได้เพื่อไม่บล็อกการกลับเข้า editor
 
 ## Primary User Flows
 
@@ -318,14 +337,15 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 1. ผู้ใช้อัปโหลดหลายรูป
 2. ระบบสร้าง `ImageEntry` ต่อหน้า
 3. editor เปิดเป็น multi-artboard workspace
-4. ผู้ใช้เลือก run AI หรือแก้ด้วยมือก่อนก็ได้
+4. ผู้ใช้ใช้ filmstrip หรือเริ่มแก้ด้วยมือก่อนก็ได้
+5. ผู้ใช้เลือก run AI แบบหน้าเดียวหรือ batch ได้จาก workflow เดียวกัน
 
 ### 2. Open existing album
 
 1. ผู้ใช้เปิด album modal
 2. เลือก album
 3. ระบบ fetch ทุกหน้าแบบเต็ม
-4. ระบบโหลดทุกหน้าเข้า editor พร้อมเลือกหน้าแรกเป็น active page
+4. ระบบโหลดทุกหน้าเข้า editor พร้อมเลือกหน้าแรกเป็น active page หรือ page ที่ request จาก detail view
 5. modal ปิดและผู้ใช้กลับเข้าสู่ editor ทันที
 
 นี่คือ contract ปัจจุบันของโปรดักต์ และควรถูกถือเป็น default behavior
@@ -347,9 +367,21 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 
 ### 5. Export
 
-1. render output จาก editor state
-2. ถ้า runtime รองรับ เลือก folder แล้วเขียนไฟล์ตรง
-3. ถ้าไม่รองรับ fallback เป็น ZIP
+1. เปิด `ExportDrawer` จาก editor
+2. เลือก format, quality, preview mode, และหน้าเป้าหมาย
+3. drawer render preview จาก editor state และให้เทียบ before/after เมื่อมีข้อมูลพอ
+4. ถ้า runtime รองรับ เลือก folder แล้วเขียนไฟล์ตรง
+5. ถ้าไม่รองรับ fallback เป็น ZIP
+
+## Interaction and Cursor Affordance
+
+กฎ UX สำหรับ target ที่โต้ตอบได้:
+
+- button, icon button, toolbar tool, tab, dropdown item, listbox trigger/option, album card, export preview card, และ label ที่เปิด file picker ต้องใช้ cursor แบบ pointer
+- disabled action ต้องใช้ `not-allowed` และไม่ควรมี hover state ที่สื่อว่า action พร้อมใช้งาน
+- drag handle ต้องใช้ `grab` และ active drag ต้องใช้ `grabbing`
+- canvas/editor stage ต้องใช้ cursor ตาม active tool เช่น select, brush, eraser, eyedropper, และ pan ผ่าน `getEditorToolCursor()`
+- pointer feedback เป็นส่วนหนึ่งของ accessibility และ operability ไม่ใช่แค่ visual polish
 
 ## Security and Trust Boundaries
 
@@ -396,6 +428,7 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 5. การเปิด album ต้องยังคง direct-open เข้า editor เป็นค่าเริ่มต้น
 6. ถ้าทำงานกับข้อความภาษาไทย ต้องรักษา UTF-8 และเลี่ยง replacement character
 7. การเปลี่ยน backend หลักต้องถือเป็น architectural decision แยก ไม่ใช่ refactor ย่อย
+8. interactive UI ใหม่ต้องกำหนด cursor/focus/disabled state ให้ตรงกับพฤติกรรมจริง
 
 ## Current Limitations
 
@@ -422,6 +455,9 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 - `src/store/appStore.ts`
 - `src/store/albumStore.ts`
 - `src/services/batch-processing.ts`
+- `src/services/editorCursor.ts`
+- `src/components/Editor/ArtboardWorkspace.tsx`
+- `src/components/Editor/ExportDrawer.tsx`
 - `src/services/projectDraftStorage.ts`
 - `src/runtime/types.ts`
 - `src/runtime/webRuntime.ts`

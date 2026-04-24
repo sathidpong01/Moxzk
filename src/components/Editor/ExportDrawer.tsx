@@ -79,7 +79,7 @@ function SegmentedPicker<T extends string | number>({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              'min-w-0 min-h-10 rounded-[14px] border py-2 text-sm font-bold transition',
+              'min-w-0 min-h-10 cursor-pointer rounded-[14px] border py-2 text-sm font-bold transition',
               stretch && 'flex-1',
               buttonClassName,
               active
@@ -103,7 +103,7 @@ function PreviewZoomBar({
   onChange: (zoom: number) => void
 }) {
   const zoomPercent = Math.round(clampViewerZoom(zoom) * 100)
-  const buttonClassName = 'flex h-10 w-10 items-center justify-center rounded-[14px] border border-transparent text-[var(--mg-muted)] transition hover:border-white/6 hover:bg-white/[0.05] hover:text-[var(--mg-text)]'
+  const buttonClassName = 'flex h-10 w-10 cursor-pointer items-center justify-center rounded-[14px] border border-transparent text-[var(--mg-muted)] transition hover:border-white/6 hover:bg-white/[0.05] hover:text-[var(--mg-text)]'
 
   return (
     <div className="flex items-center gap-1 rounded-[18px] border border-white/6 bg-white/[0.03] p-1.5">
@@ -491,7 +491,7 @@ export default function ExportDrawer({
                           disabled={!canScrollPreviewBackward}
                           className={cn(
                             'absolute left-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/8 bg-[rgba(7,7,7,0.88)] text-[var(--mg-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
-                            canScrollPreviewBackward ? 'opacity-100 hover:bg-[rgba(18,18,18,0.96)]' : 'pointer-events-none opacity-0',
+                            canScrollPreviewBackward ? 'cursor-pointer opacity-100 hover:bg-[rgba(18,18,18,0.96)]' : 'pointer-events-none opacity-0',
                           )}
                         >
                           <ChevronLeft size={18} />
@@ -504,7 +504,7 @@ export default function ExportDrawer({
                           disabled={!canScrollPreviewForward}
                           className={cn(
                             'absolute right-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/8 bg-[rgba(7,7,7,0.88)] text-[var(--mg-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
-                            canScrollPreviewForward ? 'opacity-100 hover:bg-[rgba(18,18,18,0.96)]' : 'pointer-events-none opacity-0',
+                            canScrollPreviewForward ? 'cursor-pointer opacity-100 hover:bg-[rgba(18,18,18,0.96)]' : 'pointer-events-none opacity-0',
                           )}
                         >
                           <ChevronRight size={18} />
@@ -533,7 +533,7 @@ export default function ExportDrawer({
                                   aria-pressed={isActive}
                                   onClick={() => setActivePreviewId(entry.id)}
                                   className={cn(
-                                    'w-[8.5rem] overflow-hidden rounded-[18px] border bg-white/[0.025] text-left transition hover:border-white/14 hover:bg-white/[0.04]',
+                                    'w-[8.5rem] cursor-pointer overflow-hidden rounded-[18px] border bg-white/[0.025] text-left transition hover:border-white/14 hover:bg-white/[0.04]',
                                     isActive
                                       ? 'border-[rgba(96,165,250,0.35)] bg-[rgba(37,99,235,0.12)]'
                                       : 'border-white/6',

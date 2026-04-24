@@ -194,7 +194,7 @@ export function DisclosureSection({
     <Disclosure defaultOpen={defaultOpen}>
       {({ open }) => (
         <section className={cn('rounded-[8px] border border-[var(--mg-border)] bg-white/[0.025]', className)}>
-          <DisclosureButton className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
+          <DisclosureButton className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left">
             <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">{title}</span>
             <ChevronDown
               size={14}
@@ -268,7 +268,7 @@ export function SelectField<T extends string>({
   return (
     <Listbox value={value} onChange={onChange}>
       <div className={cn('relative isolate', className)}>
-        <ListboxButton className={cn('mg-control flex items-center justify-between gap-2 text-left', buttonClassName)}>
+        <ListboxButton className={cn('mg-control flex cursor-pointer items-center justify-between gap-2 text-left', buttonClassName)}>
           <span className="truncate">{selected?.label}</span>
           <ChevronDown size={14} className="shrink-0 text-[var(--mg-muted)]" aria-hidden="true" />
         </ListboxButton>
@@ -280,7 +280,7 @@ export function SelectField<T extends string>({
             <ListboxOption
               key={option.value}
               value={option.value}
-              className="mg-popover-item cursor-default"
+              className="mg-popover-item"
             >
               {({ selected }) => (
                 <>
@@ -340,7 +340,7 @@ export function DropdownMenu({
 }) {
   return (
     <Menu>
-      <MenuButton as="div">{trigger}</MenuButton>
+      <MenuButton as="div" className="inline-flex cursor-pointer">{trigger}</MenuButton>
       <MenuItems anchor="bottom end" className={cn('mg-popover-list', className)}>
         {children}
       </MenuItems>
@@ -384,7 +384,7 @@ export function Tabs<T extends string>({
         {options.map((option) => (
           <Tab
             key={option.value}
-            className="rounded-[6px] px-3 py-1 text-xs font-bold text-[var(--mg-muted)] data-[selected]:bg-white/10 data-[selected]:text-[var(--mg-text)]"
+            className="cursor-pointer rounded-[6px] px-3 py-1 text-xs font-bold text-[var(--mg-muted)] data-[selected]:bg-white/10 data-[selected]:text-[var(--mg-text)]"
           >
             {option.label}
           </Tab>

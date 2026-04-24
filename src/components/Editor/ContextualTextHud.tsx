@@ -613,14 +613,14 @@ function OutlineStrokeIcon() {
 
 function hudButtonClass(active: boolean): string {
   return cn(
-    'flex h-9 w-9 items-center justify-center rounded-[12px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
+    'flex h-9 w-9 cursor-pointer items-center justify-center rounded-[12px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
     active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
   )
 }
 
 function hudSegmentButtonClass(active: boolean): string {
   return cn(
-    'flex h-8 w-8 items-center justify-center rounded-[10px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
+    'flex h-8 w-8 cursor-pointer items-center justify-center rounded-[10px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
     active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
   )
 }

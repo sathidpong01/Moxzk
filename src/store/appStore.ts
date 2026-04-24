@@ -7,7 +7,6 @@ import type {
   ActiveTool,
   BrushStroke,
   ImageEntry,
-  WorkspaceMode,
 } from '../types'
 import type { AlbumPage } from '../types/database'
 import { DEFAULT_MOOD_MAP, restoreCustomFont } from '../config/fonts'
@@ -24,7 +23,14 @@ import {
   syncActiveEntryBrushStrokes,
   undoBrushStroke,
 } from '../services/brushStrokes'
+import {
+  editorHistoryService,
+  type EditorHistoryEntry,
+  type TextHistoryEntry,
+} from '../services/editorHistory'
 import { toast } from 'sonner'
+
+export type { EditorHistoryEntry, TextHistoryEntry } from '../services/editorHistory'
 
 const DEFAULT_SETTINGS: AppSettings = {
   panelCleanerBridgeUrl: import.meta.env.VITE_PANELCLEANER_BRIDGE_URL ?? 'http://localhost:5055',
@@ -46,27 +52,6 @@ export type RegionUpdateOptions = {
   historyBefore?: TextRegion[]
   historyKey?: string
 }
-
-export interface TextHistoryEntry {
-  activeImageId: string | null
-  before: TextRegion[]
-  after: TextRegion[]
-  selectedRegionId: string | null
-  key?: string
-}
-
-export type EditorHistoryEntry =
-  | ({
-      kind: 'text'
-    } & TextHistoryEntry)
-  | {
-      kind: 'brush'
-      activeImageId: string | null
-      before: BrushStroke[]
-      after: BrushStroke[]
-      selectedRegionId: string | null
-      key?: string
-    }
 
 interface AppStore {
   // Navigation
@@ -91,8 +76,6 @@ interface AppStore {
   updateArtboardPosition: (id: string, x: number, y: number) => void
   moveArtboardAndReorder: (id: string, x: number, y: number) => ImageEntry[]
   resetArtboardLayout: () => void
-  workspaceMode: WorkspaceMode
-  setWorkspaceMode: (mode: WorkspaceMode) => void
 
   // Regions
   regions: TextRegion[]
@@ -256,8 +239,6 @@ const DEFAULT_PANELS: Record<PanelId, boolean> = {
   logs: false,
 }
 
-const MAX_TEXT_HISTORY = 80
-
 function syncActiveEntryRegions(
   entries: ImageEntry[],
   activeImageId: string | null,
@@ -277,132 +258,6 @@ function syncEntryRegions(
   return entries.map((entry) =>
     entry.id === entryId ? { ...entry, regions } : entry,
   )
-}
-
-function regionListsEqual(a: TextRegion[], b: TextRegion[]): boolean {
-  if (a.length !== b.length) return false
-  return JSON.stringify(a) === JSON.stringify(b)
-}
-
-function cloneTextRegions(regions: TextRegion[]): TextRegion[] {
-  return regions.map((region) => ({
-    ...region,
-    bbox: { ...region.bbox },
-  }))
-}
-
-function cloneBrushStrokes(strokes: BrushStroke[]): BrushStroke[] {
-  return strokes.map((stroke) => ({
-    ...stroke,
-    points: [...stroke.points],
-  }))
-}
-
-function pushTextHistory(
-  stack: TextHistoryEntry[],
-  entry: TextHistoryEntry,
-): TextHistoryEntry[] {
-  if (regionListsEqual(entry.before, entry.after)) return stack
-  const clonedEntry = {
-    ...entry,
-    before: cloneTextRegions(entry.before),
-    after: cloneTextRegions(entry.after),
-  }
-  const last = stack[stack.length - 1]
-  if (
-    clonedEntry.key &&
-    last?.key === clonedEntry.key &&
-    last.activeImageId === clonedEntry.activeImageId
-  ) {
-    return [
-      ...stack.slice(0, -1),
-      {
-        ...clonedEntry,
-        before: last.before,
-      },
-    ].slice(-MAX_TEXT_HISTORY)
-  }
-  return [...stack, clonedEntry].slice(-MAX_TEXT_HISTORY)
-}
-
-function cloneEditorHistoryEntry(entry: EditorHistoryEntry): EditorHistoryEntry {
-  if (entry.kind === 'text') {
-    return {
-      ...entry,
-      before: cloneTextRegions(entry.before),
-      after: cloneTextRegions(entry.after),
-    }
-  }
-  return {
-    ...entry,
-    before: cloneBrushStrokes(entry.before),
-    after: cloneBrushStrokes(entry.after),
-  }
-}
-
-function pushEditorHistory(
-  stack: EditorHistoryEntry[],
-  entry: EditorHistoryEntry,
-): EditorHistoryEntry[] {
-  if (JSON.stringify(entry.before) === JSON.stringify(entry.after)) return stack
-
-  const clonedEntry = cloneEditorHistoryEntry(entry)
-  const last = stack[stack.length - 1]
-  if (
-    clonedEntry.kind === 'text' &&
-    clonedEntry.key &&
-    last?.kind === 'text' &&
-    last.key === clonedEntry.key &&
-    last.activeImageId === clonedEntry.activeImageId
-  ) {
-    return [
-      ...stack.slice(0, -1),
-      {
-        ...clonedEntry,
-        before: last.before,
-      },
-    ].slice(-MAX_TEXT_HISTORY)
-  }
-  return [...stack, clonedEntry].slice(-MAX_TEXT_HISTORY)
-}
-
-function applyEditorHistoryEntry(
-  state: AppStore,
-  entry: EditorHistoryEntry,
-  direction: 'undo' | 'redo',
-): Pick<AppStore, 'regions' | 'brushStrokes' | 'imageEntries' | 'selectedRegionId' | '_brushRedoStack'> {
-  if (entry.kind === 'text') {
-    const regions = direction === 'undo' ? entry.before : entry.after
-    return {
-      regions,
-      brushStrokes: state.brushStrokes,
-      imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, regions),
-      selectedRegionId: entry.selectedRegionId,
-      _brushRedoStack: state._brushRedoStack,
-    }
-  }
-
-  const brushStrokes = direction === 'undo' ? entry.before : entry.after
-  const redoSlice = direction === 'undo'
-    ? entry.after.slice(entry.before.length)
-    : []
-  return {
-    regions: state.regions,
-    brushStrokes,
-    imageEntries: syncActiveEntryBrushStrokes(state.imageEntries, state.activeImageId, brushStrokes),
-    selectedRegionId: entry.selectedRegionId,
-    _brushRedoStack: redoSlice,
-  }
-}
-
-function findLastActiveHistoryIndex(
-  stack: EditorHistoryEntry[],
-  activeImageId: string | null,
-): number {
-  for (let index = stack.length - 1; index >= 0; index -= 1) {
-    if (stack[index].activeImageId === activeImageId) return index
-  }
-  return -1
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -547,9 +402,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ...getDefaultArtboardCoordinates(index),
       })),
     })),
-  workspaceMode: 'board',
-  setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
-
   // Regions
   regions: [],
   setRegions: (regions) => set({
@@ -570,14 +422,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, nextRegions),
         ...(trackHistory
           ? {
-              _textUndoStack: pushTextHistory(state._textUndoStack, {
+              _textUndoStack: editorHistoryService.pushTextHistory(state._textUndoStack, {
                 activeImageId: state.activeImageId,
                 before: historyBefore,
                 after: nextRegions,
                 selectedRegionId: state.selectedRegionId,
                 key: options?.historyKey,
               }),
-              _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+              _editorUndoStack: editorHistoryService.pushEditorHistory(state._editorUndoStack, {
                 kind: 'text',
                 activeImageId: state.activeImageId,
                 before: historyBefore,
@@ -603,14 +455,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
           imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, nextRegions),
           ...(trackHistory
             ? {
-                _textUndoStack: pushTextHistory(state._textUndoStack, {
+                _textUndoStack: editorHistoryService.pushTextHistory(state._textUndoStack, {
                   activeImageId: state.activeImageId,
                   before: historyBefore,
                   after: nextRegions,
                   selectedRegionId: state.selectedRegionId,
                   key: options?.historyKey,
                 }),
-                _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+                _editorUndoStack: editorHistoryService.pushEditorHistory(state._editorUndoStack, {
                   kind: 'text',
                   activeImageId: state.activeImageId,
                   before: historyBefore,
@@ -637,14 +489,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         imageEntries: syncEntryRegions(state.imageEntries, entryId, nextRegions),
         ...(trackHistory
           ? {
-              _textUndoStack: pushTextHistory(state._textUndoStack, {
+              _textUndoStack: editorHistoryService.pushTextHistory(state._textUndoStack, {
                 activeImageId: entryId,
                 before: historyBefore,
                 after: nextRegions,
                 selectedRegionId: null,
                 key: options?.historyKey,
               }),
-              _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+              _editorUndoStack: editorHistoryService.pushEditorHistory(state._editorUndoStack, {
                 kind: 'text',
                 activeImageId: entryId,
                 before: historyBefore,
@@ -667,13 +519,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
         regions: nextRegions,
         imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, nextRegions),
         selectedRegionId: nextSelectedRegionId,
-        _textUndoStack: pushTextHistory(state._textUndoStack, {
+        _textUndoStack: editorHistoryService.pushTextHistory(state._textUndoStack, {
           activeImageId: state.activeImageId,
           before,
           after: nextRegions,
           selectedRegionId: state.selectedRegionId,
         }),
-        _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+        _editorUndoStack: editorHistoryService.pushEditorHistory(state._editorUndoStack, {
           kind: 'text',
           activeImageId: state.activeImageId,
           before,
@@ -702,7 +554,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, entry.before),
       selectedRegionId: entry.selectedRegionId,
       _textUndoStack: state._textUndoStack.slice(0, targetIndex),
-      _textRedoStack: [...state._textRedoStack, ...undone.slice().reverse()].slice(-MAX_TEXT_HISTORY),
+      _textRedoStack: [...state._textRedoStack, ...undone.slice().reverse()].slice(-editorHistoryService.maxEntries),
     }))
     return true
   },
@@ -717,7 +569,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       regions: entry.after,
       imageEntries: syncActiveEntryRegions(state.imageEntries, state.activeImageId, entry.after),
       selectedRegionId: entry.selectedRegionId,
-      _textUndoStack: [...state._textUndoStack, ...redone.slice().reverse()].slice(-MAX_TEXT_HISTORY),
+      _textUndoStack: [...state._textUndoStack, ...redone.slice().reverse()].slice(-editorHistoryService.maxEntries),
       _textRedoStack: state._textRedoStack.slice(0, targetIndex),
     }))
     return true
@@ -734,10 +586,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       let applied = 0
 
       while (applied < count) {
-        const index = findLastActiveHistoryIndex(undoStack, state.activeImageId)
+        const index = editorHistoryService.findLastActiveHistoryIndex(undoStack, state.activeImageId)
         if (index < 0) break
         const [entry] = undoStack.splice(index, 1)
-        const appliedState = applyEditorHistoryEntry(nextState, entry, 'undo')
+        const appliedState = editorHistoryService.applyEditorHistoryEntry(nextState, entry, 'undo')
         nextState = {
           ...nextState,
           ...appliedState,
@@ -753,7 +605,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         selectedRegionId: nextState.selectedRegionId,
         _brushRedoStack: nextState._brushRedoStack,
         _editorUndoStack: undoStack,
-        _editorRedoStack: redoStack.slice(-MAX_TEXT_HISTORY),
+        _editorRedoStack: redoStack.slice(-editorHistoryService.maxEntries),
       }
     })
     return true
@@ -770,10 +622,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       let applied = 0
 
       while (applied < count) {
-        const index = findLastActiveHistoryIndex(redoStack, state.activeImageId)
+        const index = editorHistoryService.findLastActiveHistoryIndex(redoStack, state.activeImageId)
         if (index < 0) break
         const [entry] = redoStack.splice(index, 1)
-        const appliedState = applyEditorHistoryEntry(nextState, entry, 'redo')
+        const appliedState = editorHistoryService.applyEditorHistoryEntry(nextState, entry, 'redo')
         nextState = {
           ...nextState,
           ...appliedState,
@@ -788,7 +640,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         imageEntries: nextState.imageEntries,
         selectedRegionId: nextState.selectedRegionId,
         _brushRedoStack: nextState._brushRedoStack,
-        _editorUndoStack: undoStack.slice(-MAX_TEXT_HISTORY),
+        _editorUndoStack: undoStack.slice(-editorHistoryService.maxEntries),
         _editorRedoStack: redoStack,
       }
     })
@@ -820,7 +672,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         brushStrokes: next.brushStrokes,
         _brushRedoStack: next.redoStack,
         imageEntries: syncActiveEntryBrushStrokes(state.imageEntries, state.activeImageId, next.brushStrokes),
-        _editorUndoStack: pushEditorHistory(state._editorUndoStack, {
+        _editorUndoStack: editorHistoryService.pushEditorHistory(state._editorUndoStack, {
           kind: 'brush',
           activeImageId: state.activeImageId,
           before: state.brushStrokes,
@@ -950,7 +802,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       brushStrokes: firstEntry?.brushStrokes ?? [],
       cleanedImageUrl: firstEntry?.cleanedImageUrl ?? null,
       processError: null,
-      workspaceMode: 'board',
       _textUndoStack: [],
       _textRedoStack: [],
       _editorUndoStack: [],
@@ -1046,7 +897,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       originalImageUrl: null,
       regions: [],
       selectedRegionId: null,
-      workspaceMode: 'board',
       panels: { ...DEFAULT_PANELS },
       _textUndoStack: [],
       _textRedoStack: [],
@@ -1206,7 +1056,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       isProcessing: true,
       processKind: 'loading',
       activeTool: 'select',
-      workspaceMode: 'board',
     })
 
     // Download full image for active page

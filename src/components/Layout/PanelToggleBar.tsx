@@ -283,6 +283,7 @@ function DockNumericField({
 function dockButtonClass(enabled: boolean): string {
   return cn(
     'flex h-9 w-9 items-center justify-center rounded-[12px] text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+    enabled && 'cursor-pointer',
     !enabled && 'cursor-not-allowed opacity-40',
   )
 }
@@ -290,12 +291,13 @@ function dockButtonClass(enabled: boolean): string {
 function dockCountButtonClass(enabled: boolean): string {
   return cn(
     'flex h-9 items-center gap-1 rounded-[12px] px-2 text-xs font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+    enabled && 'cursor-pointer',
     !enabled && 'cursor-not-allowed opacity-40',
   )
 }
 
 function dockFitButtonClass(): string {
-  return 'flex h-9 items-center gap-1 rounded-[12px] px-3 text-xs font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]'
+  return 'flex h-9 cursor-pointer items-center gap-1 rounded-[12px] px-3 text-xs font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]'
 }
 
 function describeEditorHistory(entry: EditorHistoryEntry, direction: 'undo' | 'redo'): string {

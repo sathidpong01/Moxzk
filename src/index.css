@@ -40,6 +40,15 @@ textarea {
   font: inherit;
 }
 
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 :focus {
   outline: none;
 }
@@ -186,6 +195,7 @@ textarea {
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1;
+  cursor: pointer;
   transition:
     background-color 120ms ease,
     border-color 120ms ease,
@@ -210,6 +220,7 @@ textarea {
   border: 1px solid transparent;
   border-radius: 7px;
   color: var(--mg-muted);
+  cursor: pointer;
   transition:
     background-color 120ms ease,
     border-color 120ms ease,
@@ -255,6 +266,11 @@ textarea {
 .mg-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.mg-icon-button:disabled,
+.mg-tool:disabled {
+  cursor: not-allowed;
 }
 
 .mg-button-ghost {
@@ -370,6 +386,11 @@ textarea {
 .mg-slider {
   width: 100%;
   accent-color: var(--mg-accent);
+  cursor: pointer;
+}
+
+.mg-slider:disabled {
+  cursor: not-allowed;
 }
 
 .mg-divider {
@@ -409,6 +430,7 @@ textarea {
   color: var(--mg-muted);
   font-size: 0.8125rem;
   text-align: left;
+  cursor: pointer;
 }
 
 .mg-popover-item[data-focus],

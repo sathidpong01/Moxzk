@@ -14,7 +14,6 @@ import {
   useAppStore,
 } from '../../store/appStore'
 import { useAlbumStore } from '../../store/albumStore'
-import type { WorkspaceMode } from '../../types'
 import { resolveRegionFont } from '../../config/fonts'
 import { layoutTextInBox, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
 import { computeBrushFeather } from '../../services/brushStrokes'
@@ -34,7 +33,7 @@ import {
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import { translateSingleRegion } from '../../services/ollama'
-import { computeBoardViewport, computeFocusViewport } from '../../services/workspaceViewport'
+import { computeBoardViewport } from '../../services/workspaceViewport'
 import type { CanvasEditorHandle } from './CanvasEditor'
 import InlineTextEditor from './InlineTextEditor'
 import ContextualTextHud from './ContextualTextHud'
@@ -136,7 +135,6 @@ export default function ArtboardWorkspace({
 
   const activeImageId = useAppStore((s) => s.activeImageId)
   const activeTool = useAppStore((s) => s.activeTool)
-  const workspaceMode: WorkspaceMode = 'board'
   const switchImage = useAppStore((s) => s.switchImage)
   const removeImageEntry = useAppStore((s) => s.removeImageEntry)
   const reorderImages = useAppStore((s) => s.reorderImages)
@@ -372,27 +370,7 @@ export default function ArtboardWorkspace({
       artboards: boardViewportBounds,
     })
   ), [boardViewportBounds, stageSize])
-  const activeFocusBounds = useMemo(() => {
-    if (!activeArtboard) return null
-    const metrics = getArtboardSurfaceMetrics(activeArtboard)
-    return {
-      x: activeArtboard.x + metrics.surfaceX,
-      y: activeArtboard.y + metrics.surfaceY,
-      width: metrics.surfaceWidth,
-      height: metrics.surfaceHeight,
-    }
-  }, [activeArtboard])
-  const activeFocusViewport = useMemo(() => (
-    activeFocusBounds
-      ? computeFocusViewport({
-        stageSize,
-        artboard: activeFocusBounds,
-        paddingX: 260,
-        paddingY: 140,
-      })
-      : null
-  ), [activeFocusBounds, stageSize])
-  const zoomPercentBase = Math.max(activeFocusViewport?.zoom ?? 1, MIN_ZOOM)
+  const zoomPercentBase = Math.max(boardViewport.zoom, MIN_ZOOM)
   const zoomPercent = Math.max(1, Math.round((zoom / zoomPercentBase) * 100))
 
   useEffect(() => {
@@ -435,19 +413,8 @@ export default function ArtboardWorkspace({
     const clampedPercent = Math.max(minPercent, Math.min(maxPercent, percent))
     const nextZoom = roundZoom(zoomPercentBase * (clampedPercent / 100))
 
-    if (activeFocusBounds) {
-      const centerX = activeFocusBounds.x + activeFocusBounds.width / 2
-      const centerY = activeFocusBounds.y + activeFocusBounds.height / 2
-      applyViewportState({
-        zoom: nextZoom,
-        x: stageSize.width / 2 - centerX * nextZoom,
-        y: stageSize.height / 2 - centerY * nextZoom,
-      })
-      return
-    }
-
     applyZoom(nextZoom)
-  }, [activeFocusBounds, applyViewportState, applyZoom, stageSize.height, stageSize.width, zoomPercentBase])
+  }, [applyZoom, zoomPercentBase])
 
   const fitView = useCallback(() => {
     if (artboards.length === 0) return
@@ -1023,7 +990,6 @@ export default function ArtboardWorkspace({
                 artboard={artboard}
                 drawingLine={artboard.entry.id === activeImageId ? drawingLine : null}
                 activeTool={activeTool}
-                workspaceMode={workspaceMode}
                 isActive={artboard.entry.id === activeImageId}
                 brushPreview={{
                   color: activeTool === 'eraser' ? '#ff000080' : brushColor,
@@ -1040,7 +1006,6 @@ export default function ArtboardWorkspace({
                 key={`${artboard.entry.id}-text`}
                 artboard={artboard}
                 isActive={artboard.entry.id === activeImageId}
-                workspaceMode={workspaceMode}
                 showTextOverlay={showTextOverlay}
                 activeTool={activeTool}
                 onActivate={() => {
@@ -1361,7 +1326,6 @@ const ArtboardBase = memo(function ArtboardBase({
 interface ArtboardBrushOverlayProps extends ArtboardRenderProps {
   drawingLine: number[] | null
   activeTool: string
-  workspaceMode: WorkspaceMode
   isActive: boolean
   brushPreview: { color: string; size: number; opacity: number; shadowBlur: number }
 }
@@ -1370,12 +1334,9 @@ const ArtboardBrushOverlay = memo(function ArtboardBrushOverlay({
   artboard,
   drawingLine,
   activeTool,
-  workspaceMode,
-  isActive,
   brushPreview,
 }: ArtboardBrushOverlayProps) {
   const { entry, loaded, scale } = artboard
-  if (workspaceMode === 'focus' && !isActive) return null
   if (!loaded || entry.imageLoaded === false) return null
 
   return (
@@ -1420,7 +1381,6 @@ const ArtboardBrushOverlay = memo(function ArtboardBrushOverlay({
 
 interface ArtboardTextOverlayProps extends ArtboardRenderProps {
   isActive: boolean
-  workspaceMode: WorkspaceMode
   showTextOverlay: boolean
   activeTool: ActiveTool
   onActivate: () => void
@@ -1440,7 +1400,6 @@ interface ArtboardTextOverlayProps extends ArtboardRenderProps {
 const ArtboardTextOverlay = memo(function ArtboardTextOverlay({
   artboard,
   isActive,
-  workspaceMode,
   showTextOverlay,
   activeTool,
   onActivate,
@@ -1453,7 +1412,6 @@ const ArtboardTextOverlay = memo(function ArtboardTextOverlay({
   onStartInlineEdit,
 }: ArtboardTextOverlayProps) {
   const { entry, loaded, scale } = artboard
-  if (workspaceMode === 'focus' && !isActive) return null
   const canRenderTextOverlay = showTextOverlay && entry.imageLoaded !== false && Boolean(loaded)
   if (!canRenderTextOverlay || !loaded) return null
 
