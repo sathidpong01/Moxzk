@@ -2,11 +2,12 @@
 
 React/Vite image editor สำหรับคลีนภาพมังงะและแปลเป็นภาษาไทย โดยใช้ PanelCleaner, Ollama vision model และ Cloudflare Worker/D1/R2 เป็นแกนหลัก
 
-โปรเจคนี้อยู่ในช่วง web app ก่อน ยังไม่เพิ่ม Electron dependency. งานที่ต้องแตะ native โดยตรง เช่นหา executable, start service, secure local storage, native folder export และย้าย bridge เข้า main process จะเป็น Electron phase ภายหลัง
+โปรเจคนี้ยังเป็น web-first editor แต่มี Electron V1 dev shell แล้ว. Electron V1 ใช้ native IPC เฉพาะ export และ desktop draft persistence ก่อน ส่วนงาน native ที่ใหญ่กว่า เช่นหา executable, start service, secure local storage และ custom protocol auth ยังเป็นเฟสถัดไป
 
 ## Current Direction
 
 - Frontend: React 19 + Vite 7 + TypeScript
+- Desktop shell: Electron + electron-vite ผ่าน `AppRuntime`
 - UI: Tailwind CSS 4 + Headless UI primitives + custom studio-dark design system
 - Editor: Konva/react-konva พร้อม multi-artboard workspace
 - Cleanup: PanelCleaner external CLI ผ่าน local bridge
@@ -28,6 +29,7 @@ React/Vite image editor สำหรับคลีนภาพมังงะ�
 - Albums บน Cloudflare D1/R2 พร้อม Google OAuth, email/password, session cookie และ ownership checks
 - Export หลายหน้า โดยเลือกทุกหน้าเป็นค่าเริ่มต้น หรือเลือกเฉพาะบางหน้า
 - Export ผ่าน File System Access API เมื่อ browser รองรับ และ fallback เป็น ZIP
+- Electron dev shell รองรับ native save dialog, folder export และ desktop draft restore
 
 ## Architecture
 
@@ -83,6 +85,9 @@ scripts/
   panelcleaner-bridge.mjs
   *.test.mjs
 src/
+  runtime/
+    electronRuntime.ts
+    webRuntime.ts
   components/
     Albums/
     Auth/
@@ -91,8 +96,10 @@ src/
     Settings/
     Steps/
     ui/
-  runtime/
-    webRuntime.ts
+electron/
+  main/
+  preload/
+  shared/
   services/
     batch-processing.ts
     cleanup-provider.ts
@@ -134,6 +141,8 @@ pip install pcleaner-cli
 ```
 
 PanelCleaner อาจดาวน์โหลด model data ครั้งแรกหลายร้อย MB. โปรเจคนี้ใช้ PanelCleaner เป็น external CLI เพื่อหลีกเลี่ยงการ vendor GPLv3 code เข้ามาใน repo
+
+หมายเหตุ: repo นี้ตั้ง `.npmrc` เป็น `legacy-peer-deps=true` เพราะ `electron-vite@5` ยังประกาศ peer range ถึง Vite 7 แต่โปรเจคใช้ Vite 8 และผ่าน build/test ด้วย stack นี้แล้ว
 
 ## Local Environment
 
@@ -198,6 +207,21 @@ npm run dev
 เปิด `http://localhost:5173`
 
 Vite proxy จะส่ง `/api` ไปที่ `VITE_CLOUDFLARE_API_URL`. ถ้าไม่ได้ตั้งค่าไว้ จะ fallback ไป `http://localhost:8787` เพื่อให้ยังเปิด local Worker debug ได้ด้วย `npx wrangler dev --local --port 8787`
+
+เปิด Electron dev shell:
+
+```bash
+npm run electron:dev
+```
+
+Build Electron shell:
+
+```bash
+$env:VITE_CLOUDFLARE_API_URL = "https://mg-translater-api.<your-subdomain>.workers.dev"
+npm run electron:build
+```
+
+Electron production build ต้องตั้ง `VITE_CLOUDFLARE_API_URL` เพื่อให้ desktop app เรียก remote Cloudflare Worker ได้ชัดเจน. Dev shell ยังใช้ Vite dev server/proxy ได้เหมือน web dev.
 
 ## Cloudflare Resources
 

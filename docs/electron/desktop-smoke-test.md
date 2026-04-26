@@ -1,6 +1,16 @@
 # Desktop Smoke Test
 
-Use this checklist as the first acceptance path after adding the Electron shell. Desktop behavior is the target; browser-only success is not enough for this phase.
+Use this checklist as the acceptance path for Electron V1 and later desktop phases. Desktop behavior is the target; browser-only success is not enough for this phase.
+
+## V1 Acceptance
+
+1. Launch the Electron development app with `npm run electron:dev`.
+2. Open or create an editor project.
+3. Export as ZIP and confirm a native save dialog writes the archive.
+4. Export to folder and confirm individual images are written through the native folder picker.
+5. Close and relaunch the app; confirm desktop draft restore returns the page list, active page, regions, brush strokes, and local image assets.
+6. Confirm production Electron builds require `VITE_CLOUDFLARE_API_URL` for remote Worker API calls.
+7. Confirm Google OAuth navigation stays in the Electron window long enough for the localhost callback to set the Electron session cookie.
 
 ## Core Workflow
 

@@ -269,15 +269,20 @@ interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที
 
 ### Electron target
 
-เฟสถัดไปควรเพิ่ม Electron แบบ "เปลี่ยน runtime implementation ไม่เปลี่ยน business model"
+Electron V1 เพิ่ม shell แบบ "เปลี่ยน runtime implementation ไม่เปลี่ยน business model" แล้ว โดยยังคง renderer เป็น React/Vite browser-style app และให้ native action วิ่งผ่าน `AppRuntime`
 
-สิ่งที่คาดหวัง:
+สิ่งที่ V1 รองรับ:
+
+- native save dialog สำหรับ ZIP/single-file export
+- native folder export ผ่าน main process
+- desktop draft persistence โดยเก็บ manifest และ image assets ใต้ Electron `userData`
+- typed IPC เฉพาะ export/draft โดยไม่ expose raw `ipcRenderer`
+
+สิ่งที่ยังเป็นเฟสถัดไป:
 
 - native start/check service ของ Ollama และ PanelCleaner
 - secure local storage สำหรับ secret
-- native folder/file export ที่เสถียรกว่า browser fallback
 - custom protocol auth callback เช่น `mg-translater://auth/callback`
-- typed IPC หลัง `AppRuntime` โดยไม่เปิด Node access ให้ renderer ตรงๆ
 
 ข้อกำหนดเชิงสถาปัตยกรรม:
 
@@ -432,7 +437,7 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 
 ## Current Limitations
 
-- ยังไม่มี Electron dependency ในโปรเจค ณ ตอนนี้
+- Electron V1 ยังเป็น dev shell และยังไม่มี installer/signing/auto-update
 - การ start/check local services ยังเป็น manual ใน web phase
 - secure secret storage ยังไม่พร้อมใน browser runtime
 - verification สำคัญหลายอย่างยังต้องพึ่ง browser smoke test นอกเหนือจาก unit/script tests

@@ -1,8 +1,12 @@
 import type { Album, AlbumPage, Profile } from '../types/database'
 
 export function getCloudflareApiBase(): string {
+  const configuredBaseUrl = (import.meta.env.VITE_CLOUDFLARE_API_URL || '').trim().replace(/\/+$/, '')
   if (import.meta.env.DEV) return ''
-  return (import.meta.env.VITE_CLOUDFLARE_API_URL || '').trim().replace(/\/+$/, '')
+  if (isElectronRenderer() && !configuredBaseUrl) {
+    throw new Error('Set VITE_CLOUDFLARE_API_URL for Electron production builds.')
+  }
+  return configuredBaseUrl
 }
 
 export interface AppUser {
@@ -99,6 +103,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
+}
+
+function isElectronRenderer(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.mgRuntime)
 }
 
 export async function registerWithEmail(email: string, password: string, username?: string): Promise<{ user: AppUser; profile: Profile; session: AppSession }> {

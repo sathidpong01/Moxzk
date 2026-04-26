@@ -6,12 +6,13 @@ Project type: node, react, vite, typescript, cloudflare-worker, drizzle-d1
 
 ## Current Focus
 
-Prepare MG_Translater for a future Electron shell by hardening the web-first runtime boundary and core manga translation workflow first.
+Implement Electron V1 as a desktop dev shell behind the existing `AppRuntime` boundary.
 
 ## Current State
 
-- The app is still React/Vite web-first and does not include Electron dependencies yet.
+- The app is still React/Vite web-first, with Electron V1 added as a desktop dev shell.
 - Runtime seams now cover Ollama status/model listing, PanelCleaner status, export file saving, and project draft storage.
+- Electron V1 IPC covers native export and desktop draft persistence only.
 - Autosave now snapshots the full multi-page project draft instead of only active-page fragments.
 - OCR review now has a summary helper and sorts review-risk regions first in the correction modal.
 - Export can resolve R2-backed album image keys before rendering exported files.
@@ -19,7 +20,7 @@ Prepare MG_Translater for a future Electron shell by hardening the web-first run
 
 ## Next Action
 
-Next Electron phase should add a secure typed IPC implementation behind the existing `AppRuntime` contract: no renderer Node access, no raw `ipcRenderer`, and native actions only in main/preload.
+Next Electron phase should add service launching, secure secret storage, and custom protocol auth behind the existing `AppRuntime` contract.
 
 ## Known Constraints
 

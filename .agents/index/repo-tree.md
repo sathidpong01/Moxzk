@@ -122,6 +122,25 @@ Root: `MG_Translater`
 |   |-- 0000_parallel_stranger.sql
 |   |-- 0001_artboard_layout.sql
 |   `-- 0002_bizarre_zodiak.sql
+|-- electron/
+|   |-- main/
+|   |   |-- index.ts
+|   |   `-- ipc.ts
+|   |-- preload/
+|   |   `-- index.ts
+|   `-- shared/
+|       `-- ipcChannels.ts
+|-- out/
+|   |-- main/
+|   |   `-- index.js
+|   |-- preload/
+|   |   `-- index.js
+|   `-- renderer/
+|       |-- assets/
+|       |   |-- index-BdDMkRXl.js
+|       |   `-- index-BiyCKkVR.css
+|       |-- index.html
+|       `-- vite.svg
 |-- public/
 |   `-- vite.svg
 |-- scripts/
@@ -211,6 +230,9 @@ Root: `MG_Translater`
 |   |   `-- useKeyboardShortcuts.ts
 |   |-- lib/
 |   |-- runtime/
+|   |   |-- desktopDraftCodec.ts
+|   |   |-- electronBridge.ts
+|   |   |-- electronRuntime.ts
 |   |   |-- index.ts
 |   |   |-- types.ts
 |   |   `-- webRuntime.ts
@@ -286,6 +308,7 @@ Root: `MG_Translater`
 |-- app.css
 |-- DESIGN.md
 |-- drizzle.config.ts
+|-- electron.vite.config.ts
 |-- index.html
 |-- llms.txt
 |-- new.md

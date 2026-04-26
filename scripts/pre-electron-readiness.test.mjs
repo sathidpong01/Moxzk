@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { createProjectDraftSnapshot, normalizeProjectDraft } from '../src/services/projectDraftStorage.ts'
+import { decodeDesktopProjectDraft, encodeDesktopProjectDraft } from '../src/runtime/desktopDraftCodec.ts'
 import { buildOcrReviewSummary, sortRegionsForReview } from '../src/services/translationReview.ts'
 
 function region(overrides = {}) {
@@ -124,7 +125,7 @@ test('translation review flags low confidence and sorts review-first', () => {
   assert.deepEqual(sorted.map((item) => item.id), ['empty', 'low', 'untranslated', 'good'])
 })
 
-test('legacy backend docs removed and R2 export path has implementation', () => {
+test('legacy backend docs removed, R2 export path exists, and Electron V1 dependencies are present', () => {
   const readme = fs.readFileSync('README.md', 'utf8')
   const exporter = fs.readFileSync('src/services/exporter.ts', 'utf8')
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
@@ -133,7 +134,8 @@ test('legacy backend docs removed and R2 export path has implementation', () => 
   assert.equal(fs.existsSync('docker-compose.yml'), false)
   assert.equal(exporter.includes("TODO: If it's an R2 key"), false)
   assert.match(exporter, /downloadImage\(key\)/)
-  assert.equal(Boolean(packageJson.dependencies?.electron || packageJson.devDependencies?.electron), false)
+  assert.equal(Boolean(packageJson.devDependencies?.electron), true)
+  assert.equal(Boolean(packageJson.devDependencies?.['electron-vite']), true)
 })
 
 test('panelcleaner bridge keeps a lightweight health check before Electron', () => {
@@ -195,4 +197,102 @@ test('pre-Electron IPC contract and desktop smoke path are documented', () => {
   assert.match(smokeTest, /autosave\/restore/)
   assert.match(smokeTest, /export/)
   assert.match(smokeTest, /auth callback/)
+})
+
+test('Electron shell keeps secure BrowserWindow defaults and external navigation handling', () => {
+  const mainProcess = fs.readFileSync('electron/main/index.ts', 'utf8')
+  const electronVite = fs.readFileSync('electron.vite.config.ts', 'utf8')
+
+  assert.match(mainProcess, /contextIsolation:\s*true/)
+  assert.match(mainProcess, /nodeIntegration:\s*false/)
+  assert.match(mainProcess, /sandbox:\s*true/)
+  assert.match(mainProcess, /setWindowOpenHandler/)
+  assert.match(mainProcess, /shell\.openExternal/)
+  assert.match(mainProcess, /isAllowedAuthNavigation/)
+  assert.match(mainProcess, /accounts\.google\.com/)
+  assert.match(mainProcess, /ELECTRON_RENDERER_URL/)
+  assert.match(mainProcess, /loadFile\(path\.join\(mainDir,\s*'..\/renderer\/index\.html'\)\)/)
+  assert.match(electronVite, /VITE_CLOUDFLARE_API_URL/)
+  assert.match(electronVite, /target:\s*workerApiTarget/)
+  assert.match(electronVite, /'\/api'/)
+})
+
+test('Electron IPC surface only exposes V1 runtime channels', () => {
+  const channels = fs.readFileSync('electron/shared/ipcChannels.ts', 'utf8')
+  const preload = fs.readFileSync('electron/preload/index.ts', 'utf8')
+  const rendererRuntime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
+
+  for (const channel of [
+    'runtime:files.saveFile',
+    'runtime:files.saveExportFiles',
+    'runtime:projectDraft.save',
+    'runtime:projectDraft.load',
+    'runtime:projectDraft.clear',
+  ]) {
+    assert.match(channels, new RegExp(channel.replace('.', '\\.')))
+  }
+
+  assert.doesNotMatch(channels, /localServices/)
+  assert.doesNotMatch(channels, /secureStore/)
+  assert.doesNotMatch(channels, /customProtocolAuth/)
+  assert.match(preload, /contextBridge\.exposeInMainWorld\('mgRuntime'/)
+  assert.match(preload, /ipcRenderer\.invoke/)
+  assert.doesNotMatch(rendererRuntime, /ipcRenderer/)
+})
+
+test('Electron runtime installs through window bridge and keeps native stubs explicit', () => {
+  const main = fs.readFileSync('src/main.tsx', 'utf8')
+  const runtime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
+
+  assert.match(main, /installElectronRuntimeIfAvailable\(\)/)
+  assert.match(runtime, /class ElectronRuntime implements AppRuntime/)
+  assert.match(runtime, /kind = 'electron'/)
+  assert.match(runtime, /canPickNativeFolders:\s*true/)
+  assert.match(runtime, /Electron V1 does not start Ollama yet/)
+  assert.match(runtime, /Electron V1 does not provide secure secret storage yet/)
+})
+
+test('desktop draft codec round-trips multi-page image assets and edits', async () => {
+  const originalFile = new File([new Blob(['original image bytes'], { type: 'image/webp' })], 'page-001.webp', { type: 'image/webp' })
+  const cleanedBlob = new Blob(['cleaned image bytes'], { type: 'image/webp' })
+  const cleanedUrl = URL.createObjectURL(cleanedBlob)
+  const activeRegion = region({ id: 'active-region', translatedText: 'เดสก์ท็อป' })
+  const activeStroke = { id: 's1', points: [1, 2, 3, 4], color: '#fff', width: 4, opacity: 1, shadowBlur: 0, tool: 'brush' }
+  const draft = createProjectDraftSnapshot({
+    currentStep: 'edit',
+    imageEntries: [
+      imageEntry({ id: 'p1', file: originalFile, originalUrl: URL.createObjectURL(originalFile), regions: [] }),
+      imageEntry({ id: 'p2', originalUrl: 'https://example.test/page.webp', cleanedImageUrl: cleanedUrl, regions: [region({ id: 'inactive' })] }),
+    ],
+    activeImageId: 'p1',
+    regions: [activeRegion],
+    brushStrokes: [activeStroke],
+    cleanedImageUrl: cleanedUrl,
+    originalImageUrl: null,
+    settings: settings(),
+  })
+
+  assert.ok(draft)
+  const encoded = await encodeDesktopProjectDraft(draft)
+  const decoded = decodeDesktopProjectDraft(encoded)
+
+  assert.ok(decoded)
+  assert.equal(encoded.assets.length >= 2, true)
+  assert.equal(decoded.imageEntries.length, 2)
+  assert.equal(decoded.imageEntries[0].file?.name, 'page-001.webp')
+  assert.equal(decoded.imageEntries[0].regions[0].id, 'active-region')
+  assert.equal(decoded.imageEntries[0].brushStrokes[0].id, 's1')
+  assert.equal(decoded.imageEntries[1].cleanedImageUrl?.startsWith('blob:'), true)
+  assert.equal(decoded.regions[0].translatedText, 'เดสก์ท็อป')
+
+  URL.revokeObjectURL(cleanedUrl)
+})
+
+test('Electron production API calls require an explicit remote Worker URL', () => {
+  const api = fs.readFileSync('src/services/cloudflareApi.ts', 'utf8')
+
+  assert.match(api, /VITE_CLOUDFLARE_API_URL/)
+  assert.match(api, /isElectronRenderer/)
+  assert.match(api, /Set VITE_CLOUDFLARE_API_URL for Electron production builds/)
+  assert.match(api, /import\.meta\.env\.DEV\)\s*return ''/)
 })

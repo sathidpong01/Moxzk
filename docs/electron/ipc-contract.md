@@ -18,21 +18,24 @@ webPreferences: {
 
 ## Allowed IPC Surface
 
-IPC channels should be grouped by runtime capability:
+Electron V1 IPC is intentionally narrow and covers only native export and desktop draft persistence:
 
 - `files.saveFile`
 - `files.saveExportFiles`
 - `projectDraft.save`
 - `projectDraft.load`
 - `projectDraft.clear`
+
+All channels should use request/response calls and return serializable results. Main/preload may perform native work; renderer components must continue to call `AppRuntime`.
+
+The following `AppRuntime` capabilities remain typed renderer-side stubs in V1 and must not gain IPC channels until their native behavior is implemented deliberately:
+
 - `localServices.startOllama`
 - `localServices.startPanelCleanerBridge`
 - `secureStore.getSecret`
 - `secureStore.setSecret`
 - `secureStore.deleteSecret`
 - `customProtocolAuth.getCallbackUrl`
-
-All channels should use request/response calls and return serializable results. Main/preload may perform native work; renderer components must continue to call `AppRuntime`.
 
 ## Error Shape
 
