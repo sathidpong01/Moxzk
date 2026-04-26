@@ -2,10 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   getArtisticInlineTextEditorLayerSize,
+  getInlineTextEditorCommitValue,
   getInlineTextEditorBboxSize,
   getInlineTextEditorFontSize,
   getInlineTextEditorLayerSize,
   getInlineTextEditorTheme,
+  getTextBoxResizeResult,
   normalizeInlineTextEditorValue,
   shouldFinishInlineTextEditorOnPointerDown,
 } from '../src/services/inlineTextEditor.ts'
@@ -89,6 +91,96 @@ test('frame inline editor collapses visual soft wraps back to reflow text', () =
     normalizeInlineTextEditorValue('manual\nline', false),
     'manual\nline',
   )
+})
+
+test('inline text editor preserves the original value when visual wrapping was not edited', () => {
+  assert.equal(
+    getInlineTextEditorCommitValue({
+      value: 'เรากำลังจะไปไหนกันครับพ่อสถานที่ที่พ่อบอก',
+      editorValue: 'เรากำลังจะไป\nไหนกันครับพ่อ\nสถานที่ที่พ่อบอก',
+      editedValue: 'เรากำลังจะไป\nไหนกันครับพ่อ\nสถานที่ที่พ่อบอก',
+      constrainToFrame: true,
+      dirty: false,
+    }),
+    'เรากำลังจะไปไหนกันครับพ่อสถานที่ที่พ่อบอก',
+  )
+})
+
+test('inline text editor commits normalized frame text only after a real edit', () => {
+  assert.equal(
+    getInlineTextEditorCommitValue({
+      value: 'hello world',
+      editorValue: 'hello\nworld',
+      editedValue: 'hello\nworld!',
+      constrainToFrame: true,
+      dirty: true,
+    }),
+    'hello world!',
+  )
+  assert.equal(
+    getInlineTextEditorCommitValue({
+      value: 'manual',
+      editorValue: 'manual',
+      editedValue: 'manual\nline',
+      constrainToFrame: false,
+      dirty: true,
+    }),
+    'manual\nline',
+  )
+})
+
+test('balloon resize result returns the fitted font used by live transform preview', () => {
+  const result = getTextBoxResizeResult({
+    region: {
+      bbox: { x: 0, y: 0, width: 320, height: 180 },
+      fontSize: 36,
+      textLayoutMode: 'balloon_fit',
+      textAlign: 'center',
+      textScaleX: 1,
+      textScaleY: 1,
+      mood: 'neutral',
+      balloonShape: 'round',
+      artisticFit: 'free',
+    },
+    bbox: { x: 0, y: 0, width: 140, height: 92 },
+    text: 'เรากำลังจะไปไหนกันครับพ่อสถานที่ที่พ่อบอก',
+    fontFamily: 'Sarabun',
+    fontWeight: 400,
+    fontStyle: 'normal',
+    rotation: 3,
+  })
+
+  assert.deepEqual(result.updates.bbox, { x: 0, y: 0, width: 140, height: 92 })
+  assert.equal(result.updates.rotation, 3)
+  assert.ok(result.layout)
+  assert.equal(result.updates.fontSize, result.layout.fontSize)
+  assert.ok(result.layout.fontSize < 36)
+  assert.ok(result.layout.lines.length > 1)
+})
+
+test('balloon resize result can grow font when the fit box expands', () => {
+  const result = getTextBoxResizeResult({
+    region: {
+      bbox: { x: 0, y: 0, width: 140, height: 92 },
+      fontSize: 18,
+      textLayoutMode: 'balloon_fit',
+      textAlign: 'center',
+      textScaleX: 1,
+      textScaleY: 1,
+      mood: 'neutral',
+      balloonShape: 'round',
+      artisticFit: 'free',
+    },
+    bbox: { x: 0, y: 0, width: 280, height: 184 },
+    text: 'เรากำลังจะไปไหนกันครับพ่อ',
+    fontFamily: 'Sarabun',
+    fontWeight: 400,
+    fontStyle: 'normal',
+  })
+
+  assert.ok(result.layout)
+  assert.equal(result.updates.fontSize, result.layout.fontSize)
+  assert.ok(result.layout.fontSize > 18)
 })
 
 test('inline text editor uses a light editing surface for dark text', () => {

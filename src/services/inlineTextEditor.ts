@@ -1,5 +1,6 @@
 import type { BoundingBox, TextLayoutMode } from '../types'
-import { measureArtisticTextSize } from '../utils/textLayout.ts'
+import { getRegionTextLayout, measureArtisticTextSize, normalizeTextLayoutMode, type RegionTextLayoutResult } from '../utils/textLayout.ts'
+import type { TextRegion } from '../types'
 
 export const TEXT_TRANSFORMER_ANCHORS = [
   'top-left',
@@ -74,6 +75,32 @@ export interface InlineTextEditorBboxSizeInput {
   minHeight?: number
 }
 
+export interface InlineTextEditorCommitValueInput {
+  value: string
+  editorValue: string
+  editedValue: string
+  constrainToFrame: boolean
+  dirty: boolean
+}
+
+export interface TextBoxResizeResultInput {
+  region: Pick<
+    TextRegion,
+    'bbox' | 'fontSize' | 'textLayoutMode' | 'textAlign' | 'textScaleX' | 'textScaleY' | 'mood' | 'balloonShape' | 'artisticFit'
+  >
+  bbox: BoundingBox
+  text: string
+  fontFamily?: string
+  fontWeight?: string | number
+  fontStyle?: string
+  rotation?: number
+}
+
+export interface TextBoxResizeResult {
+  updates: Partial<TextRegion>
+  layout?: RegionTextLayoutResult
+}
+
 export function getInlineTextEditorLayerSize({
   bbox,
   scale,
@@ -141,6 +168,57 @@ export function normalizeInlineTextEditorValue(value: string, constrainToFrame: 
     const needsSpace = /[A-Za-z0-9]$/.test(result) && /^[A-Za-z0-9]/.test(normalizedLine)
     return `${result}${needsSpace ? ' ' : ''}${normalizedLine}`
   }, '')
+}
+
+export function getInlineTextEditorCommitValue({
+  value,
+  editorValue,
+  editedValue,
+  constrainToFrame,
+  dirty,
+}: InlineTextEditorCommitValueInput): string {
+  if (!dirty || editedValue === editorValue) return value
+  return normalizeInlineTextEditorValue(editedValue, constrainToFrame)
+}
+
+export function getTextBoxResizeResult({
+  region,
+  bbox,
+  text,
+  fontFamily,
+  fontWeight,
+  fontStyle,
+  rotation,
+}: TextBoxResizeResultInput): TextBoxResizeResult {
+  const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+  const layout = layoutMode === 'balloon_fit'
+    ? getRegionTextLayout({ ...region, bbox, fontSize: getResizedPreferredFontSize(region, bbox) }, text || ' ', {
+        fontFamily,
+        fontWeight,
+        fontStyle,
+      })
+    : undefined
+
+  return {
+    updates: {
+      bbox,
+      ...(layout ? { fontSize: layout.fontSize } : {}),
+      ...(rotation !== undefined ? { rotation } : {}),
+      ...(layoutMode === 'artistic' ? { textScaleX: 1, textScaleY: 1 } : {}),
+    },
+    layout,
+  }
+}
+
+function getResizedPreferredFontSize(
+  region: Pick<TextRegion, 'bbox' | 'fontSize'>,
+  bbox: BoundingBox,
+): number {
+  const baseFontSize = Number.isFinite(region.fontSize) ? region.fontSize : 18
+  const widthRatio = bbox.width > 0 && region.bbox.width > 0 ? bbox.width / region.bbox.width : 1
+  const heightRatio = bbox.height > 0 && region.bbox.height > 0 ? bbox.height / region.bbox.height : 1
+  const resizeRatio = Math.max(0.1, Math.max(widthRatio, heightRatio))
+  return Math.max(1, baseFontSize * resizeRatio)
 }
 
 export function getTextTransformerAnchors(_layoutMode?: TextLayoutMode): TextTransformerAnchor[] {

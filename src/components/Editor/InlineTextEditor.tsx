@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import {
+  getInlineTextEditorCommitValue,
   normalizeInlineTextEditorValue,
   shouldFinishInlineTextEditorOnPointerDown,
   type InlineTextEditorCommitMetrics,
@@ -51,6 +52,7 @@ export default function InlineTextEditor({
   const rootRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const finishedRef = useRef(false)
+  const dirtyRef = useRef(false)
   const displayFontSize = Math.max(1, fontSize)
   const displayLineHeight = Math.max(1, lineHeight)
   const editorWidth = width
@@ -74,13 +76,20 @@ export default function InlineTextEditor({
         ? textarea.offsetHeight
         : Math.max(textarea.offsetHeight, textarea.scrollHeight)
       : editorHeight
+    const editedValue = textarea?.value ?? editorValue
     onFinish({
       width: measuredWidth,
       height: measuredHeight,
       scrollWidth: textarea?.scrollWidth,
       scrollHeight: textarea?.scrollHeight,
       layoutMode,
-    }, normalizeInlineTextEditorValue(textarea?.value ?? editorValue, constrainToFrame))
+    }, getInlineTextEditorCommitValue({
+      value,
+      editorValue,
+      editedValue,
+      constrainToFrame,
+      dirty: dirtyRef.current,
+    }))
   }
 
   useEffect(() => {
@@ -153,7 +162,10 @@ export default function InlineTextEditor({
         spellCheck={false}
         onPointerDown={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
-        onChange={(event) => onChange(normalizeInlineTextEditorValue(event.target.value, constrainToFrame))}
+        onChange={(event) => {
+          dirtyRef.current = true
+          onChange(normalizeInlineTextEditorValue(event.target.value, constrainToFrame))
+        }}
         onBlur={finish}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {

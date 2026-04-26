@@ -21,6 +21,7 @@ import {
   getTextTransformerAnchors,
   getTextTransformerKeepRatio,
   getTextTransformerShiftBehavior,
+  getTextBoxResizeResult,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import type { RegionUpdateOptions } from '../../store/appStore'
@@ -74,7 +75,12 @@ export default function CanvasEditor({
   const [zoom, setZoom] = useState(1)
   const [zoomInput, setZoomInput] = useState('100')
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
-  const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string; beforeRegions: TextRegion[] } | null>(null)
+  const [inlineEdit, setInlineEdit] = useState<{
+    id: string
+    text: string
+    initialText: string
+    beforeRegions: TextRegion[]
+  } | null>(null)
 
   // Paint state
   const isDrawing = useRef(false)
@@ -352,6 +358,7 @@ export default function CanvasEditor({
       const isArtisticFree = layoutMode === 'artistic' && region.artisticFit !== 'bubble_guided'
       const font = resolveRegionFont(region)
       const historyBefore = textTransformStartRef.current[region.id]
+      const fittingRegion = historyBefore?.find((item) => item.id === region.id) ?? region
       delete textTransformStartRef.current[region.id]
       const historyOptions: RegionUpdateOptions = {
         historyBefore,
@@ -397,20 +404,17 @@ export default function CanvasEditor({
         width: resized.width / scale,
         height: resized.height / scale,
       }
-      const fitted = layoutMode === 'balloon_fit'
-        ? getRegionTextLayout({ ...region, bbox: nextBbox }, region.translatedText || ' ', {
-            fontFamily: font.family,
-            fontWeight: font.weight,
-            fontStyle: font.style,
-          })
-        : null
-
-      onRegionUpdate(region.id, {
+      const resizeResult = getTextBoxResizeResult({
+        region: fittingRegion,
         bbox: nextBbox,
-        ...(fitted ? { fontSize: fitted.fontSize } : {}),
+        text: region.translatedText || ' ',
         rotation: node.rotation(),
-        ...(layoutMode === 'artistic' ? { textScaleX: 1, textScaleY: 1 } : {}),
-      }, historyOptions)
+        fontFamily: font.family,
+        fontWeight: font.weight,
+        fontStyle: font.style,
+      })
+
+      onRegionUpdate(region.id, resizeResult.updates, historyOptions)
     },
     [applyLiveTextBoxResize, scale, onRegionUpdate],
   )
@@ -554,7 +558,12 @@ export default function CanvasEditor({
     (region: TextRegion) => {
       if (isBrushActive || isEyedropper) return
       handleSelect(region.id)
-      setInlineEdit({ id: region.id, text: region.translatedText, beforeRegions: cloneRegions(regions) })
+      setInlineEdit({
+        id: region.id,
+        text: region.translatedText,
+        initialText: region.translatedText,
+        beforeRegions: cloneRegions(regions),
+      })
     },
     [handleSelect, isBrushActive, isEyedropper, regions],
   )
@@ -565,6 +574,10 @@ export default function CanvasEditor({
   }, [inlineEdit, onRegionUpdate])
   const finishInlineEdit = useCallback((metrics: InlineTextEditorCommitMetrics | undefined, finalText: string) => {
     if (!inlineEdit) return
+    if (finalText === inlineEdit.initialText) {
+      setInlineEdit(null)
+      return
+    }
     const region = regions.find((item) => item.id === inlineEdit.id)
     const bboxSize = metrics
       ? getInlineTextEditorBboxSize({ metrics, scale })
@@ -796,7 +809,28 @@ export default function CanvasEditor({
                         node.getLayer()?.batchDraw()
                         return
                       }
-                      applyLiveTextBoxResize(node)
+                      const resized = applyLiveTextBoxResize(node)
+                      const nextBbox = {
+                        x: node.x() / scale,
+                        y: node.y() / scale,
+                        width: resized.width / scale,
+                        height: resized.height / scale,
+                      }
+                      const fittingRegion = textTransformStartRef.current[region.id]?.find((item) => item.id === region.id) ?? region
+                      const resizeResult = getTextBoxResizeResult({
+                        region: fittingRegion,
+                        bbox: nextBbox,
+                        text,
+                        rotation: node.rotation(),
+                        fontFamily: font.family,
+                        fontWeight: font.weight,
+                        fontStyle: font.style,
+                      })
+                      if (resizeResult.layout) {
+                        node.text(resizeResult.layout.lines.join('\n'))
+                        node.fontSize(resizeResult.layout.fontSize * scale)
+                      }
+                      onRegionUpdate(region.id, resizeResult.updates, { trackHistory: false })
                     }}
                     onTransformEnd={(e) => handleTransformEnd(region, e)}
                   />

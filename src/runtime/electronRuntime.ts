@@ -69,8 +69,18 @@ export class ElectronRuntime implements AppRuntime {
   }
 
   readonly localServices = {
-    startOllama: async () => unwrapNativeResult(await this.bridge.localServices.startOllama()),
-    startPanelCleanerBridge: async () => unwrapNativeResult(await this.bridge.localServices.startPanelCleanerBridge()),
+    startOllama: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.localServices.startOllama()
+      if (!result.ok) return { ok: false, error: result.error }
+      const inner = result.data
+      return inner ?? { ok: true }
+    },
+    startPanelCleanerBridge: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.localServices.startPanelCleanerBridge()
+      if (!result.ok) return { ok: false, error: result.error }
+      const inner = result.data
+      return inner ?? { ok: true }
+    },
   }
 
   readonly auth = {

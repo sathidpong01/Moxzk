@@ -31,6 +31,7 @@ import {
   getTextTransformerAnchors,
   getTextTransformerKeepRatio,
   getTextTransformerShiftBehavior,
+  getTextBoxResizeResult,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import { translateSingleRegion } from '../../services/ollama'
@@ -181,7 +182,12 @@ export default function ArtboardWorkspace({
   const [drawingLine, setDrawingLine] = useState<number[] | null>(null)
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<ImageEntry | null>(null)
   const [isDeletingPage, setIsDeletingPage] = useState(false)
-  const [inlineEdit, setInlineEdit] = useState<{ id: string; text: string; beforeRegions: TextRegion[] } | null>(null)
+  const [inlineEdit, setInlineEdit] = useState<{
+    id: string
+    text: string
+    initialText: string
+    beforeRegions: TextRegion[]
+  } | null>(null)
   const [eyedropPreview, setEyedropPreview] = useState<{ x: number; y: number; color: string } | null>(null)
   const [hudTranslating, setHudTranslating] = useState(false)
   const [hudHidden, setHudHidden] = useState(false)
@@ -668,7 +674,12 @@ export default function ArtboardWorkspace({
       selectRegion(region.id)
       setPreviewOriginalRegionId(null)
       setHudHidden(false)
-      setInlineEdit({ id: region.id, text: region.translatedText, beforeRegions: cloneRegions(activeEntry?.regions ?? []) })
+      setInlineEdit({
+        id: region.id,
+        text: region.translatedText,
+        initialText: region.translatedText,
+        beforeRegions: cloneRegions(activeEntry?.regions ?? []),
+      })
     },
     [activeEntry?.regions, isBrushActive, selectRegion],
   )
@@ -679,6 +690,12 @@ export default function ArtboardWorkspace({
   }, [activeEntry, inlineEdit])
   const finishInlineEdit = useCallback((metrics: InlineTextEditorCommitMetrics | undefined, finalText: string) => {
     if (!inlineEdit || !activeEntry) return
+    if (finalText === inlineEdit.initialText) {
+      setPreviewOriginalRegionId(null)
+      setHudHidden(false)
+      setInlineEdit(null)
+      return
+    }
     const region = activeEntry.regions.find((item) => item.id === inlineEdit.id)
     const bboxSize = metrics
       ? getInlineTextEditorBboxSize({ metrics, scale: inlineEditScale })
@@ -705,8 +722,21 @@ export default function ArtboardWorkspace({
     setInlineEdit(null)
   }, [activeEntry, inlineEdit, inlineEditScale])
   const selectedRegionLayout = selectedRegion ? normalizeTextLayoutMode(selectedRegion.textLayoutMode) : 'balloon_fit'
+  const selectedInlineEditIsArtisticFree = Boolean(
+    inlineEdit?.id === selectedRegion?.id
+    && selectedRegionLayout === 'artistic'
+    && selectedRegion?.artisticFit !== 'bubble_guided',
+  )
   const selectedRegionAnchorRect = useMemo(() => {
     if (!selectedRegion || !activeArtboard) return null
+    if (inlineEdit?.id === selectedRegion.id && inlineEditPosition && inlineEditSize) {
+      return {
+        x: stagePos.x + inlineEditPosition.x * zoom,
+        y: stagePos.y + inlineEditPosition.y * zoom,
+        width: Math.max(40, inlineEditSize.width * zoom),
+        height: Math.max(28, inlineEditSize.height * zoom),
+      }
+    }
     const offsetX = activeArtboard.loaded?.offsetX ?? 0
     const offsetY = activeArtboard.loaded?.offsetY ?? 0
     return {
@@ -715,7 +745,7 @@ export default function ArtboardWorkspace({
       width: Math.max(40, selectedRegion.bbox.width * activeArtboard.scale * zoom),
       height: Math.max(28, selectedRegion.bbox.height * activeArtboard.scale * zoom),
     }
-  }, [activeArtboard, selectedRegion, selectedRegionLayout, stagePos.x, stagePos.y, zoom])
+  }, [activeArtboard, inlineEdit?.id, inlineEditPosition, inlineEditSize, selectedRegion, stagePos.x, stagePos.y, zoom])
   const transformerAnchors = getTextTransformerAnchors(selectedRegionLayout)
   const transformerKeepRatio = getTextTransformerKeepRatio(selectedRegionLayout)
   const transformerShiftBehavior = getTextTransformerShiftBehavior(selectedRegionLayout)
@@ -893,7 +923,7 @@ export default function ArtboardWorkspace({
           region={selectedRegion}
           anchorRect={selectedRegionAnchorRect}
           visible={showTextHud}
-          preferredPlacement={inlineEdit?.id === selectedRegion?.id ? 'bottom' : 'top'}
+          preferredPlacement={selectedInlineEditIsArtisticFree ? 'top' : inlineEdit?.id === selectedRegion?.id ? 'bottom' : 'top'}
           isTranslating={hudTranslating}
           previewingOriginal={previewOriginalRegionId === selectedRegion?.id}
           onUpdate={(updates, options) => {
@@ -1720,11 +1750,12 @@ function ArtboardText({
             },
           })
         }}
-        onTransformEnd={(event) => {
+          onTransformEnd={(event) => {
           event.cancelBubble = true
           onInteractionEnd()
           const node = event.target as Konva.Text
           const historyBefore = transformStartRegionsRef.current ?? undefined
+          const fittingRegion = historyBefore?.find((item) => item.id === region.id) ?? region
           transformStartRegionsRef.current = null
           const historyOptions: RegionUpdateOptions = {
             historyBefore,
@@ -1768,20 +1799,16 @@ function ArtboardText({
             width: resized.width / scale,
             height: resized.height / scale,
           }
-          const fitted = !isArtistic
-            ? getRegionTextLayout({ ...region, bbox: nextBbox }, text, {
-                fontFamily: font.family,
-                fontWeight: font.weight,
-                fontStyle: font.style,
-              })
-            : null
-          onUpdate({
+          const resizeResult = getTextBoxResizeResult({
+            region: fittingRegion,
             bbox: nextBbox,
-            ...(fitted ? { fontSize: fitted.fontSize } : {}),
+            text,
             rotation: node.rotation(),
-            textScaleX: 1,
-            textScaleY: 1,
-          }, historyOptions)
+            fontFamily: font.family,
+            fontWeight: font.weight,
+            fontStyle: font.style,
+          })
+          onUpdate(resizeResult.updates, historyOptions)
         }}
         onTransformStart={() => {
           onInteractionStart()
@@ -1795,16 +1822,27 @@ function ArtboardText({
             return
           }
           const resized = applyLiveTextBoxResize(node)
-          onLiveResize({
-            bbox: {
-              x: (node.x() - offsetX) / scale,
-              y: (node.y() - offsetY) / scale,
-              width: resized.width / scale,
-              height: resized.height / scale,
-            },
-            textScaleX: 1,
-            textScaleY: 1,
+          const nextBbox = {
+            x: (node.x() - offsetX) / scale,
+            y: (node.y() - offsetY) / scale,
+            width: resized.width / scale,
+            height: resized.height / scale,
+          }
+          const fittingRegion = transformStartRegionsRef.current?.find((item) => item.id === region.id) ?? region
+          const resizeResult = getTextBoxResizeResult({
+            region: fittingRegion,
+            bbox: nextBbox,
+            text,
+            rotation: node.rotation(),
+            fontFamily: font.family,
+            fontWeight: font.weight,
+            fontStyle: font.style,
           })
+          if (resizeResult.layout) {
+            node.text(resizeResult.layout.lines.join('\n'))
+            node.fontSize(resizeResult.layout.fontSize * scale)
+          }
+          onLiveResize(resizeResult.updates)
         }}
       />
       {regionLayout.overflow && (

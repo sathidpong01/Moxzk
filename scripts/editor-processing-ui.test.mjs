@@ -75,8 +75,14 @@ test('artistic free behaves like object text while bubble-guided stays frame-con
   assert.match(canvasEditor, /getArtisticInlineTextEditorLayerSize/)
   assert.match(artboardWorkspace, /visualValue=\{inlineEditConstrainToFrame && inlineEditLayout \? inlineEditLayout\.lines\.join\('\\n'\) : inlineEdit\.text\}/)
   assert.match(canvasEditor, /visualValue=\{inlineEditConstrainToFrame && inlineEditLayout \? inlineEditLayout\.lines\.join\('\\n'\) : inlineEdit\.text\}/)
+  assert.match(artboardWorkspace, /initialText: region\.translatedText/)
+  assert.match(canvasEditor, /initialText: region\.translatedText/)
+  assert.match(artboardWorkspace, /if \(finalText === inlineEdit\.initialText\)/)
+  assert.match(canvasEditor, /if \(finalText === inlineEdit\.initialText\)/)
   assert.match(inlineEditor, /wrap=\{constrainToFrame \? 'soft' : 'off'\}/)
   assert.match(inlineEditor, /const editorValue = visualValue \?\? value/)
+  assert.match(inlineEditor, /dirtyRef\.current = true/)
+  assert.match(inlineEditor, /getInlineTextEditorCommitValue/)
   assert.match(inlineEditor, /normalizeInlineTextEditorValue\(event\.target\.value, constrainToFrame\)/)
   assert.match(inlineEditor, /whiteSpace: constrainToFrame \? 'pre-wrap' : 'pre'/)
   assert.match(inlineEditor, /backgroundColor: 'transparent'/)
@@ -86,6 +92,27 @@ test('artistic free behaves like object text while bubble-guided stays frame-con
   assert.match(artboardWorkspace, /opacity=\{1\}/)
   assert.match(canvasEditor, /opacity=\{1\}/)
   assert.equal(inlineEditor.includes("whiteSpace: isArtistic ? 'pre'"), false)
+})
+
+test('artistic free inline editing keeps the hud above the object text', () => {
+  const artboardWorkspace = read('src/components/Editor/ArtboardWorkspace.tsx')
+
+  assert.match(artboardWorkspace, /selectedInlineEditIsArtisticFree/)
+  assert.match(artboardWorkspace, /selectedInlineEditIsArtisticFree \? 'top' : inlineEdit\?\.id === selectedRegion\?\.id \? 'bottom' : 'top'/)
+  assert.match(artboardWorkspace, /inlineEditPosition && inlineEditSize/)
+  assert.match(artboardWorkspace, /inlineEditSize\.height \* zoom/)
+})
+
+test('balloon resize preview uses the same fitted layout as transform commit', () => {
+  const artboardWorkspace = read('src/components/Editor/ArtboardWorkspace.tsx')
+  const canvasEditor = read('src/components/Editor/CanvasEditor.tsx')
+
+  assert.match(artboardWorkspace, /const resizeResult = getTextBoxResizeResult/)
+  assert.match(canvasEditor, /const resizeResult = getTextBoxResizeResult/)
+  assert.match(artboardWorkspace, /node\.fontSize\(resizeResult\.layout\.fontSize \* scale\)/)
+  assert.match(canvasEditor, /node\.fontSize\(resizeResult\.layout\.fontSize \* scale\)/)
+  assert.match(artboardWorkspace, /onLiveResize\(resizeResult\.updates\)/)
+  assert.match(canvasEditor, /onRegionUpdate\(region\.id, resizeResult\.updates, \{ trackHistory: false \}\)/)
 })
 
 test('inline editor uses the same scaled font size and line height as canvas text', () => {
