@@ -104,7 +104,7 @@ test('balloon export layout carries shape-aware safe area metadata', async () =>
 
   const layout = getExportTextRegionLayout(region({
     bbox: { x: 10, y: 20, width: 220, height: 88 },
-    translatedText: 'ไม่ต้องกังวลเรื่องนั้นหรอก พ่อรู้ว่ามันอยู่ที่ไหน อดทนรออีกนิดนะ',
+    translatedText: 'ไม่ต้องกังวลนะ พ่อรู้ทางแล้ว',
     fontSize: 34,
     balloonShape: 'cloud',
   }))
@@ -114,6 +114,22 @@ test('balloon export layout carries shape-aware safe area metadata', async () =>
   assert.ok((layout?.paddingX ?? 0) > 24)
   assert.ok((layout?.startY ?? 0) >= (layout?.paddingY ?? 0))
   assert.equal(layout?.overflow, false)
+})
+
+test('balloon export layout reports readability overflow metadata', async () => {
+  const { getExportTextRegionLayout } = await exporterModule
+
+  const layout = getExportTextRegionLayout(region({
+    bbox: { x: 10, y: 20, width: 160, height: 58 },
+    translatedText: 'ข้อความภาษาไทยที่ยาวมากจนถ้าพยายามใส่ให้ครบในบับเบิลนี้จะต้องลดตัวอักษรเล็กเกินอ่านง่าย',
+    fontSize: 34,
+    balloonShape: 'round',
+  }))
+
+  assert.equal(layout?.mode, 'balloon_fit')
+  assert.equal(layout?.fontSize, 12)
+  assert.equal(layout?.overflow, true)
+  assert.equal(layout?.overflowReason, 'readability')
 })
 
 test('artistic bubble-guided export wraps in safe area and reports clipping as metadata', async () => {

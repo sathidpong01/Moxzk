@@ -4,6 +4,7 @@ import fs from 'node:fs'
 
 const source = fs.readFileSync('src/components/Settings/SettingsPanel.tsx', 'utf8')
 const css = fs.readFileSync('src/index.css', 'utf8')
+const settingsStorage = fs.readFileSync('src/services/settingsStorage.ts', 'utf8')
 
 test('settings modal is sized as a desktop workspace', () => {
   assert.match(source, /SettingsWorkspace/)
@@ -27,5 +28,11 @@ test('settings exposes a zero-knowledge Ollama model tutorial', () => {
 test('settings keeps translation guidance separate from model setup', () => {
   assert.match(source, /type SettingsTab = 'general' \| 'models' \| 'translation' \| 'cleanup'/)
   assert.match(source, /ใช้บริบทข้ามหน้า/)
+  assert.match(source, /โหมดคำแปล/)
+  assert.match(source, /สั้นเข้าใจได้/)
+  assert.match(source, /ตรงตามต้นฉบับ/)
+  assert.match(source, /translationMode/)
+  assert.match(settingsStorage, /translationMode: settings\.translationMode/)
+  assert.match(settingsStorage, /normalizeTranslationMode/)
   assert.match(source, /ไกด์โทนคำแปล/)
 })

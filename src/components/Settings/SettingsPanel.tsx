@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { AppSettings } from '../../types'
+import type { AppSettings, TranslationMode } from '../../types'
 import type { OllamaPullProgress, OllamaStatus } from '../../services/ollama'
 import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
 import { webRuntime } from '../../runtime/webRuntime'
@@ -64,6 +64,19 @@ const MODEL_PRESETS = [
     title: 'Gemma 3 12B',
     badge: 'คุณภาพสูงขึ้น',
     description: 'เหมาะกับเครื่องที่มี RAM/VRAM มากกว่า และต้องการความแม่นยำของภาพกับภาษา',
+  },
+]
+
+const TRANSLATION_MODES: Array<{ value: TranslationMode; label: string; description: string }> = [
+  {
+    value: 'concise',
+    label: 'สั้นเข้าใจได้',
+    description: 'กระชับให้เหมาะกับบับเบิล แต่ยังเก็บสาระสำคัญและน้ำเสียง',
+  },
+  {
+    value: 'faithful',
+    label: 'ตรงตามต้นฉบับ',
+    description: 'รักษารายละเอียด ลำดับความคิด และโทนใกล้ต้นฉบับมากขึ้น',
   },
 ]
 
@@ -557,6 +570,30 @@ export default function SettingsPanel({
                       </span>
                     </span>
                   </label>
+                </SettingsRow>
+                <SettingsRow title="โหมดคำแปล" description="เลือกสมดุลระหว่างความกระชับในบับเบิลกับความตรงตามต้นฉบับ">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {TRANSLATION_MODES.map((mode) => {
+                      const active = (draft.translationMode ?? 'concise') === mode.value
+                      return (
+                        <button
+                          key={mode.value}
+                          type="button"
+                          className={`settings-choice-row settings-choice-card ${active ? 'settings-choice-active' : ''}`}
+                          aria-pressed={active}
+                          onClick={() => setDraft({ ...draft, translationMode: mode.value })}
+                        >
+                          <span className="flex items-center justify-between gap-3">
+                            <span>{mode.label}</span>
+                            {active && <CheckCircle2 size={15} className="settings-choice-check" aria-hidden="true" />}
+                          </span>
+                          <span className="mt-1 block text-xs font-medium leading-relaxed text-[var(--mg-muted)]">
+                            {mode.description}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </SettingsRow>
                 <SettingsRow title="ไกด์โทนคำแปล" description="กำกับชื่อ ความสัมพันธ์ คำเรียกแทนตัว และโทนภาษาไทยทั้งอัลบั้ม">
                   <TextareaField

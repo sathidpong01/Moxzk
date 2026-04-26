@@ -655,7 +655,9 @@ export default function ContextualTextHud({
 
           {regionLayout?.overflow && (
             <div className="ml-1 flex items-center gap-1 rounded-[12px] border border-[#7f1d1d] bg-[#7f1d1d1f] px-2 py-1 text-xs">
-              <span className="font-bold text-[#fecaca]">ข้อความยังล้น</span>
+              <span className="font-bold text-[#fecaca]">
+                {regionLayout.overflowReason === 'readability' ? 'คำแปลยาว/ตัวเล็ก' : 'ข้อความยังล้น'}
+              </span>
               <button type="button" className={hudMiniButtonClass()} onClick={reduceFont}>ลดฟอนต์</button>
               <button type="button" className={hudMiniButtonClass()} onClick={expandBox}>ขยายกรอบ</button>
               <button type="button" className={hudMiniButtonClass(true)} onClick={fitText}>Fit</button>

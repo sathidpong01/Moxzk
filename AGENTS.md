@@ -8,10 +8,11 @@ For the fuller project context layer, read `.agents/AGENTS.md` first, then load 
 1. `CLAUDE.md` contains the historical project-wide operating notes.
 2. `.agents/AGENTS.md` contains the current agent workflow policy.
 3. `.agents/active.md` records the current project state and next action.
-4. `.agents/index/repo-tree.md` is generated and should be refreshed after major structure changes.
-5. `.agents/topics/` contains durable notes for specific areas.
-6. `llms.txt` is the LLM-readable project entrypoint.
-7. `docs/llm/konva.md` is the Konva/react-konva documentation entrypoint for canvas editor work.
+4. `.agents/team.md` defines the specialist agent roster, routing rules, and ownership boundaries.
+5. `.agents/index/repo-tree.md` is generated and should be refreshed after major structure changes.
+6. `.agents/topics/` contains durable notes for specific areas.
+7. `llms.txt` is the LLM-readable project entrypoint.
+8. `docs/llm/konva.md` is the Konva/react-konva documentation entrypoint for canvas editor work.
 
 ## Basic Commands
 

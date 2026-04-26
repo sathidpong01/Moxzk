@@ -344,6 +344,7 @@ function buildBatchTranslationContext(
     enabled: options.settings.translationContextEnabled,
     pageNumber: entry.pageNumber,
     totalPages: entries.length,
+    translationMode: options.settings.translationMode,
     styleGuide: options.settings.translationStyleGuide,
     previousLines: collectPreviousTranslationLines(entries, entry.id, liveStoryLines),
   }

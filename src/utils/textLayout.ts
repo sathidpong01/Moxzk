@@ -9,7 +9,7 @@ export type NormalizedTextLayoutMode = 'balloon_fit' | 'artistic'
 export type NormalizedTextAlign = 'left' | 'center' | 'right'
 export type NormalizedTextBalloonShape = 'round' | 'cloud' | 'box'
 export type NormalizedTextArtisticFit = 'free' | 'bubble_guided'
-export type TextOverflowReason = 'width' | 'height' | 'min_font' | 'clipped'
+export type TextOverflowReason = 'width' | 'height' | 'min_font' | 'clipped' | 'readability'
 
 export interface TextLayoutOptions {
   fontFamily?: string
@@ -17,6 +17,7 @@ export interface TextLayoutOptions {
   fontStyle?: string
   lineHeight?: number
   minFontSize?: number
+  readableMinFontSize?: number
   maxFontSize?: number
   paddingX?: number
   paddingY?: number
@@ -82,6 +83,7 @@ const segmenter = typeof Intl !== 'undefined' && (Intl as typeof Intl & {
   : null
 
 let sharedCanvas: HTMLCanvasElement | null = null
+export const READABLE_MIN_BALLOON_FONT_SIZE = 12
 
 export function normalizeTextLayoutMode(mode?: string): NormalizedTextLayoutMode {
   return mode === 'artistic' ? 'artistic' : 'balloon_fit'
@@ -118,6 +120,7 @@ export function layoutTextInBox(
   const availableWidth = Math.max(1, bbox.width - paddingX * 2)
   const availableHeight = Math.max(1, bbox.height - paddingY * 2)
   const minFontSize = Math.max(6, options.minFontSize ?? 8)
+  const readableMinFontSize = Math.max(minFontSize, options.readableMinFontSize ?? READABLE_MIN_BALLOON_FONT_SIZE)
   const maxFontSize = Math.max(minFontSize, options.maxFontSize ?? 72)
   const preferred = Number.isFinite(preferredFontSize) ? preferredFontSize : 18
   const upperBound = Math.min(maxFontSize, Math.max(minFontSize, preferred), availableHeight * 0.82)
@@ -144,14 +147,16 @@ export function layoutTextInBox(
     }
   }
 
-  const fontSize = Math.max(minFontSize, Math.floor(best * getFitComfortScale(shape) * 10) / 10)
+  const fittedFontSize = Math.max(minFontSize, Math.floor(best * getFitComfortScale(shape) * 10) / 10)
+  const didClampForReadability = fittedFontSize < readableMinFontSize
+  const fontSize = didClampForReadability ? readableMinFontSize : fittedFontSize
   const lines = wrapTextToShape(text, availableWidth, availableHeight, fontSize, lineHeight, shape, measure)
   const lineWidths = buildLineWidths(availableWidth, lines.length, shape)
   const lineHeightPx = fontSize * lineHeight
   const contentHeight = lines.length * lineHeightPx
   const widthOverflow = lines.some((line, index) => measure(line, fontSize) > lineWidths[index] + 0.5)
   const heightOverflow = contentHeight > availableHeight + 0.5
-  const overflow = widthOverflow || heightOverflow
+  const overflow = didClampForReadability || widthOverflow || heightOverflow
 
   return {
     fontSize,
@@ -164,7 +169,9 @@ export function layoutTextInBox(
     lineWidths,
     overflow,
     overflowReason: overflow
-      ? fontSize <= minFontSize + 0.05
+      ? didClampForReadability
+        ? 'readability'
+        : fontSize <= minFontSize + 0.05
         ? 'min_font'
         : heightOverflow
           ? 'height'

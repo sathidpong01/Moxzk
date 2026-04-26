@@ -18,6 +18,7 @@ export type TextAlign = "left" | "center" | "right";
 export type TextStrokeJoin = "round" | "bevel" | "miter";
 export type TextBalloonShape = "round" | "cloud" | "box";
 export type TextArtisticFit = "free" | "bubble_guided";
+export type TranslationMode = "concise" | "faithful";
 
 export interface TextRegion {
   id: string;
@@ -167,5 +168,6 @@ export interface AppSettings {
   ollamaModel: string;
   ollamaApiKey: string;
   translationContextEnabled: boolean;
+  translationMode: TranslationMode;
   translationStyleGuide: string;
 }

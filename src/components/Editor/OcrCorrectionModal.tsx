@@ -79,6 +79,11 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
           ollamaUrl: settings.ollamaUrl,
           ollamaModel: settings.ollamaModel,
           ollamaApiKey: settings.ollamaApiKey,
+          storyContext: {
+            enabled: settings.translationContextEnabled,
+            translationMode: settings.translationMode,
+            styleGuide: settings.translationStyleGuide,
+          },
         })
         updateRegion(id, { translatedText: result, originalText: text })
         done++

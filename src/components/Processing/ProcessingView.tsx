@@ -126,10 +126,11 @@ export default function ProcessingView({
       signal: abortSignal,
       storyContext: {
         enabled: settings.translationContextEnabled,
+        translationMode: settings.translationMode,
         styleGuide: settings.translationStyleGuide,
       },
     }),
-    [ollamaOptions, abortSignal, settings.translationContextEnabled, settings.translationStyleGuide],
+    [ollamaOptions, abortSignal, settings.translationContextEnabled, settings.translationMode, settings.translationStyleGuide],
   )
 
   useEffect(() => {

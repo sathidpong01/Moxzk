@@ -1,9 +1,10 @@
-import type { ImageEntry, TextRegion } from '../types'
+import type { ImageEntry, TextRegion, TranslationMode } from '../types'
 
 export interface TranslationStoryContext {
   enabled: boolean
   pageNumber?: number
   totalPages?: number
+  translationMode?: TranslationMode
   styleGuide?: string
   previousLines?: Array<{
     pageNumber?: number
@@ -19,6 +20,8 @@ export const DEFAULT_TRANSLATION_STYLE_GUIDE = [
   'แปลเป็นไทยธรรมชาติแบบมังงะผู้ใหญ่ ไม่แปลแข็งหรือสุภาพเกินไป',
   'รักษาความสัมพันธ์ของตัวละครให้ต่อเนื่องทั้งเรื่อง ไม่ว่าจะเป็นครอบครัว พี่น้อง คู่รัก เพื่อน เจ้านาย/ลูกน้อง ครู/ศิษย์ รุ่นพี่/รุ่นน้อง คู่แข่ง หรือคนแปลกหน้า',
   'คำเรียกแทนตัวและคำเรียกคู่สนทนาต้องตามบริบทภาพ บทก่อนหน้า อายุ ลำดับชั้น ความสนิท และอารมณ์ของฉาก',
+  'ถ้าเพศภาษาหรือความสัมพันธ์ยังไม่ชัด ให้ใช้ถ้อยคำกลางที่ไม่ล็อกเพศหรือสถานะผิด',
+  'รักษาคำเรียกซ้ำ ชื่อเฉพาะ ศัพท์ประจำเรื่อง มุก ประชด ความคิดในใจ narration และ SFX ให้สอดคล้องกับบริบทภาพ',
   'ถ้าบทก่อนหน้าหรือภาพ establish ความสัมพันธ์ไว้แล้ว ห้ามเปลี่ยนเป็นความสัมพันธ์อื่นโดยไม่มีหลักฐานจากต้นฉบับ',
   'อย่าตัดคำถาม ปฏิเสธ เหตุผล คำเรียก ความสัมพันธ์ หรือคำลงท้ายที่เปลี่ยนน้ำเสียงของประโยค',
 ].join('\n')
@@ -68,9 +71,12 @@ export function buildStoryContextBlock(context?: TranslationStoryContext): strin
     '- Track every relationship category, including family, siblings, romantic partners, friends, rivals, coworkers, boss/subordinate, teacher/student, senior/junior, customer/staff, and strangers.',
     '- If an earlier line or the image establishes a relationship, keep that relationship consistent unless the source explicitly changes it.',
     '- Choose Thai pronouns and address terms from the relationship, age, hierarchy, intimacy, and scene tone. Do not invent a different relationship to make the sentence sound natural.',
+    '- Keep recurring names, terms, jokes, sarcasm, inner thoughts, narration, and SFX consistent with the image and previous lines.',
     '- Do not drop meaning to make text shorter. Keep every important clause, question, negation, relationship term, and implied subject.',
     '- You may compress wording only after preserving the full meaning.',
   ]
+
+  parts.push(`- Translation length mode: ${context.translationMode === 'faithful' ? 'faithful' : 'concise'}.`)
 
   const styleGuide = context.styleGuide?.trim()
   if (styleGuide) {

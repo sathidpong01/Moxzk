@@ -1,4 +1,4 @@
-import type { AppSettings, FontMoodMap } from '../types'
+import type { AppSettings, FontMoodMap, TranslationMode } from '../types'
 import { LEGACY_FATHER_SON_STYLE_GUIDE } from './story-context'
 
 const SETTINGS_KEY = 'mg-translater-settings'
@@ -13,6 +13,7 @@ interface SerializedSettings {
   ollamaModel?: string
   ollamaApiKey?: string
   translationContextEnabled?: boolean
+  translationMode?: TranslationMode
   translationStyleGuide?: string
 }
 
@@ -28,6 +29,7 @@ export function saveSettings(settings: AppSettings): void {
       ollamaModel: settings.ollamaModel,
       ollamaApiKey: settings.ollamaApiKey,
       translationContextEnabled: settings.translationContextEnabled,
+      translationMode: settings.translationMode,
       translationStyleGuide: settings.translationStyleGuide,
     }
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(serialized))
@@ -52,6 +54,7 @@ export function loadSettings(defaults: AppSettings): AppSettings {
       ollamaModel: parsed.ollamaModel || defaults.ollamaModel,
       ollamaApiKey: parsed.ollamaApiKey || defaults.ollamaApiKey,
       translationContextEnabled: parsed.translationContextEnabled ?? defaults.translationContextEnabled,
+      translationMode: normalizeTranslationMode(parsed.translationMode, defaults.translationMode),
       translationStyleGuide: normalizeTranslationStyleGuide(parsed.translationStyleGuide, defaults.translationStyleGuide),
     }
   } catch (err) {
@@ -67,6 +70,10 @@ function normalizeTheme(theme: string | undefined, fallback: string): string {
 function normalizeTranslationStyleGuide(value: string | undefined, fallback: string): string {
   if (!value?.trim()) return fallback
   return value === LEGACY_FATHER_SON_STYLE_GUIDE ? fallback : value
+}
+
+function normalizeTranslationMode(value: string | undefined, fallback: TranslationMode): TranslationMode {
+  return value === 'faithful' || value === 'concise' ? value : fallback
 }
 
 export function clearSettings(): void {

@@ -139,6 +139,22 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
+function getTranslationModeRules(context?: TranslationStoryContext): string {
+  const mode = context?.translationMode === 'faithful' ? 'faithful' : 'concise'
+  if (mode === 'faithful') {
+    return `Translation mode: faithful
+- Stay close to the source meaning, tone, implied subject, and order of ideas.
+- Preserve nuance even if the Thai line becomes longer.
+- You may shorten only filler that does not change information, speaker intent, relationship, or emotional tone.`
+  }
+
+  return `Translation mode: concise
+- Make the Thai line short, clear, and speech-balloon friendly.
+- Remove filler and redundant wording, but do not summarize away meaning.
+- Never drop negation, questions, conditions, reasons, names, relationship terms, threats, promises, or emotional tone.
+- Prefer compact natural Thai phrasing over literal source word order.`
+}
+
 export function buildThaiMangaRules(context?: TranslationStoryContext): string {
   const storyBlock = buildStoryContextBlock(context)
   return `Thai localization rules:
@@ -148,11 +164,13 @@ export function buildThaiMangaRules(context?: TranslationStoryContext): string {
 - Do not hard-wrap translated text just to fit the balloon. Return each region as one editable string.
 - Use \\n only for intentional line breaks, separate SFX strokes, or meaningfully separate beats.
 - For Thai readability in narrow balloons, prefer concise phrases and natural clause spacing; never split Thai words unnaturally.
+- Cover image context broadly: relationships, age, hierarchy, intimacy, uncertain gendered language, inner monologue, narration, jokes, sarcasm, recurring terms, and SFX.
 - Preserve speaker relationship and pronouns consistently across pages.
 - Avoid inventing or changing relationships. This applies to family roles, siblings, partners, friends, rivals, hierarchy, seniority, workplace roles, school roles, customer/staff roles, and strangers.
 - When Thai requires a pronoun or address term, infer it from established context and image evidence. If uncertain, choose a neutral phrasing rather than forcing a wrong relationship.
 - Use natural Thai dialogue. Prefer clear wording over literal word order.
 - If the text is SFX, render the sound naturally in Thai.
+${getTranslationModeRules(context)}
 ${storyBlock ? `\n${storyBlock}` : ''}`
 }
 

@@ -42,6 +42,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   ollamaModel: import.meta.env.VITE_OLLAMA_MODEL ?? 'gemma4',
   ollamaApiKey: '',
   translationContextEnabled: true,
+  translationMode: 'concise',
   translationStyleGuide: DEFAULT_TRANSLATION_STYLE_GUIDE,
 }
 

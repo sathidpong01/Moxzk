@@ -742,6 +742,11 @@ export default function ArtboardWorkspace({
           ollamaUrl: settings.ollamaUrl,
           ollamaModel: settings.ollamaModel,
           ollamaApiKey: settings.ollamaApiKey,
+          storyContext: {
+            enabled: settings.translationContextEnabled,
+            translationMode: settings.translationMode,
+            styleGuide: settings.translationStyleGuide,
+          },
         },
       )
       applyEntryRegionUpdate(entryId, regionId, { translatedText }, { historyKey: `hud:translate:${regionId}` })
@@ -1813,7 +1818,7 @@ function ArtboardText({
           y={offsetY + (region.bbox.y + region.bbox.height) * scale}
           viewportZoom={viewportZoom}
           showLabel={selectedRegionId === region.id}
-          labelText="ข้อความยังล้น"
+          labelText={regionLayout.overflowReason === 'readability' ? 'ตัวเล็ก/ล้น' : 'ข้อความยังล้น'}
         />
       )}
     </>

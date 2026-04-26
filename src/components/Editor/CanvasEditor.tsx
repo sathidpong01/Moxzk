@@ -806,7 +806,7 @@ export default function CanvasEditor({
                       y={(region.bbox.y + region.bbox.height) * scale}
                       viewportZoom={zoom}
                       showLabel={selectedId === region.id}
-                      labelText="ข้อความยังล้น"
+                      labelText={regionLayout.overflowReason === 'readability' ? 'ตัวเล็ก/ล้น' : 'ข้อความยังล้น'}
                     />
                   )}
                 </Fragment>

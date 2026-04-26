@@ -85,6 +85,7 @@ test('balloon fit uses a tighter bubble safe area for rounded speech balloons', 
     'ไม่ต้องกังวลเรื่องนั้นหรอก พ่อรู้ว่ามันอยู่ที่ไหน อดทนรออีกนิดนะ',
     { width: 220, height: 88 },
     34,
+    { readableMinFontSize: 8 },
   )
 
   assert.ok(layout.paddingX >= 20)
@@ -99,7 +100,7 @@ test('round bubbles prefer balanced Thai lines over crowded edge lines', () => {
     'ไม่ต้องกังวลเรื่องนั้นหรอก พ่อรู้ว่ามันอยู่ที่ไหน อดทนรออีกนิดนะ',
     { width: 220, height: 88 },
     34,
-    { shape: 'round' },
+    { shape: 'round', readableMinFontSize: 8 },
   )
 
   assert.ok(layout.lines.length >= 5)
@@ -110,8 +111,8 @@ test('round bubbles prefer balanced Thai lines over crowded edge lines', () => {
 test('cloud bubbles reserve a safer irregular edge than round bubbles', () => {
   const text = 'ไม่ต้องกังวลเรื่องนั้นหรอก พ่อรู้ว่ามันอยู่ที่ไหน อดทนรออีกนิดนะ'
   const bbox = { width: 220, height: 88 }
-  const round = layoutTextInBox(text, bbox, 34, { shape: 'round' })
-  const cloud = layoutTextInBox(text, bbox, 34, { shape: 'cloud' })
+  const round = layoutTextInBox(text, bbox, 34, { shape: 'round', readableMinFontSize: 8 })
+  const cloud = layoutTextInBox(text, bbox, 34, { shape: 'cloud', readableMinFontSize: 8 })
 
   assert.ok(cloud.paddingX > round.paddingX)
   assert.ok(cloud.paddingY >= round.paddingY)
@@ -137,11 +138,24 @@ test('overflow reports min_font when a valid bubble box still cannot show all te
     'ข้อความภาษาไทยที่ยาวมากเกินกว่าจะใส่ลงในกรอบเล็กมากได้ครบทุกคำโดยไม่ตัด',
     { width: 58, height: 24 },
     36,
-    { shape: 'round', minFontSize: 8 },
+    { shape: 'round', minFontSize: 8, readableMinFontSize: 8 },
   )
 
   assert.equal(layout.overflow, true)
   assert.equal(layout.overflowReason, 'min_font')
+})
+
+test('balloon fit clamps below-readable text and reports readability overflow', () => {
+  const layout = layoutTextInBox(
+    'ข้อความภาษาไทยที่ยาวมากจนถ้าพยายามใส่ให้ครบในบับเบิลนี้จะต้องลดตัวอักษรเล็กเกินอ่านง่าย',
+    { width: 160, height: 58 },
+    34,
+    { shape: 'round' },
+  )
+
+  assert.equal(layout.fontSize, 12)
+  assert.equal(layout.overflow, true)
+  assert.equal(layout.overflowReason, 'readability')
 })
 
 test('region layout defaults narration to box and keeps artistic free unwrapped', () => {

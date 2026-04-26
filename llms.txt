@@ -9,6 +9,7 @@ MG_Translater uses Konva/react-konva for the canvas editor, local PanelCleaner a
 - [Agent guide](AGENTS.md): repo entrypoint for AI coding agents
 - [Current agent policy](.agents/AGENTS.md): workflow, context, and verification rules
 - [Active project state](.agents/active.md): current task state and next action
+- [Agent team](.agents/team.md): specialist roles, ownership boundaries, and routing rules
 - [Repo tree](.agents/index/repo-tree.md): generated project map
 - [Codex wiki](./_wiki/README.md): local LLM-readable knowledge base
 
@@ -43,6 +44,7 @@ Official Konva LLM-readable sources:
 ## Agent Rules
 
 - Read `AGENTS.md` and `.agents/AGENTS.md` first.
+- For multi-agent work, read `.agents/team.md` before splitting ownership.
 - For Konva/canvas work, read `docs/llm/konva.md` before changing editor interaction code.
 - For research or repeated questions, read `_wiki/podcast.md`, `_wiki/index.md`, then only relevant wiki pages.
 - Treat `Clippings/` as local-only raw Web Clipper source material.

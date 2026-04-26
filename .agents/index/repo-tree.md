@@ -18,7 +18,8 @@ Root: `MG_Translater`
 |   |   |-- dev.md
 |   |   `-- skills.md
 |   |-- active.md
-|   `-- AGENTS.md
+|   |-- AGENTS.md
+|   `-- team.md
 |-- .claude/
 |-- .cursor/
 |   `-- rules/

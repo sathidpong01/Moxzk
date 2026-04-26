@@ -92,6 +92,11 @@ export default function PropertiesPanel({
           ollamaUrl: settings.ollamaUrl,
           ollamaModel: settings.ollamaModel,
           ollamaApiKey: settings.ollamaApiKey,
+          storyContext: {
+            enabled: settings.translationContextEnabled,
+            translationMode: settings.translationMode,
+            styleGuide: settings.translationStyleGuide,
+          },
         },
       )
       onUpdate(region.id, { translatedText: result })
@@ -209,9 +214,13 @@ export default function PropertiesPanel({
           <div className="rounded-[10px] border border-[#7f1d1d] bg-[#7f1d1d1f] px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-bold text-[#fecaca]">ข้อความยังล้น</div>
+                <div className="text-sm font-bold text-[#fecaca]">
+                  {regionLayout.overflowReason === 'readability' ? 'คำแปลยาวเกินบับเบิล' : 'ข้อความยังล้น'}
+                </div>
                 <div className="text-[11px] text-[#fca5a5]">
-                  {regionLayout.overflowReason === 'clipped'
+                  {regionLayout.overflowReason === 'readability'
+                    ? 'คำแปลยาวเกินไป ตัวอักษรอาจเล็กหรือล้นบับเบิล'
+                    : regionLayout.overflowReason === 'clipped'
                     ? 'ข้อความยังถูกตัดในกรอบปัจจุบัน'
                     : 'กรอบหรือขนาดฟอนต์ยังเล็กเกินไป'}
                 </div>

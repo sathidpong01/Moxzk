@@ -31,6 +31,9 @@ test('default translation style guide supports broad relationships', () => {
   assert.match(DEFAULT_TRANSLATION_STYLE_GUIDE, /คู่รัก/)
   assert.match(DEFAULT_TRANSLATION_STYLE_GUIDE, /เจ้านาย\/ลูกน้อง/)
   assert.match(DEFAULT_TRANSLATION_STYLE_GUIDE, /ครู\/ศิษย์/)
+  assert.match(DEFAULT_TRANSLATION_STYLE_GUIDE, /เพศภาษา/)
+  assert.match(DEFAULT_TRANSLATION_STYLE_GUIDE, /ความคิดในใจ/)
+  assert.match(DEFAULT_TRANSLATION_STYLE_GUIDE, /SFX/)
 })
 
 test('collectPreviousTranslationLines only includes pages before the current entry', () => {

@@ -28,6 +28,19 @@ test('Thai manga prompt keeps translated text editable instead of hard-wrapped',
   })
 })
 
+test('Thai manga prompt exposes concise and faithful translation modes', () => {
+  return ollamaService.then(({ buildThaiMangaRules }) => {
+    const concise = buildThaiMangaRules({ enabled: false, translationMode: 'concise' })
+    const faithful = buildThaiMangaRules({ enabled: false, translationMode: 'faithful' })
+
+    assert.match(concise, /Translation mode: concise/)
+    assert.match(concise, /speech-balloon friendly/)
+    assert.match(concise, /Never drop negation, questions, conditions, reasons, names, relationship terms, threats, promises, or emotional tone/)
+    assert.match(faithful, /Translation mode: faithful/)
+    assert.match(faithful, /Stay close to the source meaning/)
+  })
+})
+
 test('Ollama vision flow asks for balloonShape metadata without controlling artistic mode', () => {
   const source = fs.readFileSync('src/services/ollama.ts', 'utf8')
 
