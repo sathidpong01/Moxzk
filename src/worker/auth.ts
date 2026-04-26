@@ -427,13 +427,13 @@ export function isDesktopRedirectTarget(redirectTarget: string): boolean {
 }
 
 function desktopGoogleCallbackOrigin(ctx: RequestContext): string {
-  const requestOrigin = ctx.request.headers.get('Origin')
-  if (requestOrigin) {
+  const configuredOrigin = ctx.request.headers.get('X-MG-Desktop-Auth-Origin')
+  if (configuredOrigin) {
     try {
-      const origin = new URL(requestOrigin).origin
+      const origin = new URL(configuredOrigin).origin
       if (origin === ctx.url.origin || isAllowedRedirect(ctx, `${origin}/auth/callback`)) return origin
     } catch {
-      // Fall back to the Worker origin below.
+      // Fall back to the request origin below.
     }
   }
   return ctx.url.origin

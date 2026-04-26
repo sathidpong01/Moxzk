@@ -66,11 +66,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   signInWithGoogle: async () => {
     const runtime = getAppRuntime()
+    const hasElectronBridge = typeof window !== 'undefined' && Boolean(window.mgRuntime)
     set({ loading: true })
     try {
       const result = await runtime.auth.signInWithGoogle()
       if (!result.ok) throw new Error(result.error || 'Google login ล้มเหลว')
-      if (runtime.kind === 'electron') {
+      if (runtime.kind === 'electron' || hasElectronBridge) {
         await get().fetchProfile()
         set({ showAuthModal: false })
         toast.success('เข้าสู่ระบบด้วย Google สำเร็จ!')

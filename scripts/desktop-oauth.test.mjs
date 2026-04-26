@@ -38,6 +38,7 @@ test('worker desktop oauth uses one-time tickets instead of session tokens in br
   assert.match(auth, /desktop_auth_tickets|desktopAuthTickets/)
   assert.match(auth, /redirectUrl\.searchParams\.set\('ticket', ticket\)/)
   assert.match(auth, /isNull\(schema\.desktopAuthTickets\.consumedAt\)/)
+  assert.match(auth, /X-MG-Desktop-Auth-Origin/)
   assert.match(auth, /sessionCookieName\(ctx\)/)
   assert.doesNotMatch(auth, /redirectUrl\.searchParams\.set\('session'/)
 })

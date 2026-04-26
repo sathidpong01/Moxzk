@@ -268,6 +268,7 @@ test('Electron runtime installs through window bridge and keeps unsupported desk
 test('Electron Google login uses system browser and loopback ticket claim', () => {
   const desktopAuth = fs.readFileSync('electron/main/desktopAuth.ts', 'utf8')
   const authStore = fs.readFileSync('src/store/authStore.ts', 'utf8')
+  const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
 
   assert.match(desktopAuth, /shell\.openExternal/)
   assert.match(desktopAuth, /createServer/)
@@ -278,6 +279,8 @@ test('Electron Google login uses system browser and loopback ticket claim', () =
   assert.match(desktopAuth, /activeGoogleLogin/)
   assert.match(authStore, /getAppRuntime/)
   assert.match(authStore, /runtime\.auth\.signInWithGoogle/)
+  assert.match(authStore, /hasElectronBridge/)
+  assert.match(webRuntime, /window\.mgRuntime\?\.auth/)
 })
 
 test('Electron native service launcher is loopback-only and keeps external dependencies explicit', () => {

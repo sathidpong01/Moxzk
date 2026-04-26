@@ -66,6 +66,7 @@ async function startDesktopGoogleFlow(apiBase: string, redirectTarget: string): 
     headers: {
       Accept: 'application/json',
       Origin: new URL(apiBase).origin,
+      'X-MG-Desktop-Auth-Origin': getWorkerCallbackOrigin(apiBase),
     },
   })
   const payload = await readJsonResponse<DesktopStartResponse>(response)
@@ -211,6 +212,11 @@ function getApiBaseUrl(): string {
   if (rendererUrl) return new URL(rendererUrl).origin
 
   throw new Error('Set VITE_CLOUDFLARE_API_URL for Electron Google login.')
+}
+
+function getWorkerCallbackOrigin(apiBase: string): string {
+  const configured = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MG_WORKER_API_BASE__)
+  return configured || apiBase
 }
 
 function normalizeBaseUrl(value: string | undefined): string {
