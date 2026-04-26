@@ -50,7 +50,7 @@ async function runGoogleSystemBrowserLogin(): Promise<NativeAuthActionResult> {
     await shell.openExternal(redirectUrl)
     const ticket = await withTimeout(loopback.waitForTicket(), DESKTOP_LOGIN_TIMEOUT_MS)
     const claimed = await claimDesktopTicket(apiBase, ticket)
-    await setElectronSessionCookie(apiBase, claimed.cookie)
+    await setElectronSessionCookies(apiBase, claimed.cookie)
     return { ok: true }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
@@ -88,21 +88,40 @@ async function claimDesktopTicket(apiBase: string, ticket: string): Promise<Desk
   return readJsonResponse<DesktopClaimResponse>(response)
 }
 
-async function setElectronSessionCookie(
+async function setElectronSessionCookies(
   apiBase: string,
   cookie: DesktopClaimResponse['cookie'],
 ): Promise<void> {
-  const target = new URL(apiBase)
-  await session.defaultSession.cookies.set({
-    url: target.origin,
-    name: cookie.name,
-    value: cookie.value,
-    expirationDate: Math.floor(cookie.expiresAt / 1000),
-    httpOnly: true,
-    secure: target.protocol === 'https:',
-    sameSite: 'lax',
-    path: '/',
-  })
+  const targets = getSessionCookieTargets(apiBase)
+  await Promise.all(targets.map((target) => {
+    const isSecure = target.protocol === 'https:'
+    return session.defaultSession.cookies.set({
+      url: target.origin,
+      name: cookie.name,
+      value: cookie.value,
+      expirationDate: Math.floor(cookie.expiresAt / 1000),
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: isSecure ? 'no_restriction' : 'lax',
+      path: '/',
+    })
+  }))
+}
+
+function getSessionCookieTargets(apiBase: string): URL[] {
+  const targets = [new URL(apiBase)]
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL
+  if (rendererUrl) {
+    try {
+      const rendererTarget = new URL(rendererUrl)
+      if (rendererTarget.protocol === 'http:' || rendererTarget.protocol === 'https:') {
+        targets.push(rendererTarget)
+      }
+    } catch {
+      // Ignore malformed dev-server URLs and keep the Worker cookie target.
+    }
+  }
+  return Array.from(new Map(targets.map((target) => [target.origin, target])).values())
 }
 
 async function createLoopbackCallbackServer(): Promise<LoopbackCallbackServer> {
