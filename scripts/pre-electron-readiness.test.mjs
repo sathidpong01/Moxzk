@@ -143,3 +143,56 @@ test('panelcleaner bridge keeps a lightweight health check before Electron', () 
   assert.match(bridge, /service: 'panelcleaner-bridge'/)
   assert.match(bridge, /getCachedPanelCleanerStatus/)
 })
+
+test('export flow exposes an explicit zip-first destination choice before Electron', () => {
+  const contract = fs.readFileSync('src/runtime/types.ts', 'utf8')
+  const drawerModel = fs.readFileSync('src/services/exportDrawer.ts', 'utf8')
+  const drawer = fs.readFileSync('src/components/Editor/ExportDrawer.tsx', 'utf8')
+
+  assert.match(contract, /RuntimeExportDestination\s*=\s*'zip'\s*\|\s*'folder'/)
+  assert.match(contract, /destination\?:\s*RuntimeExportDestination/)
+  assert.match(drawerModel, /DEFAULT_EXPORT_DESTINATION\s*=\s*'zip'/)
+  assert.match(drawerModel, /EXPORT_DESTINATION_OPTIONS/)
+  assert.match(drawer, /บันทึกเป็น ZIP/)
+  assert.match(drawer, /บันทึกลงโฟลเดอร์/)
+  assert.match(drawer, /Chrome จะขอสิทธิ์/)
+})
+
+test('feature code uses runtime provider instead of importing webRuntime directly', () => {
+  const settingsPanel = fs.readFileSync('src/components/Settings/SettingsPanel.tsx', 'utf8')
+  const exporter = fs.readFileSync('src/services/exporter.ts', 'utf8')
+  const runtimeIndex = fs.readFileSync('src/runtime/index.ts', 'utf8')
+
+  assert.doesNotMatch(settingsPanel, /webRuntime/)
+  assert.doesNotMatch(exporter, /webRuntime/)
+  assert.match(runtimeIndex, /getAppRuntime/)
+  assert.match(runtimeIndex, /setAppRuntime/)
+})
+
+test('runtime contract names native service and secure desktop capabilities', () => {
+  const contract = fs.readFileSync('src/runtime/types.ts', 'utf8')
+  const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
+
+  assert.match(contract, /localServices/)
+  assert.match(contract, /startOllama/)
+  assert.match(contract, /startPanelCleanerBridge/)
+  assert.match(contract, /secureStore/)
+  assert.match(contract, /customProtocolAuth/)
+  assert.match(webRuntime, /unsupportedRuntimeAction/)
+})
+
+test('pre-Electron IPC contract and desktop smoke path are documented', () => {
+  const ipcContract = fs.readFileSync('docs/electron/ipc-contract.md', 'utf8')
+  const smokeTest = fs.readFileSync('docs/electron/desktop-smoke-test.md', 'utf8')
+
+  assert.match(ipcContract, /contextIsolation:\s*true/)
+  assert.match(ipcContract, /nodeIntegration:\s*false/)
+  assert.match(ipcContract, /sandbox:\s*true/)
+  assert.match(ipcContract, /ห้าม expose raw ipcRenderer/)
+  assert.match(ipcContract, /AppRuntime/)
+  assert.match(smokeTest, /เปิด album/)
+  assert.match(smokeTest, /cleanup\/OCR\/translate/)
+  assert.match(smokeTest, /autosave\/restore/)
+  assert.match(smokeTest, /export/)
+  assert.match(smokeTest, /auth callback/)
+})

@@ -356,6 +356,29 @@ delete page from album/canvas -> page disappears from editor state
 export all pages -> folder export or ZIP fallback
 ```
 
+Auth smoke user:
+
+The command uses the real public auth API: register the smoke user if missing, log in if it already exists, then call `GET /api/auth/me` with the returned session cookie. Set the online Worker API URL and credential before running it:
+
+```powershell
+$env:MG_AUTH_SMOKE_BASE_URL = "https://mg-translater-api.<your-subdomain>.workers.dev"
+$env:MG_AUTH_SMOKE_EMAIL = "<your-smoke-user-email>"
+$env:MG_AUTH_SMOKE_PASSWORD = "<your-smoke-user-password>"
+$env:MG_AUTH_SMOKE_USERNAME = "MG Smoke Test"
+npm run auth:smoke-user
+```
+
+If `MG_AUTH_SMOKE_BASE_URL` is not set, the script falls back to `VITE_CLOUDFLARE_API_URL`. It intentionally does not default to localhost because this check is meant for the deployed Worker path. The smoke email and password must come from environment variables; do not commit real smoke credentials to the repo.
+
+Production smoke tests:
+
+```powershell
+npm run smoke:worker
+npm run smoke:browser
+```
+
+`smoke:worker` uses the deployed Worker and the smoke user to verify auth session behavior, album CRUD, page CRUD/reorder, R2 upload/download, ownership blocking for a foreign object key, and cleanup. `smoke:browser` expects `npm run dev` to be running on `http://localhost:5173`; it logs in through the UI, uploads a sample page, saves it to an album, opens that album again, and verifies ZIP export download. Both commands load `.env.local` plus process env, but do not print the smoke password or session cookie.
+
 ## Skills
 
 Installed skills that are relevant to this project:

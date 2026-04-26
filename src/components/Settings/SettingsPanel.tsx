@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type { AppSettings, TranslationMode } from '../../types'
 import type { OllamaPullProgress, OllamaStatus } from '../../services/ollama'
 import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
-import { webRuntime } from '../../runtime/webRuntime'
+import { getAppRuntime } from '../../runtime'
 import {
   AlertCircle,
   BookOpenText,
@@ -113,6 +113,7 @@ export default function SettingsPanel({
   isOpen,
   onClose,
 }: SettingsPanelProps) {
+  const appRuntime = getAppRuntime()
   const [draft, setDraft] = useState<AppSettings>(settings)
   const [tab, setTab] = useState<SettingsTab>('general')
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null)
@@ -149,7 +150,7 @@ export default function SettingsPanel({
   const handleCheckOllama = async () => {
     setCheckingOllama(true)
     try {
-      const status = await webRuntime.ollama.getServerStatus({
+      const status = await appRuntime.ollama.getServerStatus({
         ollamaUrl: draft.ollamaUrl,
         ollamaApiKey: draft.ollamaApiKey,
         timeoutMs: OLLAMA_STATUS_TIMEOUT_MS,
@@ -176,7 +177,7 @@ export default function SettingsPanel({
   const handleLoadModels = async () => {
     setLoadingModels(true)
     try {
-      const models = await webRuntime.ollama.listModels({
+      const models = await appRuntime.ollama.listModels({
         ollamaUrl: draft.ollamaUrl,
         ollamaApiKey: draft.ollamaApiKey,
         timeoutMs: OLLAMA_MODELS_TIMEOUT_MS,
@@ -196,7 +197,7 @@ export default function SettingsPanel({
     setPullProgress({ status: 'เตรียมดาวน์โหลด' })
     setPullError(null)
     try {
-      const result = await webRuntime.ollama.pullModel({
+      const result = await appRuntime.ollama.pullModel({
         ollamaUrl: draft.ollamaUrl,
         ollamaApiKey: draft.ollamaApiKey,
         model,
@@ -236,7 +237,7 @@ export default function SettingsPanel({
   const handleCheckPanelCleaner = async () => {
     setCheckingPanelCleaner(true)
     try {
-      const status = await webRuntime.panelCleaner.getStatus({
+      const status = await appRuntime.panelCleaner.getStatus({
         bridgeUrl: draft.panelCleanerBridgeUrl,
         executablePath: draft.panelCleanerExecutablePath,
         timeoutMs: PANELCLEANER_STATUS_TIMEOUT_MS,
@@ -302,7 +303,7 @@ export default function SettingsPanel({
           <div className="border-t border-[var(--settings-divider)] p-4">
             <div className="flex items-center gap-2 text-xs text-[var(--mg-muted)]">
               <Workflow size={14} />
-              <span>{webRuntime.kind === 'web' ? 'Web phase' : 'Electron'}</span>
+              <span>{appRuntime.kind === 'web' ? 'Web phase' : 'Electron'}</span>
             </div>
           </div>
         </aside>
@@ -358,7 +359,7 @@ export default function SettingsPanel({
                     <StatusTile
                       icon={<Workflow size={16} />}
                       label="Runtime"
-                      value={webRuntime.kind === 'web' ? 'Web phase' : 'Electron'}
+                      value={appRuntime.kind === 'web' ? 'Web phase' : 'Electron'}
                       tone="muted"
                     />
                   </div>

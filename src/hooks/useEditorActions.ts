@@ -1,9 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ProcessingMode } from '../types'
+import type { RuntimeExportDestination } from '../runtime'
 import { useAppStore } from '../store/appStore'
 import { useAuthStore } from '../store/authStore'
 import { useAlbumStore } from '../store/albumStore'
-import { renderImageEntryToDataUrl, exportFromDataUrl, exportImageEntries } from '../services/exporter'
+import { exportImageEntries, renderImageEntryToBlob } from '../services/exporter'
+import { getAppRuntime } from '../runtime'
 import { runBatchAiQueue, type BatchProgressState } from '../services/batch-processing'
 import { downloadImage } from '../services/storageService'
 import { toast } from 'sonner'
@@ -35,7 +37,7 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
     onOpenExportDrawer()
   }, [onOpenExportDrawer, store])
 
-  const handleExport = useCallback(async (selectedIds?: string[]) => {
+  const handleExport = useCallback(async (selectedIds?: string[], destination: RuntimeExportDestination = 'zip') => {
     store.saveActiveEntryState()
     const currentState = useAppStore.getState()
     const entries = currentState.imageEntries
@@ -50,8 +52,9 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
           quality: store.exportQuality / 100,
           albumTitle: album?.title || originalFileName,
           selectedIds: ids,
+          destination,
         })
-        toast.success(mode === 'folder' ? 'ส่งออกลงโฟลเดอร์สำเร็จ' : 'ส่งออกเป็น ZIP สำเร็จ')
+      toast.success(mode === 'folder' ? 'ส่งออกลงโฟลเดอร์สำเร็จ' : 'ส่งออกเป็น ZIP สำเร็จ')
         return true
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
@@ -67,12 +70,14 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
     }
     const originalFileName = entry.file?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
     try {
-      const dataUrl = await renderImageEntryToDataUrl(entry)
-      exportFromDataUrl(dataUrl, originalFileName, {
-        format: store.exportFormat,
-        quality: store.exportQuality / 100,
-      })
-      toast.success('ดาวน์โหลดสำเร็จ!')
+      const blob = await renderImageEntryToBlob(entry, store.exportFormat, store.exportQuality / 100)
+      const ext = store.exportFormat === 'jpg' ? 'jpg' : store.exportFormat
+      const mode = await getAppRuntime().files.saveExportFiles(
+        [{ name: `${originalFileName}.${ext}`, blob }],
+        originalFileName,
+        { destination },
+      )
+      toast.success(mode === 'folder' ? 'ส่งออกลงโฟลเดอร์สำเร็จ' : 'ส่งออกเป็น ZIP สำเร็จ')
       return true
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'ส่งออกล้มเหลว')

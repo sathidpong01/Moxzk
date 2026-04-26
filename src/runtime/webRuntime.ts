@@ -5,7 +5,7 @@ import JSZip from 'jszip'
 import * as FileSaver from 'file-saver'
 import { defaultPanelCleanerClient } from '../services/panelcleaner-api'
 import { clearProjectDraft, loadProjectDraft, saveProjectDraft } from '../services/projectDraftStorage'
-import type { AppRuntime, RuntimeExportFile } from './types'
+import type { AppRuntime, RuntimeActionResult, RuntimeExportFile, RuntimeSaveExportOptions } from './types'
 
 export class WebRuntime implements AppRuntime {
   readonly kind = 'web'
@@ -37,6 +37,21 @@ export class WebRuntime implements AppRuntime {
     load: loadProjectDraft,
     clear: clearProjectDraft,
   }
+
+  readonly localServices = {
+    startOllama: () => unsupportedRuntimeAction('Web runtime cannot start Ollama.'),
+    startPanelCleanerBridge: () => unsupportedRuntimeAction('Web runtime cannot start PanelCleaner bridge.'),
+  }
+
+  readonly secureStore = {
+    getSecret: async () => null,
+    setSecret: () => unsupportedRuntimeAction('Web runtime does not provide secure secret storage.'),
+    deleteSecret: () => unsupportedRuntimeAction('Web runtime does not provide secure secret storage.'),
+  }
+
+  readonly customProtocolAuth = {
+    getCallbackUrl: async () => null,
+  }
 }
 
 export const webRuntime: AppRuntime = new WebRuntime()
@@ -54,11 +69,15 @@ async function saveFile(file: RuntimeExportFile): Promise<void> {
   FileSaver.saveAs(file.blob, file.name)
 }
 
-async function saveExportFiles(files: RuntimeExportFile[], archiveName: string): Promise<'folder' | 'zip'> {
+async function saveExportFiles(
+  files: RuntimeExportFile[],
+  archiveName: string,
+  options: RuntimeSaveExportOptions = {},
+): Promise<'folder' | 'zip'> {
   if (files.length === 0) throw new Error('ไม่มีไฟล์สำหรับ export')
 
   const directoryPicker = getDirectoryPicker()
-  if (directoryPicker) {
+  if (options.destination === 'folder' && directoryPicker) {
     try {
       const dir = await directoryPicker()
       for (const file of files) {
@@ -81,6 +100,10 @@ async function saveExportFiles(files: RuntimeExportFile[], archiveName: string):
   const content = await zip.generateAsync({ type: 'blob' })
   FileSaver.saveAs(content, `${safeArchiveName(archiveName)}.zip`)
   return 'zip'
+}
+
+async function unsupportedRuntimeAction(error: string): Promise<RuntimeActionResult> {
+  return { ok: false, error }
 }
 
 function getDirectoryPicker(): DirectoryPicker | null {

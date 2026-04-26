@@ -37,12 +37,43 @@ Root: `MG_Translater`
 |       `-- skills.md
 |-- _codex/
 |   |-- browser-check/
-|   |   `-- package.json
+|   |   |-- artifacts/
+|   |   |   |-- bubble-layout-check/
+|   |   |   |   |-- trial-100.png
+|   |   |   |   |-- verify-zoom-100.png
+|   |   |   |   |-- verify-zoom-150.png
+|   |   |   |   |-- verify-zoom-35.png
+|   |   |   |   |-- zoom-100-selected.png
+|   |   |   |   |-- zoom-150-selected.png
+|   |   |   |   `-- zoom-35.png
+|   |   |   |-- bubble-layout-polish/
+|   |   |   |   |-- hud-closed.png
+|   |   |   |   |-- hud-menu-open-polished.png
+|   |   |   |   `-- hud-menu-open.png
+|   |   |   `-- expand-box-fix/
+|   |   |       |-- after-expand.png
+|   |   |       `-- before-expand.png
+|   |   |-- export-destination-check.png
+|   |   |-- package.json
+|   |   `-- sample-export.png
+|   |-- browser-smoke/
+|   |   |-- downloads/
+|   |   |   |-- failure-1777189648539.png
+|   |   |   |-- failure-1777189791456.png
+|   |   |   |-- failure-1777189968306.png
+|   |   |   |-- failure-1777190113397.png
+|   |   |   `-- page-1.zip
+|   |   `-- sample-page.png
+|   |-- artistic-frame-browser-check.png
+|   |-- artistic-frame-resize-browser-check.png
+|   |-- artistic-free-browser-check.png
 |   |-- current-task.md
 |   |-- dashboard.md
 |   |-- decisions.md
 |   |-- handoff.md
 |   |-- inbox.md
+|   |-- inline-font-measure-after-fix.png
+|   |-- inline-font-measure-before-fix.png
 |   `-- README.md
 |-- _wiki/
 |   |-- concepts/
@@ -76,6 +107,9 @@ Root: `MG_Translater`
 |   |-- HTML5 Canvas Set Shape Opacity Tutorial  Konva - JavaScript Canvas 2d Library.md
 |   `-- HTML5 Canvas Set Shape Stroke Color and Width Tutorial  Konva - JavaScript Canvas 2d Library.md
 |-- docs/
+|   |-- electron/
+|   |   |-- desktop-smoke-test.md
+|   |   `-- ipc-contract.md
 |   |-- llm/
 |   |   `-- konva.md
 |   `-- cloudflare-d1-schema.md
@@ -93,7 +127,11 @@ Root: `MG_Translater`
 |-- scripts/
 |   |-- album-open.test.mjs
 |   |-- album-save-plan.test.mjs
+|   |-- auth-smoke-user.mjs
+|   |-- auth-smoke-user.test.mjs
 |   |-- batch-processing.test.mjs
+|   |-- browser-smoke.mjs
+|   |-- browser-smoke.test.mjs
 |   |-- cache-services.test.mjs
 |   |-- d1-schema.test.mjs
 |   |-- editor-history-service.test.mjs
@@ -112,11 +150,14 @@ Root: `MG_Translater`
 |   |-- panelcleaner-csv.test.mjs
 |   |-- pre-electron-readiness.test.mjs
 |   |-- settings-model-guide.test.mjs
+|   |-- smoke-env.mjs
 |   |-- story-context.test.mjs
 |   |-- text-hud-position.test.mjs
 |   |-- text-layout.test.mjs
 |   |-- update_repo_context.py
 |   |-- viewer-zoom.test.mjs
+|   |-- worker-smoke.mjs
+|   |-- worker-smoke.test.mjs
 |   `-- workspace-viewport.test.mjs
 |-- src/
 |   |-- components/
@@ -140,6 +181,7 @@ Root: `MG_Translater`
 |   |   |   |-- ImageStrip.tsx
 |   |   |   |-- InlineTextEditor.tsx
 |   |   |   |-- OcrCorrectionModal.tsx
+|   |   |   |-- OversetTextBadge.tsx
 |   |   |   |-- PageOverviewGrid.tsx
 |   |   |   |-- PropertiesPanel.tsx
 |   |   |   `-- StrokeJoinPreview.tsx
@@ -169,6 +211,7 @@ Root: `MG_Translater`
 |   |   `-- useKeyboardShortcuts.ts
 |   |-- lib/
 |   |-- runtime/
+|   |   |-- index.ts
 |   |   |-- types.ts
 |   |   `-- webRuntime.ts
 |   |-- services/

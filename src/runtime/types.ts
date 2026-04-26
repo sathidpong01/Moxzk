@@ -9,7 +9,17 @@ export interface RuntimeExportFile {
   blob: Blob
 }
 
+export type RuntimeExportDestination = 'zip' | 'folder'
 export type RuntimeExportResult = 'folder' | 'zip'
+
+export interface RuntimeSaveExportOptions {
+  destination?: RuntimeExportDestination
+}
+
+export interface RuntimeActionResult {
+  ok: boolean
+  error?: string
+}
 
 export interface RuntimeProjectDraft {
   version: 1
@@ -42,11 +52,27 @@ export interface AppRuntime {
   }
   files: {
     saveFile(file: RuntimeExportFile): Promise<void>
-    saveExportFiles(files: RuntimeExportFile[], archiveName: string): Promise<RuntimeExportResult>
+    saveExportFiles(
+      files: RuntimeExportFile[],
+      archiveName: string,
+      options?: RuntimeSaveExportOptions,
+    ): Promise<RuntimeExportResult>
   }
   projectDraft: {
     save(draft: RuntimeProjectDraft): Promise<void>
     load(): Promise<RuntimeProjectDraft | null>
     clear(): Promise<void>
+  }
+  localServices: {
+    startOllama(): Promise<RuntimeActionResult>
+    startPanelCleanerBridge(): Promise<RuntimeActionResult>
+  }
+  secureStore: {
+    getSecret(key: string): Promise<string | null>
+    setSecret(key: string, value: string): Promise<RuntimeActionResult>
+    deleteSecret(key: string): Promise<RuntimeActionResult>
+  }
+  customProtocolAuth: {
+    getCallbackUrl(path: string): Promise<string | null>
   }
 }

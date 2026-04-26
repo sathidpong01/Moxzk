@@ -5,7 +5,7 @@ import type { AlbumPage } from '../types/database'
 import { resolveRegionFont } from '../config/fonts'
 import { drawBrushOverlay } from './brushStrokes'
 import { downloadImage } from './storageService'
-import { webRuntime } from '../runtime/webRuntime'
+import { getAppRuntime, type RuntimeExportDestination } from '../runtime'
 import { getExportTextRegionLayout, resolveImageEntryExportSource } from './exportRendering'
 
 const MIME_TYPES: Record<ExportFormat, string> = {
@@ -92,6 +92,7 @@ export interface ImageEntryExportOptions {
   quality: number
   albumTitle: string
   selectedIds: string[]
+  destination?: RuntimeExportDestination
   onProgress?: (current: number, total: number) => void
 }
 
@@ -117,7 +118,11 @@ export async function exportImageEntries(
     options.onProgress?.(i + 1, selected.length)
   }
 
-  return webRuntime.files.saveExportFiles(rendered, options.albumTitle || 'manga')
+  return getAppRuntime().files.saveExportFiles(
+    rendered,
+    options.albumTitle || 'manga',
+    { destination: options.destination ?? 'zip' },
+  )
 }
 
 export async function renderImageEntryToBlob(
@@ -258,7 +263,7 @@ export async function exportAlbumPages(
     const blob = await pageToBlob(page, mime, quality)
     if (blob) {
       const num = String(page.page_number).padStart(3, '0')
-      await webRuntime.files.saveFile({ name: `${safeFilename(albumTitle)}_${num}.${ext}`, blob })
+      await getAppRuntime().files.saveFile({ name: `${safeFilename(albumTitle)}_${num}.${ext}`, blob })
     }
     onProgress?.(1, 1)
     return
@@ -277,7 +282,7 @@ export async function exportAlbumPages(
   }
 
   if (rendered.length > 0) {
-    await webRuntime.files.saveExportFiles(rendered, albumTitle)
+    await getAppRuntime().files.saveExportFiles(rendered, albumTitle, { destination: 'zip' })
   }
 }
 

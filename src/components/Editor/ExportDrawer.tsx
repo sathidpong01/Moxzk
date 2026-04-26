@@ -2,7 +2,10 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, ImageIcon, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react'
 import type { ExportFormat, ImageEntry } from '../../types'
+import type { RuntimeExportDestination } from '../../runtime'
 import {
+  DEFAULT_EXPORT_DESTINATION,
+  EXPORT_DESTINATION_OPTIONS,
   EXPORT_FORMAT_OPTIONS,
   EXPORT_PREVIEW_MODE_OPTIONS,
   EXPORT_QUALITY_PRESETS,
@@ -35,7 +38,7 @@ interface ExportDrawerProps {
   onClose: () => void
   onExportFormatChange: (format: ExportFormat) => void
   onExportQualityChange: (quality: number) => void
-  onExport: (selectedIds?: string[]) => Promise<boolean | void>
+  onExport: (selectedIds?: string[], destination?: RuntimeExportDestination) => Promise<boolean | void>
 }
 
 type SegmentedOption<T extends string | number> = {
@@ -153,6 +156,7 @@ export default function ExportDrawer({
   onExport,
 }: ExportDrawerProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [exportDestination, setExportDestination] = useState<RuntimeExportDestination>(DEFAULT_EXPORT_DESTINATION)
   const [activePreviewId, setActivePreviewId] = useState<string | null>(activeImageId)
   const [previewMode, setPreviewMode] = useState<ExportPreviewMode>('after')
   const [previewZoom, setPreviewZoom] = useState(1)
@@ -186,6 +190,7 @@ export default function ExportDrawer({
     setActivePreviewId(activeImageId)
     setPreviewMode('after')
     setPreviewZoom(1)
+    setExportDestination(DEFAULT_EXPORT_DESTINATION)
     setIsExporting(false)
   }, [activeImageId, isOpen, sortedEntries])
 
@@ -397,7 +402,7 @@ export default function ExportDrawer({
     if (isExporting) return
     setIsExporting(true)
     try {
-      const didExport = await onExport(sortedEntries.length > 1 ? selectedIds : undefined)
+      const didExport = await onExport(sortedEntries.length > 1 ? selectedIds : undefined, exportDestination)
       if (didExport) {
         onClose()
         return
@@ -592,6 +597,24 @@ export default function ExportDrawer({
                         buttonClassName="w-full justify-center px-2"
                         stretch
                       />
+                    </Field>
+
+                    <Field as="fieldset" label="ปลายทาง" className="gap-2">
+                      <span className="sr-only">บันทึกเป็น ZIP หรือบันทึกลงโฟลเดอร์</span>
+                      <SegmentedPicker
+                        value={exportDestination}
+                        options={EXPORT_DESTINATION_OPTIONS}
+                        onChange={setExportDestination}
+                        ariaLabel="ปลายทางการส่งออก"
+                        className="grid grid-cols-2"
+                        buttonClassName="w-full justify-center px-2 text-xs"
+                        stretch
+                      />
+                      <p className="text-xs leading-5 text-[var(--mg-muted)]">
+                        {exportDestination === 'folder'
+                          ? 'Chrome จะขอสิทธิ์อ่านและแก้ไขโฟลเดอร์ก่อนบันทึกหลายไฟล์'
+                          : 'บันทึกเป็นไฟล์เดียว ไม่ต้องให้สิทธิ์โฟลเดอร์กับ browser'}
+                      </p>
                     </Field>
 
                     {hasQualityControls && (
