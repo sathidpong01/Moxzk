@@ -38,6 +38,10 @@ export default defineConfig(({ mode }) => {
           input: {
             index: resolve(projectRoot, 'electron/preload/index.ts'),
           },
+          output: {
+            format: 'cjs',
+            entryFileNames: '[name].cjs',
+          },
         },
       },
     },
