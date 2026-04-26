@@ -276,11 +276,11 @@ Electron V1 เพิ่ม shell แบบ "เปลี่ยน runtime imple
 - native save dialog สำหรับ ZIP/single-file export
 - native folder export ผ่าน main process
 - desktop draft persistence โดยเก็บ manifest และ image assets ใต้ Electron `userData`
-- typed IPC เฉพาะ export/draft โดยไม่ expose raw `ipcRenderer`
+- typed IPC สำหรับ export/draft และ local service start โดยไม่ expose raw `ipcRenderer`
+- native start helper สำหรับ PanelCleaner bridge และ local Ollama โดยยังถือว่า PanelCleaner/Ollama เป็น external dependencies
 
 สิ่งที่ยังเป็นเฟสถัดไป:
 
-- native start/check service ของ Ollama และ PanelCleaner
 - secure local storage สำหรับ secret
 - custom protocol auth callback เช่น `mg-translater://auth/callback`
 

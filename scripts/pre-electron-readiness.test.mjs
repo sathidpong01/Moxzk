@@ -221,6 +221,7 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
   const channels = fs.readFileSync('electron/shared/ipcChannels.ts', 'utf8')
   const preload = fs.readFileSync('electron/preload/index.ts', 'utf8')
   const rendererRuntime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
+  const mainIpc = fs.readFileSync('electron/main/ipc.ts', 'utf8')
 
   for (const channel of [
     'runtime:files.saveFile',
@@ -228,19 +229,23 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
     'runtime:projectDraft.save',
     'runtime:projectDraft.load',
     'runtime:projectDraft.clear',
+    'runtime:localServices.startPanelCleanerBridge',
+    'runtime:localServices.startOllama',
   ]) {
     assert.match(channels, new RegExp(channel.replace('.', '\\.')))
   }
 
-  assert.doesNotMatch(channels, /localServices/)
   assert.doesNotMatch(channels, /secureStore/)
   assert.doesNotMatch(channels, /customProtocolAuth/)
   assert.match(preload, /contextBridge\.exposeInMainWorld\('mgRuntime'/)
+  assert.match(preload, /localServices/)
   assert.match(preload, /ipcRenderer\.invoke/)
+  assert.match(mainIpc, /startPanelCleanerBridge/)
+  assert.match(mainIpc, /startOllama/)
   assert.doesNotMatch(rendererRuntime, /ipcRenderer/)
 })
 
-test('Electron runtime installs through window bridge and keeps native stubs explicit', () => {
+test('Electron runtime installs through window bridge and keeps unsupported desktop stubs explicit', () => {
   const main = fs.readFileSync('src/main.tsx', 'utf8')
   const runtime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
 
@@ -248,8 +253,26 @@ test('Electron runtime installs through window bridge and keeps native stubs exp
   assert.match(runtime, /class ElectronRuntime implements AppRuntime/)
   assert.match(runtime, /kind = 'electron'/)
   assert.match(runtime, /canPickNativeFolders:\s*true/)
-  assert.match(runtime, /Electron V1 does not start Ollama yet/)
+  assert.match(runtime, /canStartLocalServices:\s*true/)
+  assert.match(runtime, /bridge\.localServices\.startOllama/)
+  assert.match(runtime, /bridge\.localServices\.startPanelCleanerBridge/)
   assert.match(runtime, /Electron V1 does not provide secure secret storage yet/)
+})
+
+test('Electron native service launcher is loopback-only and keeps external dependencies explicit', () => {
+  const serviceLauncher = fs.readFileSync('electron/main/localServices.ts', 'utf8')
+  const settingsPanel = fs.readFileSync('src/components/Settings/SettingsPanel.tsx', 'utf8')
+
+  assert.match(serviceLauncher, /spawn/)
+  assert.match(serviceLauncher, /http:\/\/127\.0\.0\.1:5055\/health/)
+  assert.match(serviceLauncher, /http:\/\/127\.0\.0\.1:11434\/api\/version/)
+  assert.match(serviceLauncher, /PANELCLEANER_ALLOWED_ORIGIN/)
+  assert.match(serviceLauncher, /scripts', 'panelcleaner-bridge\.mjs'/)
+  assert.match(serviceLauncher, /ollama\.exe/)
+  assert.match(settingsPanel, /handleStartPanelCleaner/)
+  assert.match(settingsPanel, /handleStartOllama/)
+  assert.match(settingsPanel, /appRuntime\.localServices/)
+  assert.doesNotMatch(settingsPanel, /ipcRenderer/)
 })
 
 test('desktop draft codec round-trips multi-page image assets and edits', async () => {

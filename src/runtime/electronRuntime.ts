@@ -16,7 +16,7 @@ export class ElectronRuntime implements AppRuntime {
   readonly kind = 'electron'
 
   readonly capabilities = {
-    canStartLocalServices: false,
+    canStartLocalServices: true,
     canPickNativeFolders: true,
     canSecureStoreSecrets: false,
     canUseCustomProtocolAuth: false,
@@ -69,8 +69,8 @@ export class ElectronRuntime implements AppRuntime {
   }
 
   readonly localServices = {
-    startOllama: () => unsupportedRuntimeAction('Electron V1 does not start Ollama yet.'),
-    startPanelCleanerBridge: () => unsupportedRuntimeAction('Electron V1 does not start PanelCleaner bridge yet.'),
+    startOllama: async () => unwrapNativeResult(await this.bridge.localServices.startOllama()),
+    startPanelCleanerBridge: async () => unwrapNativeResult(await this.bridge.localServices.startPanelCleanerBridge()),
   }
 
   readonly secureStore = {

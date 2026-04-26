@@ -21,6 +21,10 @@ const bridge: MgRuntimeBridge = {
     load: () => ipcRenderer.invoke(IPC_CHANNELS.projectDraftLoad),
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.projectDraftClear),
   },
+  localServices: {
+    startPanelCleanerBridge: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStartPanelCleanerBridge),
+    startOllama: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStartOllama),
+  },
 }
 
 contextBridge.exposeInMainWorld('mgRuntime', bridge)

@@ -107,6 +107,16 @@ function toFriendlyServiceError(service: 'ollama' | 'panelcleaner', raw?: string
   return parseApiError(`${prefix} ${raw ?? fallback}`).shortMessage
 }
 
+function isLocalServiceUrl(value: string): boolean {
+  if (!value.trim()) return true
+  try {
+    const url = new URL(value)
+    return ['localhost', '127.0.0.1', '::1'].includes(url.hostname)
+  } catch {
+    return false
+  }
+}
+
 export default function SettingsPanel({
   settings,
   onSave,
@@ -125,10 +135,15 @@ export default function SettingsPanel({
   const [pullError, setPullError] = useState<string | null>(null)
   const [panelCleanerStatus, setPanelCleanerStatus] = useState<PanelCleanerStatus | null>(null)
   const [checkingPanelCleaner, setCheckingPanelCleaner] = useState(false)
+  const [startingOllama, setStartingOllama] = useState(false)
+  const [startingPanelCleaner, setStartingPanelCleaner] = useState(false)
 
   const installedModels = useMemo(() => new Set(modelNames), [modelNames])
   const pullPercent = getPullPercent(pullProgress)
   const currentTab = TABS.find((item) => item.id === tab) ?? TABS[0]
+  const canStartLocalServices = appRuntime.capabilities.canStartLocalServices
+  const canStartOllama = canStartLocalServices && isLocalServiceUrl(draft.ollamaUrl)
+  const canStartPanelCleaner = canStartLocalServices && isLocalServiceUrl(draft.panelCleanerBridgeUrl)
 
   useEffect(() => {
     if (isOpen) {
@@ -138,6 +153,8 @@ export default function SettingsPanel({
       setPullProgress(null)
       setPullError(null)
       setPullingModel(null)
+      setStartingOllama(false)
+      setStartingPanelCleaner(false)
     }
   }, [isOpen, settings])
 
@@ -189,6 +206,24 @@ export default function SettingsPanel({
       toast.error(`โหลดรายการโมเดลไม่สำเร็จ: ${toFriendlyServiceError('ollama', message)}`)
     } finally {
       setLoadingModels(false)
+    }
+  }
+
+  const handleStartOllama = async () => {
+    setStartingOllama(true)
+    try {
+      const result = await appRuntime.localServices.startOllama()
+      if (result.ok) {
+        toast.success('เริ่ม Ollama แล้ว')
+        await handleCheckOllama()
+      } else {
+        toast.error(toFriendlyServiceError('ollama', result.error))
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      toast.error(toFriendlyServiceError('ollama', message))
+    } finally {
+      setStartingOllama(false)
     }
   }
 
@@ -257,6 +292,24 @@ export default function SettingsPanel({
       toast.error(toFriendlyServiceError('panelcleaner', message))
     } finally {
       setCheckingPanelCleaner(false)
+    }
+  }
+
+  const handleStartPanelCleaner = async () => {
+    setStartingPanelCleaner(true)
+    try {
+      const result = await appRuntime.localServices.startPanelCleanerBridge()
+      if (result.ok) {
+        toast.success('เริ่ม PanelCleaner bridge แล้ว')
+        await handleCheckPanelCleaner()
+      } else {
+        toast.error(toFriendlyServiceError('panelcleaner', result.error))
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      toast.error(toFriendlyServiceError('panelcleaner', message))
+    } finally {
+      setStartingPanelCleaner(false)
     }
   }
 
@@ -391,6 +444,17 @@ export default function SettingsPanel({
                       />
                     </Field>
                     <div className="flex flex-wrap gap-2">
+                      {canStartOllama && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleStartOllama}
+                          disabled={startingOllama || checkingOllama}
+                        >
+                          {startingOllama ? <Loader2 size={12} className="animate-spin" /> : <Terminal size={12} />}
+                          เริ่ม Ollama
+                        </Button>
+                      )}
                       <Button variant="soft" size="sm" onClick={handleCheckOllama} disabled={checkingOllama}>
                         {checkingOllama ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
                         ตรวจสถานะ
@@ -447,7 +511,7 @@ export default function SettingsPanel({
                   <div className="space-y-4">
                     <div className="mg-notice">
                       <Globe size={14} />
-                      <span>ตอนนี้เป็น web app จึงเปิด installer, start service หรือสั่ง CLI แทนผู้ใช้ไม่ได้ ต้องรอ Electron สำหรับ native automation เต็มรูปแบบ</span>
+                      <span>{canStartLocalServices ? 'Electron เริ่ม local Ollama ได้เมื่อ endpoint เป็น localhost; installer และ cloud key ยังต้องจัดการเอง' : 'Web runtime เปิด installer, start service หรือสั่ง CLI แทนผู้ใช้ไม่ได้'}</span>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <StepCard
@@ -609,11 +673,11 @@ export default function SettingsPanel({
 
             {tab === 'cleanup' && (
               <SettingsSheet>
-                <SettingsRow title="PanelCleaner bridge" description="Web phase ต้องใช้ local bridge เพราะ browser เรียก Python/CLI โดยตรงไม่ได้">
+                <SettingsRow title="PanelCleaner bridge" description={canStartLocalServices ? 'Electron เริ่ม bridge บนเครื่องนี้ได้ โดยยังใช้ PanelCleaner เป็น external CLI' : 'Web phase ต้องใช้ local bridge เพราะ browser เรียก Python/CLI โดยตรงไม่ได้'}>
                   <div className="space-y-4">
                     <div className="mg-notice">
                       <Server size={14} />
-                      <span>ให้รัน npm run backend:panelcleaner ก่อนเริ่มประมวลผล</span>
+                      <span>{canStartPanelCleaner ? 'กดเริ่ม bridge ได้จาก Electron หรือรัน npm run backend:panelcleaner เองก็ได้' : 'ให้รัน npm run backend:panelcleaner ก่อนเริ่มประมวลผล'}</span>
                     </div>
                     <Field label="PanelCleaner Bridge URL" hint="ค่าเริ่มต้น: http://localhost:5055">
                       <TextInput
@@ -631,10 +695,23 @@ export default function SettingsPanel({
                         onChange={(e) => setDraft({ ...draft, panelCleanerExecutablePath: e.target.value })}
                       />
                     </Field>
-                    <Button variant="soft" size="sm" onClick={handleCheckPanelCleaner} disabled={checkingPanelCleaner}>
-                      {checkingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                      ตรวจ PanelCleaner
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      {canStartPanelCleaner && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleStartPanelCleaner}
+                          disabled={startingPanelCleaner || checkingPanelCleaner}
+                        >
+                          {startingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <Terminal size={12} />}
+                          เริ่ม PanelCleaner
+                        </Button>
+                      )}
+                      <Button variant="soft" size="sm" onClick={handleCheckPanelCleaner} disabled={checkingPanelCleaner}>
+                        {checkingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                        ตรวจ PanelCleaner
+                      </Button>
+                    </div>
                     {panelCleanerStatus && (
                       <div className="mg-notice">
                         {panelCleanerStatus.ok ? <CheckCircle2 size={14} className="text-[var(--mg-success)]" /> : <AlertCircle size={14} className="text-[var(--mg-warning)]" />}

@@ -2,7 +2,7 @@
 
 React/Vite image editor สำหรับคลีนภาพมังงะและแปลเป็นภาษาไทย โดยใช้ PanelCleaner, Ollama vision model และ Cloudflare Worker/D1/R2 เป็นแกนหลัก
 
-โปรเจคนี้ยังเป็น web-first editor แต่มี Electron V1 dev shell แล้ว. Electron V1 ใช้ native IPC เฉพาะ export และ desktop draft persistence ก่อน ส่วนงาน native ที่ใหญ่กว่า เช่นหา executable, start service, secure local storage และ custom protocol auth ยังเป็นเฟสถัดไป
+โปรเจคนี้ยังเป็น web-first editor แต่มี Electron V1 dev shell แล้ว. Electron V1 ใช้ native IPC สำหรับ export, desktop draft persistence และเริ่ม local service helper ของ PanelCleaner/Ollama ผ่าน `AppRuntime` ส่วน secure local storage และ custom protocol auth ยังเป็นเฟสถัดไป
 
 ## Current Direction
 
@@ -185,14 +185,14 @@ npm run db:migrate:remote
 npm run worker:deploy
 ```
 
-เปิด Ollama:
+เปิด Ollama เอง หรือให้ Electron dev shell เริ่มจาก Settings > AI / Models:
 
 ```bash
 ollama serve
 ollama pull gemma4
 ```
 
-เปิด PanelCleaner bridge:
+เปิด PanelCleaner bridge เอง หรือให้ Electron dev shell เริ่มจาก Settings > Cleanup:
 
 ```bash
 npm run backend:panelcleaner
@@ -222,6 +222,8 @@ npm run electron:build
 ```
 
 Electron production build ต้องตั้ง `VITE_CLOUDFLARE_API_URL` เพื่อให้ desktop app เรียก remote Cloudflare Worker ได้ชัดเจน. Dev shell ยังใช้ Vite dev server/proxy ได้เหมือน web dev.
+
+Electron local service start เป็นตัวช่วยสำหรับเครื่อง dev: PanelCleaner ยังเป็น external CLI ที่ต้องติดตั้งแยก และ Ollama ยังเป็น external app/CLI ไม่ได้ถูก bundle เข้า release.
 
 ## Cloudflare Resources
 

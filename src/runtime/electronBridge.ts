@@ -26,6 +26,11 @@ export interface NativeProjectDraftPayload {
   assets: NativeDraftAsset[]
 }
 
+export interface NativeServiceActionResult {
+  ok: boolean
+  error?: string
+}
+
 export interface MgRuntimeBridge {
   files: {
     saveFile(file: NativeFilePayload): Promise<NativeResult<string>>
@@ -39,6 +44,10 @@ export interface MgRuntimeBridge {
     save(payload: NativeProjectDraftPayload): Promise<NativeResult<void>>
     load(): Promise<NativeResult<NativeProjectDraftPayload | null>>
     clear(): Promise<NativeResult<void>>
+  }
+  localServices: {
+    startPanelCleanerBridge(): Promise<NativeResult<NativeServiceActionResult>>
+    startOllama(): Promise<NativeResult<NativeServiceActionResult>>
   }
 }
 

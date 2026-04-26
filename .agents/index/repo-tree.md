@@ -125,7 +125,8 @@ Root: `MG_Translater`
 |-- electron/
 |   |-- main/
 |   |   |-- index.ts
-|   |   `-- ipc.ts
+|   |   |-- ipc.ts
+|   |   `-- localServices.ts
 |   |-- preload/
 |   |   `-- index.ts
 |   `-- shared/
@@ -137,8 +138,8 @@ Root: `MG_Translater`
 |   |   `-- index.js
 |   `-- renderer/
 |       |-- assets/
-|       |   |-- index-BdDMkRXl.js
-|       |   `-- index-BiyCKkVR.css
+|       |   |-- index-BiyCKkVR.css
+|       |   `-- index-DvPUwxYu.js
 |       |-- index.html
 |       `-- vite.svg
 |-- public/
@@ -302,6 +303,7 @@ Root: `MG_Translater`
 |   `-- vite-env.d.ts
 |-- .diff.txt
 |-- .gitignore
+|-- .npmrc
 |-- .store_new.ts
 |-- .store_old.ts
 |-- AGENTS.md

@@ -1,6 +1,7 @@
 import { app, dialog, ipcMain } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { startOllama, startPanelCleanerBridge } from './localServices'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import type {
   NativeFilePayload,
@@ -46,6 +47,14 @@ export function registerRuntimeIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.projectDraftClear, async () => {
     return clearProjectDraft()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesStartPanelCleanerBridge, async () => {
+    return nativeActionResult(startPanelCleanerBridge)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesStartOllama, async () => {
+    return nativeActionResult(startOllama)
   })
 }
 
@@ -154,6 +163,14 @@ function getDraftDir(): string {
 
 function nativeError(error: unknown): NativeResult<never> {
   return { ok: false, error: error instanceof Error ? error.message : String(error) }
+}
+
+async function nativeActionResult<T>(action: () => Promise<T>): Promise<NativeResult<T>> {
+  try {
+    return { ok: true, data: await action() }
+  } catch (error) {
+    return nativeError(error)
+  }
 }
 
 function safeFileName(value: string): string {
