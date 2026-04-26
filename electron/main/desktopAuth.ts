@@ -62,11 +62,12 @@ async function runGoogleSystemBrowserLogin(): Promise<NativeAuthActionResult> {
 async function startDesktopGoogleFlow(apiBase: string, redirectTarget: string): Promise<string> {
   const url = new URL('/api/auth/google/desktop/start', apiBase)
   url.searchParams.set('redirectTarget', redirectTarget)
+  const workerCallbackOrigin = getWorkerCallbackOrigin()
   const response = await fetch(url, {
     headers: {
       Accept: 'application/json',
       Origin: new URL(apiBase).origin,
-      'X-MG-Desktop-Auth-Origin': getWorkerCallbackOrigin(apiBase),
+      ...(workerCallbackOrigin ? { 'X-MG-Desktop-Auth-Origin': workerCallbackOrigin } : {}),
     },
   })
   const payload = await readJsonResponse<DesktopStartResponse>(response)
@@ -208,15 +209,12 @@ function getApiBaseUrl(): string {
   const configured = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MG_WORKER_API_BASE__)
   if (configured) return configured
 
-  const rendererUrl = process.env.ELECTRON_RENDERER_URL
-  if (rendererUrl) return new URL(rendererUrl).origin
-
   throw new Error('Set VITE_CLOUDFLARE_API_URL for Electron Google login.')
 }
 
-function getWorkerCallbackOrigin(apiBase: string): string {
+function getWorkerCallbackOrigin(): string | null {
   const configured = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MG_WORKER_API_BASE__)
-  return configured || apiBase
+  return configured || null
 }
 
 function normalizeBaseUrl(value: string | undefined): string {

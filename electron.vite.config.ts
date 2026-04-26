@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
     main: {
       plugins: [externalizeDepsPlugin()],
       define: {
-        __MG_WORKER_API_BASE__: JSON.stringify(configuredWorkerApiTarget || ''),
+        __MG_WORKER_API_BASE__: JSON.stringify(workerApiTarget),
       },
       build: {
         outDir: 'out/main',

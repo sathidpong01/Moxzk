@@ -118,8 +118,19 @@ async function signInWithGoogleInBrowser(): Promise<RuntimeActionResult> {
     return result.data ?? { ok: true }
   }
 
+  if (isElectronUserAgent()) {
+    return {
+      ok: false,
+      error: 'Electron auth bridge is not available. Restart npm run electron:dev so preload can expose system-browser Google login.',
+    }
+  }
+
   window.location.href = await getGoogleRedirectUrl()
   return { ok: true }
+}
+
+function isElectronUserAgent(): boolean {
+  return typeof navigator !== 'undefined' && /\bElectron\b/i.test(navigator.userAgent)
 }
 
 function getDirectoryPicker(): DirectoryPicker | null {

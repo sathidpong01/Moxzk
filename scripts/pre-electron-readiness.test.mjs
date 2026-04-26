@@ -216,6 +216,7 @@ test('Electron shell keeps secure BrowserWindow defaults and external navigation
   assert.match(mainProcess, /loadFile\(path\.join\(mainDir,\s*'..\/renderer\/index\.html'\)\)/)
   assert.match(electronVite, /VITE_CLOUDFLARE_API_URL/)
   assert.match(electronVite, /target:\s*workerApiTarget/)
+  assert.match(electronVite, /__MG_WORKER_API_BASE__:\s*JSON\.stringify\(workerApiTarget\)/)
   assert.match(electronVite, /'\/api'/)
 })
 
@@ -275,12 +276,15 @@ test('Electron Google login uses system browser and loopback ticket claim', () =
   assert.match(desktopAuth, /127\.0\.0\.1/)
   assert.match(desktopAuth, /\/api\/auth\/google\/desktop\/start/)
   assert.match(desktopAuth, /\/api\/auth\/google\/desktop\/claim/)
+  assert.doesNotMatch(desktopAuth, /ELECTRON_RENDERER_URL/)
   assert.match(desktopAuth, /session\.defaultSession\.cookies\.set/)
   assert.match(desktopAuth, /activeGoogleLogin/)
   assert.match(authStore, /getAppRuntime/)
   assert.match(authStore, /runtime\.auth\.signInWithGoogle/)
   assert.match(authStore, /hasElectronBridge/)
   assert.match(webRuntime, /window\.mgRuntime\?\.auth/)
+  assert.match(webRuntime, /isElectronUserAgent/)
+  assert.match(webRuntime, /Electron auth bridge is not available/)
 })
 
 test('Electron native service launcher is loopback-only and keeps external dependencies explicit', () => {
