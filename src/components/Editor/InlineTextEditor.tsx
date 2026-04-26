@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import {
-  getInlineTextEditorTheme,
+  normalizeInlineTextEditorValue,
   shouldFinishInlineTextEditorOnPointerDown,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
@@ -10,6 +10,7 @@ interface InlineTextEditorProps {
   width: number
   height: number
   value: string
+  visualValue?: string
   fontFamily: string
   fontWeight: number
   fontStyle: 'normal' | 'italic'
@@ -31,6 +32,7 @@ export default function InlineTextEditor({
   width,
   height,
   value,
+  visualValue,
   fontFamily,
   fontWeight,
   fontStyle,
@@ -39,7 +41,6 @@ export default function InlineTextEditor({
   paddingX,
   paddingY,
   contentHeight,
-  viewportZoom,
   color,
   align,
   layoutMode,
@@ -50,12 +51,11 @@ export default function InlineTextEditor({
   const rootRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const finishedRef = useRef(false)
-  const theme = getInlineTextEditorTheme(color)
   const displayFontSize = Math.max(1, fontSize)
   const displayLineHeight = Math.max(1, lineHeight)
-  const chromeScale = 1 / Math.max(0.1, viewportZoom)
   const editorWidth = width
   const editorHeight = height
+  const editorValue = visualValue ?? value
   const verticalPadding = useMemo(() => {
     if (align !== 'center' || contentHeight === undefined) return paddingY
     return Math.max(paddingY, (height - contentHeight) / 2)
@@ -80,7 +80,7 @@ export default function InlineTextEditor({
       scrollWidth: textarea?.scrollWidth,
       scrollHeight: textarea?.scrollHeight,
       layoutMode,
-    }, textarea?.value ?? value)
+    }, normalizeInlineTextEditorValue(textarea?.value ?? editorValue, constrainToFrame))
   }
 
   useEffect(() => {
@@ -126,8 +126,8 @@ export default function InlineTextEditor({
           minWidth: editorWidth,
           minHeight: editorHeight,
           margin: 0,
-          border: `${chromeScale}px solid rgba(125, 150, 255, 0.38)`,
-          borderRadius: 6 * chromeScale,
+          border: '0 solid transparent',
+          borderRadius: 0,
           fontFamily,
           fontWeight,
           fontStyle,
@@ -137,23 +137,23 @@ export default function InlineTextEditor({
           paddingRight: paddingX,
           paddingBottom: paddingY,
           paddingLeft: paddingX,
-          backgroundColor: theme.backgroundColor,
-          color: theme.textColor,
-          caretColor: theme.caretColor,
-          textShadow: theme.textShadow,
+          backgroundColor: 'transparent',
+          color: 'transparent',
+          caretColor: color,
+          textShadow: 'none',
           textAlign: align,
           resize: 'none',
           overflow: constrainToFrame ? 'hidden' : 'visible',
           whiteSpace: constrainToFrame ? 'pre-wrap' : 'pre',
           overflowWrap: constrainToFrame ? 'break-word' : 'normal',
           outline: 'none',
-          boxShadow: `0 0 0 ${chromeScale}px rgba(118, 142, 255, 0.36), inset 0 0 0 ${chromeScale}px rgba(255, 255, 255, 0.08)`,
+          boxShadow: 'none',
         }}
-        value={value}
+        value={editorValue}
         spellCheck={false}
         onPointerDown={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => onChange(normalizeInlineTextEditorValue(event.target.value, constrainToFrame))}
         onBlur={finish}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {

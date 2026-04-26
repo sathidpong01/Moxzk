@@ -6,6 +6,7 @@ import {
   getInlineTextEditorFontSize,
   getInlineTextEditorLayerSize,
   getInlineTextEditorTheme,
+  normalizeInlineTextEditorValue,
   shouldFinishInlineTextEditorOnPointerDown,
 } from '../src/services/inlineTextEditor.ts'
 
@@ -72,6 +73,21 @@ test('inline text editor converts resized screen dimensions back to image-space 
       scale: 0.5,
     }),
     { width: 600, height: 240 },
+  )
+})
+
+test('frame inline editor collapses visual soft wraps back to reflow text', () => {
+  assert.equal(
+    normalizeInlineTextEditorValue('เรากำลังจะไป\nไหนกันครับพ่อ\nสถานที่ที่พ่อบอก', true),
+    'เรากำลังจะไปไหนกันครับพ่อสถานที่ที่พ่อบอก',
+  )
+  assert.equal(
+    normalizeInlineTextEditorValue('hello\nworld', true),
+    'hello world',
+  )
+  assert.equal(
+    normalizeInlineTextEditorValue('manual\nline', false),
+    'manual\nline',
   )
 })
 

@@ -780,7 +780,7 @@ export default function CanvasEditor({
                         })}
                     draggable={!isPanning && !isBrushActive && !isEyedropper}
                     rotation={region.rotation}
-                    opacity={inlineEdit?.id === region.id ? 0.12 : 1}
+                    opacity={1}
                     onClick={() => {
                       if (!isBrushActive && !isEyedropper) handleSelect(region.id)
                     }}
@@ -846,6 +846,7 @@ export default function CanvasEditor({
                   width={inlineEditSize.width}
                   height={inlineEditSize.height}
                   value={inlineEdit.text}
+                  visualValue={inlineEditConstrainToFrame && inlineEditLayout ? inlineEditLayout.lines.join('\n') : inlineEdit.text}
                   fontFamily={inlineEditFont.family}
                   fontWeight={inlineEditFont.weight}
                   fontStyle={inlineEditFont.style}

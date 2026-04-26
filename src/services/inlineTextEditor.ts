@@ -132,6 +132,17 @@ export function getInlineTextEditorBboxSize({
   }
 }
 
+export function normalizeInlineTextEditorValue(value: string, constrainToFrame: boolean): string {
+  if (!constrainToFrame) return value
+  const lines = value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  return lines.reduce((result, line, index) => {
+    const normalizedLine = line.trim()
+    if (index === 0) return normalizedLine
+    const needsSpace = /[A-Za-z0-9]$/.test(result) && /^[A-Za-z0-9]/.test(normalizedLine)
+    return `${result}${needsSpace ? ' ' : ''}${normalizedLine}`
+  }, '')
+}
+
 export function getTextTransformerAnchors(_layoutMode?: TextLayoutMode): TextTransformerAnchor[] {
   return [...TEXT_TRANSFORMER_ANCHORS]
 }

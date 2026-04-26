@@ -341,11 +341,19 @@ export default function AlbumListModal() {
           setConfirmOpen(false)
           setConfirmData(null)
           await deleteAlbum(id)
+          const albumState = useAlbumStore.getState()
+          const albumStillExists = albumState.currentAlbum?.id === id || albumState.albums.some((album) => album.id === id)
+          if (albumStillExists) return
+          setView('list')
+          setCurrentAlbum(null)
+          setEditMode(false)
+          setShowCoverPicker(false)
+          setDetailLoadError(null)
         },
       })
       setConfirmOpen(true)
     },
-    [deleteAlbum],
+    [deleteAlbum, setCurrentAlbum],
   )
 
   const handleAlbumSourceLanguageChange = useCallback(

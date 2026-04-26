@@ -96,6 +96,11 @@
       "sourceType": "github",
       "computedHash": "b321f6e20876f5433c6d2abac50381c15fb1dc17417e940faa514ef99b0ae030"
     },
+    "oauth": {
+      "source": "vercel-labs/portless",
+      "sourceType": "github",
+      "computedHash": "9dbf0a5cc15d805924816a4df6654b105a163618ff986c79f6974211164b34a7"
+    },
     "ollama": {
       "source": "rawveg/skillsforge-marketplace",
       "sourceType": "github",

@@ -1046,7 +1046,6 @@ export default function ArtboardWorkspace({
                 }}
                 onSelectRegion={selectRegion}
                 onRegionUpdate={(regionId, updates, options) => applyEntryRegionUpdate(artboard.entry.id, regionId, updates, options)}
-                editingRegionId={inlineEdit?.id ?? null}
                 previewOriginalRegionId={previewOriginalRegionId}
                 onRegionInteractionStart={() => setHudHidden(true)}
                 onRegionInteractionEnd={() => setHudHidden(false)}
@@ -1084,6 +1083,7 @@ export default function ArtboardWorkspace({
                   width={inlineEditSize.width}
                   height={inlineEditSize.height}
                   value={inlineEdit.text}
+                  visualValue={inlineEditConstrainToFrame && inlineEditLayout ? inlineEditLayout.lines.join('\n') : inlineEdit.text}
                   fontFamily={inlineEditFont.family}
                   fontWeight={inlineEditFont.weight}
                   fontStyle={inlineEditFont.style}
@@ -1532,7 +1532,6 @@ interface ArtboardTextOverlayProps extends ArtboardRenderProps {
     updates: Partial<TextRegion>,
     options?: RegionUpdateOptions,
   ) => void
-  editingRegionId: string | null
   previewOriginalRegionId: string | null
   onRegionInteractionStart: () => void
   onRegionInteractionEnd: () => void
@@ -1548,7 +1547,6 @@ const ArtboardTextOverlay = memo(function ArtboardTextOverlay({
   onActivate,
   onSelectRegion,
   onRegionUpdate,
-  editingRegionId,
   previewOriginalRegionId,
   onRegionInteractionStart,
   onRegionInteractionEnd,
@@ -1577,7 +1575,6 @@ const ArtboardTextOverlay = memo(function ArtboardTextOverlay({
           }}
           onUpdate={(updates, options) => onRegionUpdate(region.id, updates, options)}
           onLiveResize={(updates) => onRegionUpdate(region.id, updates, { trackHistory: false })}
-          isEditing={editingRegionId === region.id}
           previewOriginal={previewOriginalRegionId === region.id}
           onInteractionStart={onRegionInteractionStart}
           onInteractionEnd={onRegionInteractionEnd}
@@ -1600,7 +1597,6 @@ function ArtboardText({
   onSelect,
   onUpdate,
   onLiveResize,
-  isEditing,
   previewOriginal,
   onInteractionStart,
   onInteractionEnd,
@@ -1617,7 +1613,6 @@ function ArtboardText({
   onSelect: () => void
   onUpdate: (updates: Partial<TextRegion>, options?: RegionUpdateOptions) => void
   onLiveResize: (updates: Partial<TextRegion>) => void
-  isEditing: boolean
   previewOriginal: boolean
   onInteractionStart: () => void
   onInteractionEnd: () => void
@@ -1687,7 +1682,7 @@ function ArtboardText({
         })}
         draggable={canEditText}
         rotation={region.rotation}
-        opacity={isEditing ? 0.12 : 1}
+        opacity={1}
         listening={canEditText}
         onClick={(event) => {
           event.cancelBubble = true
