@@ -67,6 +67,9 @@ export interface AppRuntime {
     startOllama(): Promise<RuntimeActionResult>
     startPanelCleanerBridge(): Promise<RuntimeActionResult>
   }
+  auth: {
+    signInWithGoogle(): Promise<RuntimeActionResult>
+  }
   secureStore: {
     getSecret(key: string): Promise<string | null>
     setSecret(key: string, value: string): Promise<RuntimeActionResult>

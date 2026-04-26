@@ -73,6 +73,10 @@ export class ElectronRuntime implements AppRuntime {
     startPanelCleanerBridge: async () => unwrapNativeResult(await this.bridge.localServices.startPanelCleanerBridge()),
   }
 
+  readonly auth = {
+    signInWithGoogle: async () => unwrapNativeResult(await this.bridge.auth.signInWithGoogle()),
+  }
+
   readonly secureStore = {
     getSecret: async () => null,
     setSecret: () => unsupportedRuntimeAction('Electron V1 does not provide secure secret storage yet.'),

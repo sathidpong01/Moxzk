@@ -49,6 +49,9 @@ export interface MgRuntimeBridge {
     startPanelCleanerBridge(): Promise<NativeResult<NativeServiceActionResult>>
     startOllama(): Promise<NativeResult<NativeServiceActionResult>>
   }
+  auth: {
+    signInWithGoogle(): Promise<NativeResult<NativeServiceActionResult>>
+  }
 }
 
 declare global {

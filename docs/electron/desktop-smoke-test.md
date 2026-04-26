@@ -10,7 +10,7 @@ Use this checklist as the acceptance path for Electron V1 and later desktop phas
 4. Export to folder and confirm individual images are written through the native folder picker.
 5. Close and relaunch the app; confirm desktop draft restore returns the page list, active page, regions, brush strokes, and local image assets.
 6. Confirm production Electron builds require `VITE_CLOUDFLARE_API_URL` for remote Worker API calls.
-7. Confirm Google OAuth navigation stays in the Electron window long enough for the localhost callback to set the Electron session cookie.
+7. Confirm Google OAuth opens in the system browser, returns to the loopback callback, and Electron refreshes into a signed-in state.
 8. Open Settings > Cleanup, click `เริ่ม PanelCleaner`, then confirm PanelCleaner status becomes ready or returns a clear external dependency error.
 9. Open Settings > AI / Models with a localhost endpoint, click `เริ่ม Ollama`, then confirm Ollama status becomes ready or returns a clear install/PATH error.
 
@@ -32,5 +32,6 @@ Use this checklist as the acceptance path for Electron V1 and later desktop phas
 - Native folder export writes individual image files without a Chrome permission prompt.
 - PanelCleaner bridge starts through Electron IPC or reports a clear external dependency error.
 - Ollama starts through Electron IPC or reports a clear install/PATH error.
+- Google OAuth never renders `accounts.google.com` inside the Electron window.
 - Secure secrets are not stored in browser localStorage.
 - The renderer never imports Electron modules or raw ipcRenderer.

@@ -278,6 +278,7 @@ Electron V1 เพิ่ม shell แบบ "เปลี่ยน runtime imple
 - desktop draft persistence โดยเก็บ manifest และ image assets ใต้ Electron `userData`
 - typed IPC สำหรับ export/draft และ local service start โดยไม่ expose raw `ipcRenderer`
 - native start helper สำหรับ PanelCleaner bridge และ local Ollama โดยยังถือว่า PanelCleaner/Ollama เป็น external dependencies
+- Google OAuth ผ่าน system browser + loopback one-time ticket โดยไม่ render Google login ใน Electron window
 
 สิ่งที่ยังเป็นเฟสถัดไป:
 

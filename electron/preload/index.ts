@@ -25,6 +25,9 @@ const bridge: MgRuntimeBridge = {
     startPanelCleanerBridge: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStartPanelCleanerBridge),
     startOllama: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStartOllama),
   },
+  auth: {
+    signInWithGoogle: () => ipcRenderer.invoke(IPC_CHANNELS.authSignInWithGoogle),
+  },
 }
 
 contextBridge.exposeInMainWorld('mgRuntime', bridge)

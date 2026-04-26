@@ -5,6 +5,7 @@ import JSZip from 'jszip'
 import * as FileSaver from 'file-saver'
 import { defaultPanelCleanerClient } from '../services/panelcleaner-api'
 import { clearProjectDraft, loadProjectDraft, saveProjectDraft } from '../services/projectDraftStorage'
+import { getGoogleRedirectUrl } from '../services/cloudflareApi'
 import type { AppRuntime, RuntimeActionResult, RuntimeExportFile, RuntimeSaveExportOptions } from './types'
 
 export class WebRuntime implements AppRuntime {
@@ -41,6 +42,10 @@ export class WebRuntime implements AppRuntime {
   readonly localServices = {
     startOllama: () => unsupportedRuntimeAction('Web runtime cannot start Ollama.'),
     startPanelCleanerBridge: () => unsupportedRuntimeAction('Web runtime cannot start PanelCleaner bridge.'),
+  }
+
+  readonly auth = {
+    signInWithGoogle: signInWithGoogleInBrowser,
   }
 
   readonly secureStore = {
@@ -104,6 +109,11 @@ async function saveExportFiles(
 
 async function unsupportedRuntimeAction(error: string): Promise<RuntimeActionResult> {
   return { ok: false, error }
+}
+
+async function signInWithGoogleInBrowser(): Promise<RuntimeActionResult> {
+  window.location.href = await getGoogleRedirectUrl()
+  return { ok: true }
 }
 
 function getDirectoryPicker(): DirectoryPicker | null {

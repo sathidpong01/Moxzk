@@ -1,6 +1,7 @@
 import { app, dialog, ipcMain } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { signInWithGoogleSystemBrowser } from './desktopAuth'
 import { startOllama, startPanelCleanerBridge } from './localServices'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import type {
@@ -55,6 +56,10 @@ export function registerRuntimeIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.localServicesStartOllama, async () => {
     return nativeActionResult(startOllama)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.authSignInWithGoogle, async () => {
+    return nativeActionResult(signInWithGoogleSystemBrowser)
   })
 }
 

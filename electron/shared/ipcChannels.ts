@@ -6,4 +6,5 @@ export const IPC_CHANNELS = {
   projectDraftClear: 'runtime:projectDraft.clear',
   localServicesStartPanelCleanerBridge: 'runtime:localServices.startPanelCleanerBridge',
   localServicesStartOllama: 'runtime:localServices.startOllama',
+  authSignInWithGoogle: 'runtime:auth.signInWithGoogle',
 } as const

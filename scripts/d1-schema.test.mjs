@@ -18,6 +18,7 @@ test('D1 migration creates the required application tables', () => {
     'sessions',
     'email_tokens',
     'oauth_states',
+    'desktop_auth_tickets',
     'albums',
     'album_pages',
     'objects',
@@ -40,6 +41,8 @@ test('D1 migration keeps auth uniqueness and enum constraints explicit', () => {
   )
   assert.ok(has('CREATE UNIQUE INDEX `sessions_token_hash_uniq`'), 'session token hash must be unique')
   assert.ok(has('CREATE UNIQUE INDEX `email_tokens_token_hash_uniq`'), 'email token hash must be unique')
+  assert.ok(has('CREATE TABLE `desktop_auth_tickets`'), 'desktop auth tickets table must exist')
+  assert.ok(has('CREATE INDEX `desktop_auth_tickets_expires_at_idx`'), 'desktop auth tickets must be queryable by expiry')
   assert.ok(
     has('CONSTRAINT "oauth_states_provider_check" CHECK("oauth_states"."provider" = \'google\')'),
     'oauth state provider must be google only in v1',

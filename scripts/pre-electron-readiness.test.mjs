@@ -176,6 +176,8 @@ test('runtime contract names native service and secure desktop capabilities', ()
   const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
 
   assert.match(contract, /localServices/)
+  assert.match(contract, /auth/)
+  assert.match(contract, /signInWithGoogle/)
   assert.match(contract, /startOllama/)
   assert.match(contract, /startPanelCleanerBridge/)
   assert.match(contract, /secureStore/)
@@ -208,8 +210,8 @@ test('Electron shell keeps secure BrowserWindow defaults and external navigation
   assert.match(mainProcess, /sandbox:\s*true/)
   assert.match(mainProcess, /setWindowOpenHandler/)
   assert.match(mainProcess, /shell\.openExternal/)
-  assert.match(mainProcess, /isAllowedAuthNavigation/)
-  assert.match(mainProcess, /accounts\.google\.com/)
+  assert.doesNotMatch(mainProcess, /isAllowedAuthNavigation/)
+  assert.doesNotMatch(mainProcess, /accounts\.google\.com/)
   assert.match(mainProcess, /ELECTRON_RENDERER_URL/)
   assert.match(mainProcess, /loadFile\(path\.join\(mainDir,\s*'..\/renderer\/index\.html'\)\)/)
   assert.match(electronVite, /VITE_CLOUDFLARE_API_URL/)
@@ -231,6 +233,7 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
     'runtime:projectDraft.clear',
     'runtime:localServices.startPanelCleanerBridge',
     'runtime:localServices.startOllama',
+    'runtime:auth.signInWithGoogle',
   ]) {
     assert.match(channels, new RegExp(channel.replace('.', '\\.')))
   }
@@ -239,9 +242,11 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
   assert.doesNotMatch(channels, /customProtocolAuth/)
   assert.match(preload, /contextBridge\.exposeInMainWorld\('mgRuntime'/)
   assert.match(preload, /localServices/)
+  assert.match(preload, /auth/)
   assert.match(preload, /ipcRenderer\.invoke/)
   assert.match(mainIpc, /startPanelCleanerBridge/)
   assert.match(mainIpc, /startOllama/)
+  assert.match(mainIpc, /signInWithGoogleSystemBrowser/)
   assert.doesNotMatch(rendererRuntime, /ipcRenderer/)
 })
 
@@ -256,7 +261,23 @@ test('Electron runtime installs through window bridge and keeps unsupported desk
   assert.match(runtime, /canStartLocalServices:\s*true/)
   assert.match(runtime, /bridge\.localServices\.startOllama/)
   assert.match(runtime, /bridge\.localServices\.startPanelCleanerBridge/)
+  assert.match(runtime, /bridge\.auth\.signInWithGoogle/)
   assert.match(runtime, /Electron V1 does not provide secure secret storage yet/)
+})
+
+test('Electron Google login uses system browser and loopback ticket claim', () => {
+  const desktopAuth = fs.readFileSync('electron/main/desktopAuth.ts', 'utf8')
+  const authStore = fs.readFileSync('src/store/authStore.ts', 'utf8')
+
+  assert.match(desktopAuth, /shell\.openExternal/)
+  assert.match(desktopAuth, /createServer/)
+  assert.match(desktopAuth, /127\.0\.0\.1/)
+  assert.match(desktopAuth, /\/api\/auth\/google\/desktop\/start/)
+  assert.match(desktopAuth, /\/api\/auth\/google\/desktop\/claim/)
+  assert.match(desktopAuth, /session\.defaultSession\.cookies\.set/)
+  assert.match(desktopAuth, /activeGoogleLogin/)
+  assert.match(authStore, /getAppRuntime/)
+  assert.match(authStore, /runtime\.auth\.signInWithGoogle/)
 })
 
 test('Electron native service launcher is loopback-only and keeps external dependencies explicit', () => {

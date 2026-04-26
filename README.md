@@ -282,6 +282,8 @@ https://mg-translater-api.<your-subdomain>.workers.dev/api/auth/google/callback
 
 Local web dev uses the localhost callback through Vite proxy so the session cookie belongs to the local app. The workers.dev callback remains useful for direct Worker/API smoke tests and future hosted frontend flows.
 
+Electron Google login uses the system browser instead of embedded Chromium navigation. The browser receives only a one-time loopback ticket; Electron main claims it with the Worker and stores the resulting session cookie in the Electron session.
+
 ## Usage Flow
 
 ```text
@@ -339,6 +341,8 @@ Worker API routes:
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 - `GET /api/auth/google/start`
+- `GET /api/auth/google/desktop/start`
+- `POST /api/auth/google/desktop/claim`
 - `GET /api/auth/google/callback`
 - `GET /api/albums`
 - `POST /api/albums`

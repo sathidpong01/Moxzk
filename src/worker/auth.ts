@@ -1,10 +1,11 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import * as schema from './db/schema'
 import { base64UrlDecodeToString, hashPassword, hashToken, optionalHash, passwordParamsJson, randomToken, verifyPassword } from './crypto'
 import { ApiError, json, jsonError, normalizeEmail, parseCsv, parseEmail, parsePassword, readJson, requiredEnv } from './http'
 import type { AuthUser, RequestContext } from './types'
 
 const SESSION_COOKIE_FALLBACK = 'mg_session'
+const DESKTOP_AUTH_TICKET_TTL_MS = 5 * 60 * 1000
 
 export async function register(ctx: RequestContext): Promise<Response> {
   const input = await readJson<{ email?: unknown; password?: unknown; username?: unknown }>(ctx.request)
@@ -122,28 +123,17 @@ export async function googleStart(ctx: RequestContext): Promise<Response> {
   const redirectTarget = ctx.url.searchParams.get('redirectTarget') || defaultWebRedirect(ctx)
   if (!isAllowedRedirect(ctx, redirectTarget)) return jsonError('VALIDATION_ERROR', 'Redirect target is not allowed', 422)
 
-  const state = randomToken()
-  const nonce = randomToken()
-  const now = Date.now()
-  const callbackUrl = googleCallbackUrl(ctx, redirectTarget)
-  await ctx.db.insert(schema.oauthStates).values({
-    stateHash: await hashToken(state),
-    provider: 'google',
-    redirectTarget,
-    nonceHash: await hashToken(nonce),
-    expiresAt: now + 10 * 60 * 1000,
-    createdAt: now,
-  }).run()
+  return createGoogleStartResponse(ctx, clientId, redirectTarget)
+}
 
-  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
-  authUrl.searchParams.set('client_id', clientId)
-  authUrl.searchParams.set('redirect_uri', callbackUrl)
-  authUrl.searchParams.set('response_type', 'code')
-  authUrl.searchParams.set('scope', 'openid email profile')
-  authUrl.searchParams.set('state', state)
-  authUrl.searchParams.set('nonce', nonce)
-  authUrl.searchParams.set('prompt', 'select_account')
-  return json({ redirectUrl: authUrl.toString() })
+export async function googleDesktopStart(ctx: RequestContext): Promise<Response> {
+  const clientId = requiredEnv(ctx.env.GOOGLE_CLIENT_ID, 'GOOGLE_CLIENT_ID')
+  const redirectTarget = ctx.url.searchParams.get('redirectTarget') || ''
+  if (!isDesktopRedirectTarget(redirectTarget)) {
+    return jsonError('VALIDATION_ERROR', 'Desktop redirect target must be a loopback /auth/callback URL with a port', 422)
+  }
+
+  return createGoogleStartResponse(ctx, clientId, redirectTarget)
 }
 
 export async function googleCallback(ctx: RequestContext): Promise<Response> {
@@ -160,14 +150,54 @@ export async function googleCallback(ctx: RequestContext): Promise<Response> {
   if (!profile.nonce || await hashToken(profile.nonce) !== oauthState.nonceHash) return jsonError('BAD_REQUEST', 'Invalid OAuth nonce', 400)
 
   const user = await findOrCreateGoogleUser(ctx, profile)
-  const session = await createSession(ctx, user.id)
   await ctx.db.delete(schema.oauthStates).where(eq(schema.oauthStates.stateHash, oauthState.stateHash)).run()
 
   const redirectUrl = new URL(oauthState.redirectTarget)
   redirectUrl.searchParams.set('auth', 'success')
+  if (isDesktopRedirectTarget(oauthState.redirectTarget)) {
+    const ticket = await createDesktopAuthTicket(ctx, user.id)
+    redirectUrl.searchParams.set('ticket', ticket)
+    return desktopCallbackResponse(redirectUrl)
+  }
+
+  const session = await createSession(ctx, user.id)
   const response = new Response(null, { status: 302, headers: { Location: redirectUrl.toString() } })
   response.headers.append('Set-Cookie', buildSessionCookie(ctx, session.token, session.expiresAt))
   return response
+}
+
+export async function googleDesktopClaim(ctx: RequestContext): Promise<Response> {
+  const payload = await readJson<{ ticket?: unknown }>(ctx.request)
+  const ticket = typeof payload.ticket === 'string' ? payload.ticket.trim() : ''
+  if (!ticket) return jsonError('BAD_REQUEST', 'Desktop auth ticket is required', 400)
+
+  const now = Date.now()
+  const ticketHash = await hashToken(ticket)
+  const storedTicket = await ctx.db.select().from(schema.desktopAuthTickets)
+    .where(and(eq(schema.desktopAuthTickets.ticketHash, ticketHash), isNull(schema.desktopAuthTickets.consumedAt)))
+    .get()
+
+  if (!storedTicket || storedTicket.expiresAt < now) {
+    return jsonError('BAD_REQUEST', 'Desktop auth ticket is invalid or expired', 400)
+  }
+
+  const user = await ctx.db.select().from(schema.users).where(eq(schema.users.id, storedTicket.userId)).get()
+  if (!user) return jsonError('BAD_REQUEST', 'Desktop auth ticket user no longer exists', 400)
+
+  await ctx.db.update(schema.desktopAuthTickets)
+    .set({ consumedAt: now })
+    .where(and(eq(schema.desktopAuthTickets.ticketHash, ticketHash), isNull(schema.desktopAuthTickets.consumedAt)))
+    .run()
+
+  const session = await createSession(ctx, user.id)
+  return json({
+    user: publicUser(user),
+    cookie: {
+      name: sessionCookieName(ctx),
+      value: session.token,
+      expiresAt: session.expiresAt,
+    },
+  })
 }
 
 export async function requireUser(ctx: RequestContext): Promise<AuthUser> {
@@ -216,6 +246,48 @@ async function createSession(ctx: RequestContext, userId: string): Promise<{ tok
     createdAt: now,
   }).run()
   return { token, expiresAt }
+}
+
+async function createGoogleStartResponse(
+  ctx: RequestContext,
+  clientId: string,
+  redirectTarget: string,
+): Promise<Response> {
+  const state = randomToken()
+  const nonce = randomToken()
+  const now = Date.now()
+  const callbackUrl = googleCallbackUrl(ctx, redirectTarget)
+  await ctx.db.insert(schema.oauthStates).values({
+    stateHash: await hashToken(state),
+    provider: 'google',
+    redirectTarget,
+    nonceHash: await hashToken(nonce),
+    expiresAt: now + 10 * 60 * 1000,
+    createdAt: now,
+  }).run()
+
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+  authUrl.searchParams.set('client_id', clientId)
+  authUrl.searchParams.set('redirect_uri', callbackUrl)
+  authUrl.searchParams.set('response_type', 'code')
+  authUrl.searchParams.set('scope', 'openid email profile')
+  authUrl.searchParams.set('state', state)
+  authUrl.searchParams.set('nonce', nonce)
+  authUrl.searchParams.set('prompt', 'select_account')
+  return json({ redirectUrl: authUrl.toString() })
+}
+
+async function createDesktopAuthTicket(ctx: RequestContext, userId: string): Promise<string> {
+  const ticket = randomToken()
+  const now = Date.now()
+  await ctx.db.insert(schema.desktopAuthTickets).values({
+    ticketHash: await hashToken(ticket),
+    userId,
+    expiresAt: now + DESKTOP_AUTH_TICKET_TTL_MS,
+    consumedAt: null,
+    createdAt: now,
+  }).run()
+  return ticket
 }
 
 async function exchangeGoogleCode(ctx: RequestContext, code: string): Promise<{ id_token: string }> {
@@ -327,6 +399,10 @@ function isAllowedRedirect(ctx: RequestContext, redirectTarget: string): boolean
 }
 
 function googleCallbackUrl(ctx: RequestContext, redirectTarget: string): string {
+  if (isDesktopRedirectTarget(redirectTarget)) {
+    return `${desktopGoogleCallbackOrigin(ctx)}/api/auth/google/callback`
+  }
+
   try {
     const target = new URL(redirectTarget)
     if (target.protocol === 'http:' || target.protocol === 'https:') {
@@ -338,7 +414,47 @@ function googleCallbackUrl(ctx: RequestContext, redirectTarget: string): string 
   return `${ctx.url.origin}/api/auth/google/callback`
 }
 
+export function isDesktopRedirectTarget(redirectTarget: string): boolean {
+  try {
+    const target = new URL(redirectTarget)
+    return target.protocol === 'http:'
+      && (target.hostname === '127.0.0.1' || target.hostname === '[::1]' || target.hostname === '::1')
+      && target.pathname === '/auth/callback'
+      && target.port !== ''
+  } catch {
+    return false
+  }
+}
+
+function desktopGoogleCallbackOrigin(ctx: RequestContext): string {
+  const requestOrigin = ctx.request.headers.get('Origin')
+  if (requestOrigin) {
+    try {
+      const origin = new URL(requestOrigin).origin
+      if (origin === ctx.url.origin || isAllowedRedirect(ctx, `${origin}/auth/callback`)) return origin
+    } catch {
+      // Fall back to the Worker origin below.
+    }
+  }
+  return ctx.url.origin
+}
+
 function defaultWebRedirect(ctx: RequestContext): string {
   const origin = ctx.request.headers.get('Origin') || new URL(ctx.request.url).origin
   return `${origin}/auth/callback`
+}
+
+function desktopCallbackResponse(redirectUrl: URL): Response {
+  const body = `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>MG Translater Login</title></head>
+<body><p>Google login finished. You can return to MG Translater.</p></body>
+</html>`
+  return new Response(body, {
+    status: 302,
+    headers: {
+      Location: redirectUrl.toString(),
+      'Content-Type': 'text/html; charset=utf-8',
+    },
+  })
 }

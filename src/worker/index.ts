@@ -1,6 +1,19 @@
 import { drizzle } from 'drizzle-orm/d1'
 import { createAlbum, createPage, deleteAlbum, deletePage, listAlbums, listPages, reorderPages, updateAlbum, updatePage } from './albums'
-import { googleCallback, googleStart, login, logout, me, register, requestPasswordReset, requireUser, resetPassword, verifyEmail } from './auth'
+import {
+  googleCallback,
+  googleDesktopClaim,
+  googleDesktopStart,
+  googleStart,
+  login,
+  logout,
+  me,
+  register,
+  requestPasswordReset,
+  requireUser,
+  resetPassword,
+  verifyEmail,
+} from './auth'
 import * as schema from './db/schema'
 import { ApiError, json, jsonError, withCors } from './http'
 import { deleteObject, getObject, uploadObject } from './storage'
@@ -46,6 +59,8 @@ async function route(ctx: RequestContext): Promise<Response> {
   if (path === '/api/auth/request-password-reset' && request.method === 'POST') return requestPasswordReset(ctx)
   if (path === '/api/auth/reset-password' && request.method === 'POST') return resetPassword(ctx)
   if (path === '/api/auth/google/start' && request.method === 'GET') return googleStart(ctx)
+  if (path === '/api/auth/google/desktop/start' && request.method === 'GET') return googleDesktopStart(ctx)
+  if (path === '/api/auth/google/desktop/claim' && request.method === 'POST') return googleDesktopClaim(ctx)
   if (path === '/api/auth/google/callback' && request.method === 'GET') return googleCallback(ctx)
 
   const user = await requireUser(ctx)

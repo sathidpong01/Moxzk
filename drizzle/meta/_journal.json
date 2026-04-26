@@ -22,6 +22,13 @@
       "when": 1776535620839,
       "tag": "0002_bizarre_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1777203092631,
+      "tag": "0003_gray_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

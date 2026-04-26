@@ -88,6 +88,17 @@ export const oauthStates = sqliteTable('oauth_states', {
   check('oauth_states_provider_check', sql`${table.provider} = 'google'`),
 ])
 
+export const desktopAuthTickets = sqliteTable('desktop_auth_tickets', {
+  ticketHash: text('ticket_hash').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: integer('expires_at').notNull(),
+  consumedAt: integer('consumed_at'),
+  createdAt: integer('created_at').notNull().$defaultFn(() => Date.now()),
+}, (table) => [
+  index('desktop_auth_tickets_user_idx').on(table.userId),
+  index('desktop_auth_tickets_expires_at_idx').on(table.expiresAt),
+])
+
 export const albums = sqliteTable('albums', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -161,6 +172,10 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
   user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }))
 
+export const desktopAuthTicketsRelations = relations(desktopAuthTickets, ({ one }) => ({
+  user: one(users, { fields: [desktopAuthTickets.userId], references: [users.id] }),
+}))
+
 export const emailTokensRelations = relations(emailTokens, ({ one }) => ({
   user: one(users, { fields: [emailTokens.userId], references: [users.id] }),
 }))
@@ -192,6 +207,8 @@ export type EmailToken = typeof emailTokens.$inferSelect
 export type NewEmailToken = typeof emailTokens.$inferInsert
 export type OAuthState = typeof oauthStates.$inferSelect
 export type NewOAuthState = typeof oauthStates.$inferInsert
+export type DesktopAuthTicket = typeof desktopAuthTickets.$inferSelect
+export type NewDesktopAuthTicket = typeof desktopAuthTickets.$inferInsert
 export type Album = typeof albums.$inferSelect
 export type NewAlbum = typeof albums.$inferInsert
 export type AlbumPage = typeof albumPages.$inferSelect

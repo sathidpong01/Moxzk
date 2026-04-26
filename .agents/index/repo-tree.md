@@ -118,12 +118,15 @@ Root: `MG_Translater`
 |   |   |-- 0000_snapshot.json
 |   |   |-- 0001_snapshot.json
 |   |   |-- 0002_snapshot.json
+|   |   |-- 0003_snapshot.json
 |   |   `-- _journal.json
 |   |-- 0000_parallel_stranger.sql
 |   |-- 0001_artboard_layout.sql
-|   `-- 0002_bizarre_zodiak.sql
+|   |-- 0002_bizarre_zodiak.sql
+|   `-- 0003_gray_lucky_pierre.sql
 |-- electron/
 |   |-- main/
+|   |   |-- desktopAuth.ts
 |   |   |-- index.ts
 |   |   |-- ipc.ts
 |   |   `-- localServices.ts
@@ -138,13 +141,14 @@ Root: `MG_Translater`
 |   |   `-- index.js
 |   `-- renderer/
 |       |-- assets/
-|       |   |-- index-BiyCKkVR.css
-|       |   `-- index-DvPUwxYu.js
+|       |   |-- index-BBBjdJBx.js
+|       |   `-- index-BiyCKkVR.css
 |       |-- index.html
 |       `-- vite.svg
 |-- public/
 |   `-- vite.svg
 |-- scripts/
+|   |-- album-modal.test.mjs
 |   |-- album-open.test.mjs
 |   |-- album-save-plan.test.mjs
 |   |-- auth-smoke-user.mjs
@@ -154,6 +158,7 @@ Root: `MG_Translater`
 |   |-- browser-smoke.test.mjs
 |   |-- cache-services.test.mjs
 |   |-- d1-schema.test.mjs
+|   |-- desktop-oauth.test.mjs
 |   |-- editor-history-service.test.mjs
 |   |-- editor-model.test.mjs
 |   |-- editor-processing-ui.test.mjs

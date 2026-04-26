@@ -34,7 +34,7 @@ function createWindow(): void {
   })
 
   win.webContents.on('will-navigate', (event, url) => {
-    if (shouldOpenExternally(url, win.webContents.getURL()) && !isAllowedAuthNavigation(url)) {
+    if (shouldOpenExternally(url, win.webContents.getURL())) {
       event.preventDefault()
       void shell.openExternal(url)
     }
@@ -44,15 +44,6 @@ function createWindow(): void {
     void win.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     void win.loadFile(path.join(mainDir, '../renderer/index.html'))
-  }
-}
-
-function isAllowedAuthNavigation(targetUrl: string): boolean {
-  try {
-    const target = new URL(targetUrl)
-    return target.protocol === 'https:' && target.hostname === 'accounts.google.com'
-  } catch {
-    return false
   }
 }
 

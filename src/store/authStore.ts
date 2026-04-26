@@ -2,13 +2,13 @@ import { create } from 'zustand'
 import { toast } from 'sonner'
 import {
   getCurrentUser,
-  getGoogleRedirectUrl,
   loginWithEmail,
   logout,
   registerWithEmail,
   type AppSession,
   type AppUser,
 } from '../services/cloudflareApi'
+import { getAppRuntime } from '../runtime'
 import type { Profile } from '../types/database'
 
 let hasInitializedAuth = false
@@ -65,9 +65,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   signInWithGoogle: async () => {
+    const runtime = getAppRuntime()
+    set({ loading: true })
     try {
-      window.location.href = await getGoogleRedirectUrl()
+      const result = await runtime.auth.signInWithGoogle()
+      if (!result.ok) throw new Error(result.error || 'Google login ล้มเหลว')
+      if (runtime.kind === 'electron') {
+        await get().fetchProfile()
+        set({ showAuthModal: false })
+        toast.success('เข้าสู่ระบบด้วย Google สำเร็จ!')
+      }
     } catch (error) {
+      set({ loading: false })
       toast.error(error instanceof Error ? error.message : 'Google login ล้มเหลว')
       throw error
     }

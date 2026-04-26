@@ -27,6 +27,7 @@ Electron V1 IPC stays intentionally narrow. The renderer may call only runtime-s
 - `projectDraft.clear`
 - `localServices.startPanelCleanerBridge`
 - `localServices.startOllama`
+- `auth.signInWithGoogle`
 
 All channels should use request/response calls and return serializable results. Main/preload may perform native work; renderer components must continue to call `AppRuntime`.
 
@@ -38,6 +39,8 @@ The following `AppRuntime` capabilities remain typed renderer-side stubs in V1 a
 - `customProtocolAuth.getCallbackUrl`
 
 `localServices.*` may only start/check local loopback services. PanelCleaner remains an external CLI dependency and Ollama remains an external local app; Electron starts helper processes but does not vendor or bundle either service.
+
+`auth.signInWithGoogle` must open Google OAuth in the system browser. The browser returns only a one-time desktop ticket to a loopback callback; Electron main claims that ticket with the Worker and sets the session cookie in Electron's session. The renderer must not receive a raw session token.
 
 ## Error Shape
 

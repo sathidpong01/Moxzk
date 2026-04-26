@@ -11,8 +11,8 @@ Implement Electron V1 follow-up phases behind the existing `AppRuntime` boundary
 ## Current State
 
 - The app is still React/Vite web-first, with Electron V1 added as a desktop dev shell.
-- Runtime seams now cover Ollama status/model listing, PanelCleaner status, export file saving, and project draft storage.
-- Electron IPC covers native export, desktop draft persistence, and local service start helpers for PanelCleaner/Ollama.
+- Runtime seams now cover Ollama status/model listing, PanelCleaner status, export file saving, project draft storage, and Google auth.
+- Electron IPC covers native export, desktop draft persistence, local service start helpers for PanelCleaner/Ollama, and system-browser Google login.
 - Autosave now snapshots the full multi-page project draft instead of only active-page fragments.
 - OCR review now has a summary helper and sorts review-risk regions first in the correction modal.
 - Export can resolve R2-backed album image keys before rendering exported files.
@@ -20,7 +20,7 @@ Implement Electron V1 follow-up phases behind the existing `AppRuntime` boundary
 
 ## Next Action
 
-Next Electron phase should add secure secret storage and custom protocol auth behind the existing `AppRuntime` contract.
+Next Electron phase should add secure secret storage and optional custom protocol auth behind the existing `AppRuntime` contract.
 
 ## Known Constraints
 
