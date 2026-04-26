@@ -10,10 +10,14 @@ Start here:
 ## Sources
 
 - [[_wiki/sources/2026-04-23-karpathy-llm-wiki-note|Karpathy LLM Wiki Note]]
+- [[_wiki/sources/2026-04-25-konva-ai-tools|Konva AI Tools]]
+- [[_wiki/sources/2026-04-25-konva-drag-image|Konva Drag Image]]
 
 ## Concepts
 
 - [[_wiki/concepts/codex-first-llm-wiki|Codex-First LLM Wiki]]
+- [[_wiki/concepts/konva-ai-documentation|Konva AI Documentation]]
+- [[_wiki/concepts/konva-image-dragging|Konva Image Dragging]]
 
 ## Entities
 
@@ -25,5 +29,5 @@ Start here:
 
 ## Open Questions
 
-- Should future raw source files be committed to git or kept local-only?
+- Raw clipped source files are local-only by default through `.gitignore`; durable summaries belong in `_wiki/`.
 - Should YouTube summaries be stored as source pages only, or should raw transcript exports also live under `raw/`?

@@ -10,6 +10,8 @@ For the fuller project context layer, read `.agents/AGENTS.md` first, then load 
 3. `.agents/active.md` records the current project state and next action.
 4. `.agents/index/repo-tree.md` is generated and should be refreshed after major structure changes.
 5. `.agents/topics/` contains durable notes for specific areas.
+6. `llms.txt` is the LLM-readable project entrypoint.
+7. `docs/llm/konva.md` is the Konva/react-konva documentation entrypoint for canvas editor work.
 
 ## Basic Commands
 

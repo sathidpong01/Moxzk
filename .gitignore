@@ -24,6 +24,7 @@
 /output
 /.venv-panelcleaner
 /_codex
+/Clippings/
 /.agents/private/*
 !/.agents/private/.gitkeep
 

@@ -1,10 +1,23 @@
 import { useState } from 'react'
-import type { TextRegion, MoodType, TextAlign, TextLayoutMode, TextStrokeJoin } from '../../types'
-import { MOOD_LABELS } from '../../config/fonts'
+import type {
+  TextRegion,
+  MoodType,
+  TextAlign,
+  TextLayoutMode,
+  TextStrokeJoin,
+  TextBalloonShape,
+  TextArtisticFit,
+} from '../../types'
+import { MOOD_LABELS, resolveRegionFont } from '../../config/fonts'
 import { useAppStore } from '../../store/appStore'
-import { normalizeTextLayoutMode } from '../../utils/textLayout'
+import {
+  getRegionTextLayout,
+  normalizeTextArtisticFit,
+  normalizeTextBalloonShape,
+  normalizeTextLayoutMode,
+} from '../../utils/textLayout'
 import { translateSingleRegion } from '../../services/ollama'
-import { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } from '../../services/textRegionMode'
+import { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon, expandTextRegionBox } from '../../services/textRegionMode'
 import FontSelector from './FontSelector'
 import { StrokeJoinToggleGroup } from './StrokeJoinPreview'
 import { AlignCenter, AlignLeft, AlignRight, Trash2, RotateCcw, Languages, Loader2 } from 'lucide-react'
@@ -22,6 +35,15 @@ const TEXT_ALIGNS: Array<{ value: TextAlign; label: string; icon: typeof AlignLe
   { value: 'left', label: 'ชิดซ้าย', icon: AlignLeft },
   { value: 'center', label: 'กึ่งกลาง', icon: AlignCenter },
   { value: 'right', label: 'ชิดขวา', icon: AlignRight },
+]
+const BALLOON_SHAPES: Array<{ value: TextBalloonShape; label: string }> = [
+  { value: 'round', label: 'วงรี' },
+  { value: 'cloud', label: 'ก้อนเมฆ' },
+  { value: 'box', label: 'กล่อง' },
+]
+const ARTISTIC_FITS: Array<{ value: TextArtisticFit; label: string }> = [
+  { value: 'free', label: 'อิสระ' },
+  { value: 'bubble_guided', label: 'อิงบับเบิล' },
 ]
 
 function clampNumber(value: number, min: number, max: number): number {
@@ -49,6 +71,14 @@ export default function PropertiesPanel({
 
   const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
   const textAlign = region.textAlign ?? 'center'
+  const balloonShape = normalizeTextBalloonShape(region.balloonShape, region.mood)
+  const artisticFit = normalizeTextArtisticFit(region.artisticFit)
+  const regionFont = resolveRegionFont(region)
+  const regionLayout = getRegionTextLayout(region, region.translatedText || ' ', {
+    fontFamily: regionFont.family,
+    fontWeight: regionFont.weight,
+    fontStyle: regionFont.style,
+  })
 
   const translateRegion = async () => {
     if (!region.originalText || translating) return
@@ -71,6 +101,27 @@ export default function PropertiesPanel({
     } finally {
       setTranslating(false)
     }
+  }
+
+  const expandBbox = () => {
+    onUpdate(region.id, expandTextRegionBox(region))
+  }
+
+  const reduceFont = () => {
+    onUpdate(region.id, { fontSize: clampNumber(region.fontSize - 2, 8, 72) })
+  }
+
+  const fitText = () => {
+    if (layoutMode === 'balloon_fit') {
+      onUpdate(region.id, { fontSize: Math.min(region.fontSize, regionLayout.fontSize) })
+      return
+    }
+    onUpdate(region.id, {
+      artisticFit: 'bubble_guided',
+      textScaleX: 1,
+      textScaleY: 1,
+      fontSize: clampNumber(region.fontSize - 2, 8, 72),
+    })
   }
 
   return (
@@ -135,6 +186,44 @@ export default function PropertiesPanel({
             options={MOODS.map((m) => ({ value: m, label: `${MOOD_LABELS[m]} (${m})` }))}
           />
         </Field>
+
+        <Field label="ทรงบับเบิล">
+          <SelectField
+            value={balloonShape}
+            onChange={(nextShape: TextBalloonShape) => onUpdate(region.id, { balloonShape: nextShape })}
+            options={BALLOON_SHAPES}
+          />
+        </Field>
+
+        {layoutMode === 'artistic' && (
+          <Field label="ขอบเขต Artistic">
+            <SelectField
+              value={artisticFit}
+              onChange={(nextFit: TextArtisticFit) => onUpdate(region.id, { artisticFit: nextFit })}
+              options={ARTISTIC_FITS}
+            />
+          </Field>
+        )}
+
+        {regionLayout.overflow && (
+          <div className="rounded-[10px] border border-[#7f1d1d] bg-[#7f1d1d1f] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-bold text-[#fecaca]">ข้อความยังล้น</div>
+                <div className="text-[11px] text-[#fca5a5]">
+                  {regionLayout.overflowReason === 'clipped'
+                    ? 'ข้อความยังถูกตัดในกรอบปัจจุบัน'
+                    : 'กรอบหรือขนาดฟอนต์ยังเล็กเกินไป'}
+                </div>
+              </div>
+              <div className="flex gap-1.5">
+                <Button variant="ghost" size="sm" onClick={reduceFont}>ลดฟอนต์</Button>
+                <Button variant="ghost" size="sm" onClick={expandBbox}>ขยายกรอบ</Button>
+                <Button variant="soft" size="sm" onClick={fitText}>Fit</Button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </DisclosureSection>
 

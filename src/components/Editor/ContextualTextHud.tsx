@@ -5,23 +5,31 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  ChevronDown,
+  Cloud,
   Eye,
   Italic,
   Languages,
   Loader2,
   Move,
   RotateCcw,
+  Circle,
   Square,
   Trash2,
   Type,
 } from 'lucide-react'
-import { FONT_ID_MAP, restoreCustomFont } from '../../config/fonts'
+import { FONT_ID_MAP, resolveRegionFont, restoreCustomFont } from '../../config/fonts'
 import { getAllFonts } from '../../services/fontStorage'
-import { convertArtisticRegionToBalloon, convertBalloonRegionToArtistic } from '../../services/textRegionMode'
+import { convertArtisticRegionToBalloon, convertBalloonRegionToArtistic, expandTextRegionBox } from '../../services/textRegionMode'
 import { computeTextHudPosition, type TextHudPlacement } from '../../services/textHudPosition'
 import type { RegionUpdateOptions } from '../../store/appStore'
-import type { TextAlign, TextRegion, TextStrokeJoin } from '../../types'
-import { normalizeTextLayoutMode } from '../../utils/textLayout'
+import type { TextAlign, TextBalloonShape, TextRegion, TextStrokeJoin, TextArtisticFit } from '../../types'
+import {
+  getRegionTextLayout,
+  normalizeTextArtisticFit,
+  normalizeTextBalloonShape,
+  normalizeTextLayoutMode,
+} from '../../utils/textLayout'
 import { StrokeJoinPreviewIcon, StrokeJoinToggleGroup } from './StrokeJoinPreview'
 import { TooltipSurface, cn } from '../ui/primitives'
 
@@ -56,6 +64,15 @@ const TEXT_ALIGNS: Array<{ value: TextAlign; label: string; icon: typeof AlignLe
   { value: 'left', label: 'ชิดซ้าย', icon: AlignLeft },
   { value: 'center', label: 'กึ่งกลาง', icon: AlignCenter },
   { value: 'right', label: 'ชิดขวา', icon: AlignRight },
+]
+const BALLOON_SHAPE_OPTIONS: Array<{ value: TextBalloonShape; label: string; icon: typeof Circle }> = [
+  { value: 'round', label: 'วงรี', icon: Circle },
+  { value: 'cloud', label: 'ก้อนเมฆ', icon: Cloud },
+  { value: 'box', label: 'กล่อง', icon: Square },
+]
+const ARTISTIC_FIT_OPTIONS: Array<{ value: TextArtisticFit; label: string }> = [
+  { value: 'free', label: 'อิสระ' },
+  { value: 'bubble_guided', label: 'อิงบับเบิล' },
 ]
 
 function isBoldWeight(weight: number): boolean {
@@ -108,8 +125,10 @@ export default function ContextualTextHud({
 }: ContextualTextHudProps) {
   const hudRef = useRef<HTMLDivElement>(null)
   const fontMenuRef = useRef<HTMLDivElement>(null)
+  const textBoxMenuRef = useRef<HTMLDivElement>(null)
   const [hudSize, setHudSize] = useState({ width: 0, height: 0 })
   const [fontMenuOpen, setFontMenuOpen] = useState(false)
+  const [textBoxMenuOpen, setTextBoxMenuOpen] = useState(false)
   const [fontQuery, setFontQuery] = useState('')
   const [fontOptions, setFontOptions] = useState<FontOption[]>([])
   const [fontSizeDraft, setFontSizeDraft] = useState('36')
@@ -173,7 +192,7 @@ export default function ContextualTextHud({
     const observer = new ResizeObserver(updateSize)
     observer.observe(node)
     return () => observer.disconnect()
-  }, [fontMenuOpen, region?.id, visible])
+  }, [fontMenuOpen, textBoxMenuOpen, region?.id, visible])
 
   useEffect(() => {
     if (!fontMenuOpen) return
@@ -187,14 +206,36 @@ export default function ContextualTextHud({
   }, [fontMenuOpen])
 
   useEffect(() => {
+    if (!textBoxMenuOpen) return
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!textBoxMenuRef.current?.contains(event.target as Node)) {
+        setTextBoxMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [textBoxMenuOpen])
+
+  useEffect(() => {
     if (!visible) {
       setFontMenuOpen(false)
+      setTextBoxMenuOpen(false)
       setFontQuery('')
     }
   }, [visible])
 
   const layoutMode = region ? normalizeTextLayoutMode(region.textLayoutMode) : 'balloon_fit'
+  const balloonShape = region ? normalizeTextBalloonShape(region.balloonShape, region.mood) : 'round'
+  const artisticFit = region ? normalizeTextArtisticFit(region.artisticFit) : 'free'
   const textAlign = region?.textAlign ?? 'center'
+  const regionFont = region ? resolveRegionFont(region) : null
+  const regionLayout = region && regionFont
+    ? getRegionTextLayout(region, region.translatedText || ' ', {
+        fontFamily: regionFont.family,
+        fontWeight: regionFont.weight,
+        fontStyle: regionFont.style,
+      })
+    : null
   const currentFontId = region?.fontId ?? region?.suggestedFont ?? region?.mood ?? 'normal'
   const currentFont = fontOptions.find((option) => option.id === currentFontId)
     ?? {
@@ -222,6 +263,9 @@ export default function ContextualTextHud({
       option.name.toLowerCase().includes(normalized) || option.family.toLowerCase().includes(normalized)
     ))
   }, [fontOptions, fontQuery])
+  const currentShapeOption = BALLOON_SHAPE_OPTIONS.find((option) => option.value === balloonShape) ?? BALLOON_SHAPE_OPTIONS[0]
+  const CurrentShapeIcon = currentShapeOption.icon
+  const layoutModeLabel = layoutMode === 'balloon_fit' ? 'พอดีกล่อง' : 'อิสระ'
 
   if (!portalRoot || !region || !anchorRect || !visible) return null
 
@@ -253,6 +297,30 @@ export default function ContextualTextHud({
     if (field === 'rotation') setRotationDraft(formatted)
   }
 
+  const reduceFont = () => {
+    if (!region) return
+    onUpdate({ fontSize: clampNumber(region.fontSize - 2, 8, 72) }, { historyKey: `hud:fontSize:${region.id}` })
+  }
+
+  const expandBox = () => {
+    if (!region) return
+    onUpdate(expandTextRegionBox(region), { historyKey: `hud:bbox:${region.id}` })
+  }
+
+  const fitText = () => {
+    if (!region || !regionLayout) return
+    if (layoutMode === 'balloon_fit') {
+      onUpdate({ fontSize: Math.min(region.fontSize, regionLayout.fontSize) }, { historyKey: `hud:fit:${region.id}` })
+      return
+    }
+    onUpdate({
+      artisticFit: 'bubble_guided',
+      textScaleX: 1,
+      textScaleY: 1,
+      fontSize: clampNumber(region.fontSize - 2, 8, 72),
+    }, { historyKey: `hud:artisticFit:${region.id}` })
+  }
+
   const hud = (
     <div className="pointer-events-none absolute inset-0 z-[220]">
       <div
@@ -260,34 +328,99 @@ export default function ContextualTextHud({
         className="pointer-events-auto absolute overflow-visible"
         style={{ left: placement.left, top: placement.top }}
       >
-        <div className="flex min-w-[1040px] w-max flex-nowrap items-center gap-1.5 overflow-visible rounded-[18px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
-          <div className={HUD_GROUP_SURFACE_CLASS}>
-            <TooltipSurface label="พอดีกล่อง">
+        <div className="flex w-max max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-1.5 overflow-visible rounded-[18px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
+          <div ref={textBoxMenuRef} className="relative">
+            <TooltipSurface label="รูปแบบกล่องข้อความ">
               <button
                 type="button"
-                className={hudSegmentButtonClass(layoutMode === 'balloon_fit')}
-                onClick={() => onUpdate({
-                  textLayoutMode: 'balloon_fit',
-                  ...(layoutMode === 'artistic' ? convertArtisticRegionToBalloon(region) : {}),
-                }, { historyKey: `hud:layout:${region.id}` })}
-                aria-label="พอดีกล่อง"
+                className="flex h-9 min-w-[9.5rem] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 text-sm font-bold text-[var(--mg-text)] transition hover:bg-white/[0.08]"
+                onClick={() => setTextBoxMenuOpen((value) => !value)}
+                aria-expanded={textBoxMenuOpen}
+                aria-label="รูปแบบกล่องข้อความ"
               >
-                <Square size={14} />
+                <CurrentShapeIcon size={14} className="shrink-0 text-[var(--mg-muted)]" />
+                <span className="truncate">{layoutModeLabel}</span>
+                <span className="max-w-[4.5rem] truncate text-xs text-[var(--mg-muted)]">{currentShapeOption.label}</span>
+                <ChevronDown size={13} className="ml-auto shrink-0 text-[var(--mg-dim)]" />
               </button>
             </TooltipSurface>
-            <TooltipSurface label="อิสระ">
-              <button
-                type="button"
-                className={hudSegmentButtonClass(layoutMode === 'artistic')}
-                onClick={() => onUpdate({
-                  textLayoutMode: 'artistic',
-                  ...(layoutMode === 'balloon_fit' ? convertBalloonRegionToArtistic(region) : {}),
-                }, { historyKey: `hud:layout:${region.id}` })}
-                aria-label="อิสระ"
-              >
-                <Move size={14} />
-              </button>
-            </TooltipSurface>
+            {textBoxMenuOpen && (
+              <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-[14px] border border-white/10 bg-[rgba(11,11,12,0.98)] p-2 shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
+                <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--mg-dim)]">การวาง</div>
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    className={hudMenuItemClass(layoutMode === 'balloon_fit')}
+                    onClick={() => {
+                      onUpdate({
+                        textLayoutMode: 'balloon_fit',
+                        ...(layoutMode === 'artistic' ? convertArtisticRegionToBalloon(region) : {}),
+                      }, { historyKey: `hud:layout:${region.id}` })
+                      setTextBoxMenuOpen(false)
+                    }}
+                  >
+                    <Square size={14} />
+                    <span>พอดีกล่อง</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={hudMenuItemClass(layoutMode === 'artistic')}
+                    onClick={() => {
+                      onUpdate({
+                        textLayoutMode: 'artistic',
+                        ...(layoutMode === 'balloon_fit' ? convertBalloonRegionToArtistic(region) : {}),
+                      }, { historyKey: `hud:layout:${region.id}` })
+                      setTextBoxMenuOpen(false)
+                    }}
+                  >
+                    <Move size={14} />
+                    <span>อิสระ</span>
+                  </button>
+                </div>
+
+                <div className="mt-2 px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--mg-dim)]">รูปทรง</div>
+                <div className="grid grid-cols-3 gap-1">
+                  {BALLOON_SHAPE_OPTIONS.map((option) => {
+                    const Icon = option.icon
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={hudMenuItemClass(balloonShape === option.value)}
+                        onClick={() => {
+                          onUpdate({ balloonShape: option.value }, { historyKey: `hud:balloonShape:${region.id}` })
+                          setTextBoxMenuOpen(false)
+                        }}
+                      >
+                        <Icon size={14} />
+                        <span>{option.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {layoutMode === 'artistic' && (
+                  <>
+                    <div className="mt-2 px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--mg-dim)]">ขอบเขต</div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {ARTISTIC_FIT_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={hudMenuItemClass(artisticFit === option.value)}
+                          onClick={() => {
+                            onUpdate({ artisticFit: option.value }, { historyKey: `hud:artisticFit:${region.id}` })
+                            setTextBoxMenuOpen(false)
+                          }}
+                        >
+                          <span>{option.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className={HUD_GROUP_SURFACE_CLASS}>
@@ -520,6 +653,15 @@ export default function ContextualTextHud({
             </button>
           </TooltipSurface>
 
+          {regionLayout?.overflow && (
+            <div className="ml-1 flex items-center gap-1 rounded-[12px] border border-[#7f1d1d] bg-[#7f1d1d1f] px-2 py-1 text-xs">
+              <span className="font-bold text-[#fecaca]">ข้อความยังล้น</span>
+              <button type="button" className={hudMiniButtonClass()} onClick={reduceFont}>ลดฟอนต์</button>
+              <button type="button" className={hudMiniButtonClass()} onClick={expandBox}>ขยายกรอบ</button>
+              <button type="button" className={hudMiniButtonClass(true)} onClick={fitText}>Fit</button>
+            </div>
+          )}
+
           <TooltipSurface label="ลบข้อความ">
             <button
               type="button"
@@ -622,5 +764,21 @@ function hudSegmentButtonClass(active: boolean): string {
   return cn(
     'flex h-8 w-8 cursor-pointer items-center justify-center rounded-[10px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
     active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
+  )
+}
+
+function hudMenuItemClass(active: boolean): string {
+  return cn(
+    'flex h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-2 text-xs font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+    active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
+  )
+}
+
+function hudMiniButtonClass(primary = false): string {
+  return cn(
+    'rounded-[8px] px-2 py-1 text-[11px] font-bold transition',
+    primary
+      ? 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)]/90'
+      : 'bg-white/[0.06] text-[var(--mg-muted)] hover:bg-white/[0.1] hover:text-[var(--mg-text)]',
   )
 }

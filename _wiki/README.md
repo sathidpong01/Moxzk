@@ -13,7 +13,8 @@ Use it for external sources, research notes, product references, and durable ana
 
 ## Directory Map
 
-- `raw/` = immutable source material
+- `raw/` = manually collected immutable source material
+- `../Clippings/` = Obsidian Web Clipper inbox, treated as immutable source material
 - `sources/` = one page per ingested source when needed
 - `concepts/` = synthesized topic pages
 - `entities/` = people, tools, projects, companies
@@ -25,7 +26,7 @@ Use it for external sources, research notes, product references, and durable ana
 
 ## Recommended Workflow
 
-1. Put a source file into `raw/`
+1. Put a source file into `raw/`, or clip a web page into `../Clippings/`
 2. Ask Codex to read `_wiki/AGENTS.md` and ingest the source
 3. Review changes in `index.md`, `podcast.md`, and touched pages
 4. Ask follow-up questions against the wiki
@@ -34,6 +35,7 @@ Use it for external sources, research notes, product references, and durable ana
 ## Good Fit
 
 - article or video summaries
+- Obsidian Web Clipper pages
 - competitor or tool research
 - architecture notes that should stay queryable
 - repeated questions that should accumulate answers over time

@@ -1,11 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
   getInlineTextEditorTheme,
   shouldFinishInlineTextEditorOnPointerDown,
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import type { TextAlign, TextLayoutMode } from '../../types'
-import { layoutTextInBox } from '../../utils/textLayout'
 
 interface InlineTextEditorProps {
   width: number
@@ -15,11 +14,15 @@ interface InlineTextEditorProps {
   fontWeight: number
   fontStyle: 'normal' | 'italic'
   fontSize: number
-  padding: number
+  lineHeight: number
+  paddingX: number
+  paddingY: number
+  contentHeight?: number
   viewportZoom: number
   color: string
   align: TextAlign
   layoutMode: TextLayoutMode
+  constrainToFrame: boolean
   onChange: (value: string) => void
   onFinish: (metrics: InlineTextEditorCommitMetrics, value: string) => void
 }
@@ -32,72 +35,53 @@ export default function InlineTextEditor({
   fontWeight,
   fontStyle,
   fontSize,
-  padding,
+  lineHeight,
+  paddingX,
+  paddingY,
+  contentHeight,
   viewportZoom,
   color,
   align,
   layoutMode,
+  constrainToFrame,
   onChange,
   onFinish,
 }: InlineTextEditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const finishedRef = useRef(false)
-  const [artisticSize, setArtisticSize] = useState<{ width: number; height: number } | null>(null)
   const theme = getInlineTextEditorTheme(color)
-  const isArtistic = layoutMode === 'artistic'
   const displayFontSize = Math.max(1, fontSize)
-  const lineHeight = 1.18
+  const displayLineHeight = Math.max(1, lineHeight)
   const chromeScale = 1 / Math.max(0.1, viewportZoom)
-  const editorWidth = isArtistic ? (artisticSize?.width ?? width) : width
-  const editorHeight = isArtistic ? (artisticSize?.height ?? height) : height
+  const editorWidth = width
+  const editorHeight = height
   const verticalPadding = useMemo(() => {
-    if (align !== 'center') return padding
-    const layout = layoutTextInBox(value, { width, height }, displayFontSize, {
-      fontFamily,
-      fontWeight,
-      fontStyle,
-      lineHeight,
-      paddingX: padding,
-      paddingY: padding,
-      minFontSize: Math.max(6, displayFontSize - 0.1),
-      maxFontSize: displayFontSize,
-    })
-    return Math.max(padding, (height - layout.contentHeight) / 2)
-  }, [align, displayFontSize, fontFamily, fontStyle, fontWeight, height, padding, value, width])
+    if (align !== 'center' || contentHeight === undefined) return paddingY
+    return Math.max(paddingY, (height - contentHeight) / 2)
+  }, [align, contentHeight, height, paddingY])
   const finish = () => {
     if (finishedRef.current) return
     finishedRef.current = true
     const textarea = textareaRef.current
+    const measuredWidth = textarea
+      ? constrainToFrame
+        ? textarea.offsetWidth
+        : Math.max(textarea.offsetWidth, textarea.scrollWidth)
+      : editorWidth
+    const measuredHeight = textarea
+      ? constrainToFrame
+        ? textarea.offsetHeight
+        : Math.max(textarea.offsetHeight, textarea.scrollHeight)
+      : editorHeight
     onFinish({
-      width: textarea?.offsetWidth ?? editorWidth,
-      height: textarea?.offsetHeight ?? editorHeight,
+      width: measuredWidth,
+      height: measuredHeight,
       scrollWidth: textarea?.scrollWidth,
       scrollHeight: textarea?.scrollHeight,
       layoutMode,
     }, textarea?.value ?? value)
   }
-
-  useLayoutEffect(() => {
-    if (!isArtistic) {
-      setArtisticSize(null)
-      return
-    }
-
-    const textarea = textareaRef.current
-    if (!textarea) return
-    textarea.style.width = `${width}px`
-    textarea.style.height = `${height}px`
-    const next = {
-      width: Math.max(width, textarea.scrollWidth),
-      height: Math.max(height, textarea.scrollHeight),
-    }
-    setArtisticSize((current) =>
-      current && Math.abs(current.width - next.width) < 0.5 && Math.abs(current.height - next.height) < 0.5
-        ? current
-        : next,
-    )
-  }, [displayFontSize, fontFamily, fontStyle, fontWeight, height, isArtistic, value, width])
 
   useEffect(() => {
     const textarea = textareaRef.current
@@ -133,7 +117,7 @@ export default function InlineTextEditor({
       <textarea
         ref={textareaRef}
         className="mg-inline-text-editor block"
-        wrap={isArtistic ? 'off' : 'soft'}
+        wrap={constrainToFrame ? 'soft' : 'off'}
         style={{
           boxSizing: 'border-box',
           display: 'block',
@@ -148,20 +132,20 @@ export default function InlineTextEditor({
           fontWeight,
           fontStyle,
           fontSize: displayFontSize,
-          lineHeight,
+          lineHeight: displayLineHeight,
           paddingTop: verticalPadding,
-          paddingRight: padding,
-          paddingBottom: padding,
-          paddingLeft: padding,
+          paddingRight: paddingX,
+          paddingBottom: paddingY,
+          paddingLeft: paddingX,
           backgroundColor: theme.backgroundColor,
           color: theme.textColor,
           caretColor: theme.caretColor,
           textShadow: theme.textShadow,
           textAlign: align,
           resize: 'none',
-          overflow: 'hidden',
-          whiteSpace: isArtistic ? 'pre' : 'pre-wrap',
-          overflowWrap: isArtistic ? 'normal' : 'break-word',
+          overflow: constrainToFrame ? 'hidden' : 'visible',
+          whiteSpace: constrainToFrame ? 'pre-wrap' : 'pre',
+          overflowWrap: constrainToFrame ? 'break-word' : 'normal',
           outline: 'none',
           boxShadow: `0 0 0 ${chromeScale}px rgba(118, 142, 255, 0.36), inset 0 0 0 ${chromeScale}px rgba(255, 255, 255, 0.08)`,
         }}

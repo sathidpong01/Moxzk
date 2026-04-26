@@ -15,7 +15,7 @@ import {
 } from '../../store/appStore'
 import { useAlbumStore } from '../../store/albumStore'
 import { resolveRegionFont } from '../../config/fonts'
-import { layoutTextInBox, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { getRegionTextLayout, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
 import { computeBrushFeather } from '../../services/brushStrokes'
 import { getEditorToolCursor } from '../../services/editorCursor'
 import {
@@ -25,6 +25,7 @@ import {
 } from '../../services/konvaInteraction'
 import {
   getArtisticInlineTextEditorLayerSize,
+  getInlineTextEditorFontSize,
   getInlineTextEditorBboxSize,
   getInlineTextEditorLayerSize,
   getTextTransformerAnchors,
@@ -33,10 +34,15 @@ import {
   type InlineTextEditorCommitMetrics,
 } from '../../services/inlineTextEditor'
 import { translateSingleRegion } from '../../services/ollama'
-import { computeBoardViewport } from '../../services/workspaceViewport'
+import {
+  computeBoardViewport,
+  getViewportZoomPercent,
+  getZoomFromViewportPercent,
+} from '../../services/workspaceViewport'
 import type { CanvasEditorHandle } from './CanvasEditor'
 import InlineTextEditor from './InlineTextEditor'
 import ContextualTextHud from './ContextualTextHud'
+import OversetTextBadge from './OversetTextBadge'
 import { Button, Modal } from '../ui/primitives'
 import { toast } from 'sonner'
 
@@ -45,6 +51,18 @@ interface ArtboardWorkspaceProps {
   stageRef?: React.RefObject<Konva.Stage | null>
   editorRef?: React.RefObject<CanvasEditorHandle | null>
   onViewportChange?: (state: { zoom: number; zoomPercent: number; imageWidth: number; imageHeight: number }) => void
+  activeProcessCard?: ArtboardProcessCard | null
+}
+
+export interface ArtboardProcessCard {
+  type: 'running' | 'error'
+  label: string
+  message: string
+  progress?: number
+  actionLabel?: string
+  onAction?: () => void
+  secondaryActionLabel?: string
+  onSecondaryAction?: () => void
 }
 
 interface LoadedImage {
@@ -125,6 +143,7 @@ export default function ArtboardWorkspace({
   stageRef: externalStageRef,
   editorRef,
   onViewportChange,
+  activeProcessCard,
 }: ArtboardWorkspaceProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const internalStageRef = useRef<Konva.Stage>(null)
@@ -370,8 +389,7 @@ export default function ArtboardWorkspace({
       artboards: boardViewportBounds,
     })
   ), [boardViewportBounds, stageSize])
-  const zoomPercentBase = Math.max(boardViewport.zoom, MIN_ZOOM)
-  const zoomPercent = Math.max(1, Math.round((zoom / zoomPercentBase) * 100))
+  const zoomPercent = getViewportZoomPercent(zoom, activeArtboard?.scale ?? 1)
 
   useEffect(() => {
     const activeImage = activeEntry ? loadedImages[activeEntry.id] : null
@@ -408,13 +426,14 @@ export default function ArtboardWorkspace({
   }, [stagePos.x, stagePos.y, stageSize.height, stageSize.width, zoom])
 
   const applyZoomPercent = useCallback((percent: number) => {
-    const minPercent = Math.max(1, Math.round((MIN_ZOOM / zoomPercentBase) * 100))
-    const maxPercent = Math.round((MAX_ZOOM / zoomPercentBase) * 100)
+    const activeScale = activeArtboard?.scale ?? 1
+    const minPercent = Math.max(1, getViewportZoomPercent(MIN_ZOOM, activeScale))
+    const maxPercent = getViewportZoomPercent(MAX_ZOOM, activeScale)
     const clampedPercent = Math.max(minPercent, Math.min(maxPercent, percent))
-    const nextZoom = roundZoom(zoomPercentBase * (clampedPercent / 100))
+    const nextZoom = getZoomFromViewportPercent(clampedPercent, activeScale)
 
     applyZoom(nextZoom)
-  }, [applyZoom, zoomPercentBase])
+  }, [activeArtboard?.scale, applyZoom])
 
   const fitView = useCallback(() => {
     if (artboards.length === 0) return
@@ -589,43 +608,53 @@ export default function ArtboardWorkspace({
     setHudHidden(false)
   }, [activeTool, selectedRegionId])
   const inlineEditLayoutMode = normalizeTextLayoutMode(inlineEditRegion?.textLayoutMode)
+  const inlineEditConstrainToFrame = inlineEditLayoutMode !== 'artistic' || inlineEditRegion?.artisticFit === 'bubble_guided'
   const inlineEditAlign = normalizeTextAlign(inlineEditRegion?.textAlign)
   const inlineEditFont = inlineEditRegion ? resolveRegionFont(inlineEditRegion) : null
   const inlineEditScale = activeArtboard?.scale ?? 1
+  const inlineEditLayout = inlineEditRegion && inlineEditFont
+    ? getRegionTextLayout(inlineEditRegion, inlineEdit?.text ?? '', {
+        fontFamily: inlineEditFont.family,
+        fontWeight: inlineEditFont.weight,
+        fontStyle: inlineEditFont.style,
+      })
+    : null
   const inlineEditFontSize = inlineEditRegion
-    ? (
-        inlineEditLayoutMode === 'artistic'
-          ? Math.max(8, inlineEditRegion.fontSize * inlineEditScale)
-          : layoutTextInBox(inlineEdit?.text ?? '', inlineEditRegion.bbox, inlineEditRegion.fontSize, {
-              fontFamily: inlineEditFont?.family,
-              fontWeight: inlineEditFont?.weight,
-              fontStyle: inlineEditFont?.style,
-            }).fontSize * inlineEditScale
-      )
+    ? getInlineTextEditorFontSize({
+        fontSize: inlineEditLayout?.fontSize ?? inlineEditRegion.fontSize,
+        scale: inlineEditScale,
+      })
     : 14
+  const inlineEditLineHeight = inlineEditLayout?.lineHeight ?? 1.18
+  const inlineEditPaddingX = inlineEditLayout
+    ? inlineEditLayout.paddingX * inlineEditScale
+    : (inlineEditLayoutMode === 'artistic' ? 0 : 8 * inlineEditScale)
+  const inlineEditPaddingY = inlineEditLayout
+    ? inlineEditLayout.paddingY * inlineEditScale
+    : (inlineEditLayoutMode === 'artistic' ? 0 : 8 * inlineEditScale)
+  const inlineEditContentHeight = inlineEditLayout
+    ? inlineEditLayout.contentHeight * inlineEditScale
+    : undefined
   const inlineEditSize = inlineEditRegion && inlineEditFont
-    ? (
-        inlineEditLayoutMode === 'artistic'
-          ? getArtisticInlineTextEditorLayerSize({
-              text: inlineEdit?.text ?? '',
-              bbox: inlineEditRegion.bbox,
-              scale: inlineEditScale,
-              fontSize: inlineEditRegion.fontSize,
-              fontFamily: inlineEditFont.family,
-              fontWeight: inlineEditFont.weight,
-              fontStyle: inlineEditFont.style,
-              textScaleX: inlineEditRegion.textScaleX,
-              textScaleY: inlineEditRegion.textScaleY,
-              minWidth: 96 / zoom,
-              minHeight: 44 / zoom,
-            })
-          : getInlineTextEditorLayerSize({
-              bbox: inlineEditRegion.bbox,
-              scale: inlineEditScale,
-              minWidth: 96 / zoom,
-              minHeight: 44 / zoom,
-            })
-      )
+    ? inlineEditConstrainToFrame
+      ? getInlineTextEditorLayerSize({
+          bbox: inlineEditRegion.bbox,
+          scale: inlineEditScale,
+          minWidth: 96 / zoom,
+          minHeight: 44 / zoom,
+        })
+      : getArtisticInlineTextEditorLayerSize({
+          text: inlineEdit?.text ?? '',
+          bbox: inlineEditRegion.bbox,
+          scale: inlineEditScale,
+          fontSize: inlineEditRegion.fontSize,
+          fontFamily: inlineEditFont.family,
+          fontWeight: inlineEditFont.weight,
+          fontStyle: inlineEditFont.style,
+          lineHeight: inlineEditLayout?.lineHeight,
+          minWidth: 24 / zoom,
+          minHeight: 24 / zoom,
+        })
     : null
   const inlineEditPosition = inlineEditRegion && activeArtboard
     ? {
@@ -658,7 +687,7 @@ export default function ArtboardWorkspace({
     const font = region ? resolveRegionFont(region) : null
     const nextBbox = region && bboxSize ? { ...region.bbox, ...bboxSize } : null
     const nextFontSize = region && font && nextBbox && layoutMode === 'balloon_fit'
-      ? layoutTextInBox(finalText || ' ', nextBbox, region.fontSize, {
+      ? getRegionTextLayout({ ...region, bbox: nextBbox }, finalText || ' ', {
           fontFamily: font.family,
           fontWeight: font.weight,
           fontStyle: font.style,
@@ -680,13 +709,11 @@ export default function ArtboardWorkspace({
     if (!selectedRegion || !activeArtboard) return null
     const offsetX = activeArtboard.loaded?.offsetX ?? 0
     const offsetY = activeArtboard.loaded?.offsetY ?? 0
-    const widthScale = selectedRegionLayout === 'artistic' ? Math.max(0.5, Math.abs(selectedRegion.textScaleX ?? 1)) : 1
-    const heightScale = selectedRegionLayout === 'artistic' ? Math.max(0.5, Math.abs(selectedRegion.textScaleY ?? 1)) : 1
     return {
       x: stagePos.x + (activeArtboard.x + offsetX + selectedRegion.bbox.x * activeArtboard.scale) * zoom,
       y: stagePos.y + (activeArtboard.y + offsetY + selectedRegion.bbox.y * activeArtboard.scale) * zoom,
-      width: Math.max(40, selectedRegion.bbox.width * activeArtboard.scale * zoom * widthScale),
-      height: Math.max(28, selectedRegion.bbox.height * activeArtboard.scale * zoom * heightScale),
+      width: Math.max(40, selectedRegion.bbox.width * activeArtboard.scale * zoom),
+      height: Math.max(28, selectedRegion.bbox.height * activeArtboard.scale * zoom),
     }
   }, [activeArtboard, selectedRegion, selectedRegionLayout, stagePos.x, stagePos.y, zoom])
   const transformerAnchors = getTextTransformerAnchors(selectedRegionLayout)
@@ -1005,6 +1032,7 @@ export default function ArtboardWorkspace({
               <ArtboardTextOverlay
                 key={`${artboard.entry.id}-text`}
                 artboard={artboard}
+                viewportZoom={zoom}
                 isActive={artboard.entry.id === activeImageId}
                 showTextOverlay={showTextOverlay}
                 activeTool={activeTool}
@@ -1055,15 +1083,25 @@ export default function ArtboardWorkspace({
                   fontWeight={inlineEditFont.weight}
                   fontStyle={inlineEditFont.style}
                   fontSize={inlineEditFontSize}
-                  padding={inlineEditLayoutMode === 'artistic' ? 0 : 8 * inlineEditScale}
+                  lineHeight={inlineEditLineHeight}
+                  paddingX={inlineEditPaddingX}
+                  paddingY={inlineEditPaddingY}
+                  contentHeight={inlineEditContentHeight}
                   viewportZoom={zoom}
                   color={inlineEditRegion.fontColor}
                   align={inlineEditAlign}
                   layoutMode={inlineEditLayoutMode}
+                  constrainToFrame={inlineEditConstrainToFrame}
                   onChange={updateInlineEditText}
                   onFinish={finishInlineEdit}
                 />
               </Html>
+            )}
+            {activeProcessCard && activeArtboard && (
+              <ArtboardProcessCardOverlay
+                artboard={activeArtboard}
+                card={activeProcessCard}
+              />
             )}
           </Layer>
         </Stage>
@@ -1323,6 +1361,104 @@ const ArtboardBase = memo(function ArtboardBase({
   )
 })
 
+function ArtboardProcessCardOverlay({
+  artboard,
+  card,
+}: ArtboardRenderProps & { card: ArtboardProcessCard }) {
+  const surface = getArtboardSurfaceMetrics(artboard)
+  const cardWidth = card.type === 'error' ? 300 : 280
+  const cardX = surface.surfaceX + surface.surfaceWidth / 2
+  const cardY = surface.surfaceY
+  const progress = Math.max(0, Math.min(100, card.progress ?? 0))
+  const stopKonvaEvent = (event: Konva.KonvaEventObject<Event>) => {
+    event.cancelBubble = true
+  }
+  const stopDomEvent = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation()
+  }
+
+  return (
+    <Group x={artboard.x} y={artboard.y}>
+      <Rect
+        x={surface.surfaceX}
+        y={surface.surfaceY}
+        width={surface.surfaceWidth}
+        height={surface.surfaceHeight}
+        fill={card.type === 'error' ? 'rgba(69, 10, 10, 0.34)' : 'rgba(0, 0, 0, 0.42)'}
+        cornerRadius={8}
+        onMouseDown={stopKonvaEvent}
+        onMouseMove={stopKonvaEvent}
+        onMouseUp={stopKonvaEvent}
+        onClick={stopKonvaEvent}
+        onTap={stopKonvaEvent}
+      />
+      <Html
+        groupProps={{ x: cardX, y: cardY }}
+        transform
+        transformFunc={(attrs) => ({
+          ...attrs,
+          scaleX: 1,
+          scaleY: 1,
+        })}
+      >
+        <div
+          className={[
+            'pointer-events-auto rounded-[8px] border px-3 py-3 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md',
+            card.type === 'error'
+              ? 'border-red-400/35 bg-red-950/80'
+              : 'border-white/12 bg-black/82',
+          ].join(' ')}
+          style={{ width: cardWidth, transform: 'translate(-50%, calc(-100% - 12px))' }}
+          onMouseDown={stopDomEvent}
+          onClick={stopDomEvent}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-[var(--mg-text)]">{card.label}</p>
+              <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[var(--mg-muted)]">{card.message}</p>
+            </div>
+            {card.type === 'running' && (
+              <div className="mt-0.5 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/20 border-t-[var(--mg-accent)]" />
+            )}
+          </div>
+
+          {card.type === 'running' && (
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-[var(--mg-accent)] transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+
+          {(card.actionLabel || card.secondaryActionLabel) && (
+            <div className="mt-3 flex justify-end gap-2">
+              {card.secondaryActionLabel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={card.onSecondaryAction}
+                >
+                  {card.secondaryActionLabel}
+                </Button>
+              )}
+              {card.actionLabel && (
+                <Button
+                  variant={card.type === 'error' ? 'primary' : 'danger'}
+                  size="sm"
+                  onClick={card.onAction}
+                >
+                  {card.actionLabel}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </Html>
+    </Group>
+  )
+}
+
 interface ArtboardBrushOverlayProps extends ArtboardRenderProps {
   drawingLine: number[] | null
   activeTool: string
@@ -1380,6 +1516,7 @@ const ArtboardBrushOverlay = memo(function ArtboardBrushOverlay({
 })
 
 interface ArtboardTextOverlayProps extends ArtboardRenderProps {
+  viewportZoom: number
   isActive: boolean
   showTextOverlay: boolean
   activeTool: ActiveTool
@@ -1399,6 +1536,7 @@ interface ArtboardTextOverlayProps extends ArtboardRenderProps {
 
 const ArtboardTextOverlay = memo(function ArtboardTextOverlay({
   artboard,
+  viewportZoom,
   isActive,
   showTextOverlay,
   activeTool,
@@ -1423,6 +1561,7 @@ const ArtboardTextOverlay = memo(function ArtboardTextOverlay({
           region={region}
           allRegions={entry.regions}
           scale={scale}
+          viewportZoom={viewportZoom}
           offsetX={loaded.offsetX}
           offsetY={loaded.offsetY}
           isActiveArtboard={isActive}
@@ -1448,6 +1587,7 @@ function ArtboardText({
   region,
   allRegions,
   scale,
+  viewportZoom,
   offsetX,
   offsetY,
   isActiveArtboard,
@@ -1464,6 +1604,7 @@ function ArtboardText({
   region: TextRegion
   allRegions: TextRegion[]
   scale: number
+  viewportZoom: number
   offsetX: number
   offsetY: number
   isActiveArtboard: boolean
@@ -1478,22 +1619,17 @@ function ArtboardText({
   onStartInlineEdit: () => void
 }) {
   const font = resolveRegionFont(region)
+  const selectedRegionId = useAppStore((s) => s.selectedRegionId)
   const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
-  const textAlign = normalizeTextAlign(region.textAlign)
   const isArtistic = layoutMode === 'artistic'
-  const textScaleX = region.textScaleX ?? 1
-  const textScaleY = region.textScaleY ?? 1
   const text = (previewOriginal ? region.originalText : region.translatedText) || ' '
-  const textLayout = isArtistic
-    ? null
-    : layoutTextInBox(text, region.bbox, region.fontSize, {
-        fontFamily: font.family,
-        fontWeight: font.weight,
-        fontStyle: font.style,
-      })
-  const fontSize = isArtistic
-    ? Math.max(8, region.fontSize * scale)
-    : textLayout!.fontSize * scale
+  const regionLayout = getRegionTextLayout(region, text, {
+    fontFamily: font.family,
+    fontWeight: font.weight,
+    fontStyle: font.style,
+  })
+  const isArtisticFree = isArtistic && regionLayout.artisticFit === 'free'
+  const fontSize = regionLayout.fontSize * scale
   const transformStartRegionsRef = useRef<TextRegion[] | null>(null)
   const canEditText = isActiveArtboard && activeTool === 'select'
 
@@ -1509,87 +1645,122 @@ function ArtboardText({
   }
 
   return (
-    <Text
-      id={isActiveArtboard ? region.id : `${region.id}-readonly`}
-      x={offsetX + region.bbox.x * scale}
-      y={offsetY + region.bbox.y * scale}
-      text={isArtistic ? text : textLayout!.lines.join('\n')}
-      fontSize={fontSize}
-      fontFamily={font.family}
-      fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
-      fill={region.fontColor}
-      stroke={region.strokeWidth > 0 ? region.strokeColor : undefined}
-      strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
-      fillAfterStrokeEnabled
-      lineJoin={region.strokeJoin ?? 'round'}
-      lineHeight={1.18}
-      {...(isArtistic
-        ? {
-            width: (region.bbox.width * scale) / Math.max(0.0001, Math.abs(textScaleX)),
-            wrap: 'word' as const,
-            align: textAlign,
-            scaleX: textScaleX,
-            scaleY: textScaleY,
+    <>
+      <Text
+        id={isActiveArtboard ? region.id : `${region.id}-readonly`}
+        x={offsetX + region.bbox.x * scale}
+        y={offsetY + region.bbox.y * scale}
+        text={regionLayout.lines.join('\n')}
+        fontSize={fontSize}
+        fontFamily={font.family}
+        fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
+        fill={region.fontColor}
+        stroke={region.strokeWidth > 0 ? region.strokeColor : undefined}
+        strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
+        fillAfterStrokeEnabled
+        lineJoin={region.strokeJoin ?? 'round'}
+        lineHeight={regionLayout.lineHeight}
+        {...(isArtistic
+          ? {
+              width: (isArtisticFree ? regionLayout.innerWidth : region.bbox.width) * scale,
+              height: (isArtisticFree ? regionLayout.contentHeight : region.bbox.height) * scale,
+              padding: regionLayout.artisticFit === 'bubble_guided'
+                ? Math.max(regionLayout.paddingX, regionLayout.paddingY) * scale
+                : 0,
+              wrap: 'none' as const,
+              align: regionLayout.textAlign,
+              scaleX: 1,
+              scaleY: 1,
+            }
+          : {
+            width: region.bbox.width * scale,
+            height: region.bbox.height * scale,
+            padding: Math.max(regionLayout.paddingX, regionLayout.paddingY) * scale,
+            wrap: 'none' as const,
+            align: regionLayout.textAlign,
+              verticalAlign: 'middle' as const,
+        })}
+        draggable={canEditText}
+        rotation={region.rotation}
+        opacity={isEditing ? 0.12 : 1}
+        listening={canEditText}
+        onClick={(event) => {
+          event.cancelBubble = true
+          onSelect()
+        }}
+        onDblClick={(event) => {
+          event.cancelBubble = true
+          onStartInlineEdit()
+        }}
+        onDblTap={(event) => {
+          event.cancelBubble = true
+          onStartInlineEdit()
+        }}
+        onTap={(event) => {
+          event.cancelBubble = true
+          onSelect()
+        }}
+        onDragStart={(event) => {
+          event.cancelBubble = true
+          onInteractionStart()
+          onSelect()
+        }}
+        onDragMove={(event) => {
+          event.cancelBubble = true
+        }}
+        onDragEnd={(event) => {
+          event.cancelBubble = true
+          onInteractionEnd()
+          const node = event.target
+          onUpdate({
+            bbox: {
+              ...region.bbox,
+              x: (node.x() - offsetX) / scale,
+              y: (node.y() - offsetY) / scale,
+            },
+          })
+        }}
+        onTransformEnd={(event) => {
+          event.cancelBubble = true
+          onInteractionEnd()
+          const node = event.target as Konva.Text
+          const historyBefore = transformStartRegionsRef.current ?? undefined
+          transformStartRegionsRef.current = null
+          const historyOptions: RegionUpdateOptions = {
+            historyBefore,
+            historyKey: `transform:${region.id}`,
           }
-        : {
-          width: region.bbox.width * scale,
-          height: region.bbox.height * scale,
-          padding: Math.max(textLayout!.paddingX, textLayout!.paddingY) * scale,
-          wrap: 'none' as const,
-          align: textAlign,
-            verticalAlign: 'middle' as const,
-      })}
-      draggable={canEditText}
-      rotation={region.rotation}
-      opacity={isEditing ? 0.12 : 1}
-      listening={canEditText}
-      onClick={(event) => {
-        event.cancelBubble = true
-        onSelect()
-      }}
-      onDblClick={(event) => {
-        event.cancelBubble = true
-        onStartInlineEdit()
-      }}
-      onDblTap={(event) => {
-        event.cancelBubble = true
-        onStartInlineEdit()
-      }}
-      onTap={(event) => {
-        event.cancelBubble = true
-        onSelect()
-      }}
-      onDragStart={(event) => {
-        event.cancelBubble = true
-        onInteractionStart()
-        onSelect()
-      }}
-      onDragMove={(event) => {
-        event.cancelBubble = true
-      }}
-      onDragEnd={(event) => {
-        event.cancelBubble = true
-        onInteractionEnd()
-        const node = event.target
-        onUpdate({
-          bbox: {
-            ...region.bbox,
-            x: (node.x() - offsetX) / scale,
-            y: (node.y() - offsetY) / scale,
-          },
-        })
-      }}
-      onTransformEnd={(event) => {
-        event.cancelBubble = true
-        onInteractionEnd()
-        const node = event.target as Konva.Text
-        const historyBefore = transformStartRegionsRef.current ?? undefined
-        transformStartRegionsRef.current = null
-        const historyOptions: RegionUpdateOptions = {
-          historyBefore,
-          historyKey: `transform:${region.id}`,
-        }
-        if (!isArtistic) {
+          if (isArtisticFree) {
+            const pointScale = Math.max(0.1, Math.abs(node.scaleX()) || 1, Math.abs(node.scaleY()) || 1)
+            const nextFontSize = Math.max(1, region.fontSize * pointScale)
+            node.scaleX(1)
+            node.scaleY(1)
+            const nextLayout = getRegionTextLayout(
+              { ...region, fontSize: nextFontSize },
+              text,
+              {
+                fontFamily: font.family,
+                fontWeight: font.weight,
+                fontStyle: font.style,
+              },
+            )
+            node.width(nextLayout.innerWidth * scale)
+            node.height(nextLayout.contentHeight * scale)
+            node.getLayer()?.batchDraw()
+            onUpdate({
+              bbox: {
+                x: (node.x() - offsetX) / scale,
+                y: (node.y() - offsetY) / scale,
+                width: nextLayout.innerWidth,
+                height: nextLayout.contentHeight,
+              },
+              fontSize: nextFontSize,
+              rotation: node.rotation(),
+              textScaleX: 1,
+              textScaleY: 1,
+            }, historyOptions)
+            return
+          }
           const resized = applyLiveTextBoxResize(node)
           const nextBbox = {
             x: (node.x() - offsetX) / scale,
@@ -1597,45 +1768,32 @@ function ArtboardText({
             width: resized.width / scale,
             height: resized.height / scale,
           }
-          const fitted = layoutTextInBox(text, nextBbox, region.fontSize, {
-            fontFamily: font.family,
-            fontWeight: font.weight,
-            fontStyle: font.style,
-          })
+          const fitted = !isArtistic
+            ? getRegionTextLayout({ ...region, bbox: nextBbox }, text, {
+                fontFamily: font.family,
+                fontWeight: font.weight,
+                fontStyle: font.style,
+              })
+            : null
           onUpdate({
             bbox: nextBbox,
-            fontSize: fitted.fontSize,
+            ...(fitted ? { fontSize: fitted.fontSize } : {}),
             rotation: node.rotation(),
             textScaleX: 1,
             textScaleY: 1,
           }, historyOptions)
-          return
-        }
-
-        const textScaleX = node.scaleX()
-        const textScaleY = node.scaleY()
-        node.scaleX(1)
-        node.scaleY(1)
-        onUpdate({
-          bbox: {
-            x: (node.x() - offsetX) / scale,
-            y: (node.y() - offsetY) / scale,
-            width: (node.width() * Math.abs(textScaleX)) / scale,
-            height: (node.height() * Math.abs(textScaleY)) / scale,
-          },
-          textScaleX: isArtistic ? textScaleX : region.textScaleX,
-          textScaleY: isArtistic ? textScaleY : region.textScaleY,
-          rotation: node.rotation(),
-        }, historyOptions)
-      }}
-      onTransformStart={() => {
-        onInteractionStart()
-        transformStartRegionsRef.current = cloneRegions(allRegions)
-      }}
-      onTransform={(event) => {
-        event.cancelBubble = true
-        const node = event.target as Konva.Text
-        if (!isArtistic) {
+        }}
+        onTransformStart={() => {
+          onInteractionStart()
+          transformStartRegionsRef.current = cloneRegions(allRegions)
+        }}
+        onTransform={(event) => {
+          event.cancelBubble = true
+          const node = event.target as Konva.Text
+          if (isArtisticFree) {
+            node.getLayer()?.batchDraw()
+            return
+          }
           const resized = applyLiveTextBoxResize(node)
           onLiveResize({
             bbox: {
@@ -1647,11 +1805,18 @@ function ArtboardText({
             textScaleX: 1,
             textScaleY: 1,
           })
-          return
-        }
-        node.getLayer()?.batchDraw()
-      }}
-    />
+        }}
+      />
+      {regionLayout.overflow && (
+        <OversetTextBadge
+          x={offsetX + (region.bbox.x + region.bbox.width) * scale}
+          y={offsetY + (region.bbox.y + region.bbox.height) * scale}
+          viewportZoom={viewportZoom}
+          showLabel={selectedRegionId === region.id}
+          labelText="ข้อความยังล้น"
+        />
+      )}
+    </>
   )
 }
 

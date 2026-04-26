@@ -1,10 +1,11 @@
 import type { ImageEntry, TextRegion } from '../types'
 import { resolveRegionFont } from '../config/fonts'
 import {
-  layoutTextInBox,
+  getRegionTextLayout,
+  type TextOverflowReason,
+  type NormalizedTextArtisticFit,
+  type NormalizedTextBalloonShape,
   normalizeTextAlign,
-  normalizeTextLayoutMode,
-  wrapTextToWidth,
 } from '../utils/textLayout'
 import { downloadImage } from './storageService'
 
@@ -15,6 +16,8 @@ interface ResolvedExportImageSource {
 
 export interface ExportTextRegionLayout {
   mode: 'balloon_fit' | 'artistic'
+  balloonShape: NormalizedTextBalloonShape
+  artisticFit: NormalizedTextArtisticFit
   lines: string[]
   fontSize: number
   lineHeightPx: number
@@ -26,6 +29,8 @@ export interface ExportTextRegionLayout {
   innerWidth: number
   scaleX: number
   scaleY: number
+  overflow: boolean
+  overflowReason?: TextOverflowReason
 }
 
 export async function resolveImageEntryExportSource(
@@ -60,57 +65,28 @@ export function getExportTextRegionLayout(
   const font = resolveRegionFont(region)
   const textAlign = normalizeTextAlign(region.textAlign)
   const weight = font.weight >= 700 ? '700' : '400'
-  const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
-
-  if (layoutMode === 'artistic') {
-    const fontSize = Math.max(8, region.fontSize)
-    const scaleX = region.textScaleX ?? 1
-    const scaleY = region.textScaleY ?? 1
-    const innerWidth = region.bbox.width / Math.max(0.0001, Math.abs(scaleX))
-    const lines = wrapTextToWidth(text, innerWidth, fontSize, measureText)
-    return {
-      mode: 'artistic',
-      lines,
-      fontSize,
-      lineHeightPx: fontSize * 1.18,
-      textAlign,
-      startX: textAlign === 'left'
-        ? 0
-        : textAlign === 'right'
-          ? innerWidth
-          : innerWidth / 2,
-      startY: 0,
-      paddingX: 0,
-      paddingY: 0,
-      innerWidth,
-      scaleX,
-      scaleY,
-    }
-  }
-
-  const layout = layoutTextInBox(text, region.bbox, region.fontSize, {
+  const layout = getRegionTextLayout(region, text, {
     fontFamily: font.family,
     fontWeight: weight,
     fontStyle: font.style,
     measureText,
   })
-  const availableHeight = Math.max(0, region.bbox.height - layout.paddingY * 2)
   return {
-    mode: 'balloon_fit',
+    mode: layout.mode,
+    balloonShape: layout.balloonShape,
+    artisticFit: layout.artisticFit,
     lines: layout.lines,
     fontSize: layout.fontSize,
     lineHeightPx: layout.lineHeightPx,
     textAlign,
-    startX: textAlign === 'left'
-      ? layout.paddingX
-      : textAlign === 'right'
-        ? region.bbox.width - layout.paddingX
-        : region.bbox.width / 2,
-    startY: layout.paddingY + Math.max(0, (availableHeight - layout.contentHeight) / 2),
+    startX: layout.startX,
+    startY: layout.startY,
     paddingX: layout.paddingX,
     paddingY: layout.paddingY,
-    innerWidth: Math.max(1, region.bbox.width - layout.paddingX * 2),
-    scaleX: 1,
-    scaleY: 1,
+    innerWidth: layout.innerWidth,
+    scaleX: layout.scaleX,
+    scaleY: layout.scaleY,
+    overflow: layout.overflow,
+    overflowReason: layout.overflowReason,
   }
 }

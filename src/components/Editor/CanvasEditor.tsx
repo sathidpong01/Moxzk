@@ -5,7 +5,7 @@ import Konva from 'konva'
 import type { TextRegion, BrushStroke } from '../../types'
 import { resolveRegionFont } from '../../config/fonts'
 import { useAppStore } from '../../store/appStore'
-import { layoutTextInBox, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { getRegionTextLayout, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
 import { computeBrushFeather } from '../../services/brushStrokes'
 import { getEditorToolCursor } from '../../services/editorCursor'
 import {
@@ -15,6 +15,7 @@ import {
 } from '../../services/konvaInteraction'
 import {
   getArtisticInlineTextEditorLayerSize,
+  getInlineTextEditorFontSize,
   getInlineTextEditorBboxSize,
   getInlineTextEditorLayerSize,
   getTextTransformerAnchors,
@@ -24,6 +25,7 @@ import {
 } from '../../services/inlineTextEditor'
 import type { RegionUpdateOptions } from '../../store/appStore'
 import InlineTextEditor from './InlineTextEditor'
+import OversetTextBadge from './OversetTextBadge'
 import { Hand, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -347,6 +349,7 @@ export default function CanvasEditor({
     (region: TextRegion, e: Konva.KonvaEventObject<Event>) => {
       const node = e.target as Konva.Text
       const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+      const isArtisticFree = layoutMode === 'artistic' && region.artisticFit !== 'bubble_guided'
       const font = resolveRegionFont(region)
       const historyBefore = textTransformStartRef.current[region.id]
       delete textTransformStartRef.current[region.id]
@@ -355,21 +358,34 @@ export default function CanvasEditor({
         historyKey: `transform:${region.id}`,
       }
 
-      if (layoutMode === 'artistic') {
-        const textScaleX = node.scaleX()
-        const textScaleY = node.scaleY()
-
+      if (isArtisticFree) {
+        const pointScale = Math.max(0.1, Math.abs(node.scaleX()) || 1, Math.abs(node.scaleY()) || 1)
+        const nextFontSize = Math.max(1, region.fontSize * pointScale)
+        node.scaleX(1)
+        node.scaleY(1)
+        const nextLayout = getRegionTextLayout(
+          { ...region, fontSize: nextFontSize },
+          region.translatedText || ' ',
+          {
+            fontFamily: font.family,
+            fontWeight: font.weight,
+            fontStyle: font.style,
+          },
+        )
+        node.width(nextLayout.innerWidth * scale)
+        node.height(nextLayout.contentHeight * scale)
+        node.getLayer()?.batchDraw()
         onRegionUpdate(region.id, {
           bbox: {
-            ...region.bbox,
             x: node.x() / scale,
             y: node.y() / scale,
-            width: (node.width() * Math.abs(textScaleX)) / scale,
-            height: (node.height() * Math.abs(textScaleY)) / scale,
+            width: nextLayout.innerWidth,
+            height: nextLayout.contentHeight,
           },
-          textScaleX,
-          textScaleY,
+          fontSize: nextFontSize,
           rotation: node.rotation(),
+          textScaleX: 1,
+          textScaleY: 1,
         }, historyOptions)
         return
       }
@@ -381,16 +397,19 @@ export default function CanvasEditor({
         width: resized.width / scale,
         height: resized.height / scale,
       }
-      const fitted = layoutTextInBox(region.translatedText || ' ', nextBbox, region.fontSize, {
-        fontFamily: font.family,
-        fontWeight: font.weight,
-        fontStyle: font.style,
-      })
+      const fitted = layoutMode === 'balloon_fit'
+        ? getRegionTextLayout({ ...region, bbox: nextBbox }, region.translatedText || ' ', {
+            fontFamily: font.family,
+            fontWeight: font.weight,
+            fontStyle: font.style,
+          })
+        : null
 
       onRegionUpdate(region.id, {
         bbox: nextBbox,
-        fontSize: fitted.fontSize,
+        ...(fitted ? { fontSize: fitted.fontSize } : {}),
         rotation: node.rotation(),
+        ...(layoutMode === 'artistic' ? { textScaleX: 1, textScaleY: 1 } : {}),
       }, historyOptions)
     },
     [applyLiveTextBoxResize, scale, onRegionUpdate],
@@ -484,42 +503,52 @@ export default function CanvasEditor({
   const selectedLayoutMode = normalizeTextLayoutMode(selectedRegion?.textLayoutMode)
   const inlineEditRegion = inlineEdit ? regions.find((region) => region.id === inlineEdit.id) : null
   const inlineEditLayoutMode = normalizeTextLayoutMode(inlineEditRegion?.textLayoutMode)
+  const inlineEditConstrainToFrame = inlineEditLayoutMode !== 'artistic' || inlineEditRegion?.artisticFit === 'bubble_guided'
   const inlineEditAlign = normalizeTextAlign(inlineEditRegion?.textAlign)
   const inlineEditFont = inlineEditRegion ? resolveRegionFont(inlineEditRegion) : null
+  const inlineEditLayout = inlineEditRegion && inlineEditFont
+    ? getRegionTextLayout(inlineEditRegion, inlineEdit?.text ?? '', {
+        fontFamily: inlineEditFont.family,
+        fontWeight: inlineEditFont.weight,
+        fontStyle: inlineEditFont.style,
+      })
+    : null
   const inlineEditFontSize = inlineEditRegion
-    ? (
-        inlineEditLayoutMode === 'artistic'
-          ? Math.max(8, inlineEditRegion.fontSize * scale)
-          : layoutTextInBox(inlineEdit?.text ?? '', inlineEditRegion.bbox, inlineEditRegion.fontSize, {
-              fontFamily: inlineEditFont?.family,
-              fontWeight: inlineEditFont?.weight,
-              fontStyle: inlineEditFont?.style,
-            }).fontSize * scale
-      )
+    ? getInlineTextEditorFontSize({
+        fontSize: inlineEditLayout?.fontSize ?? inlineEditRegion.fontSize,
+        scale,
+      })
     : 14
+  const inlineEditLineHeight = inlineEditLayout?.lineHeight ?? 1.18
+  const inlineEditPaddingX = inlineEditLayout
+    ? inlineEditLayout.paddingX * scale
+    : (inlineEditLayoutMode === 'artistic' ? 0 : 8 * scale)
+  const inlineEditPaddingY = inlineEditLayout
+    ? inlineEditLayout.paddingY * scale
+    : (inlineEditLayoutMode === 'artistic' ? 0 : 8 * scale)
+  const inlineEditContentHeight = inlineEditLayout
+    ? inlineEditLayout.contentHeight * scale
+    : undefined
   const inlineEditSize = inlineEditRegion && inlineEditFont
-    ? (
-        inlineEditLayoutMode === 'artistic'
-          ? getArtisticInlineTextEditorLayerSize({
-              text: inlineEdit?.text ?? '',
-              bbox: inlineEditRegion.bbox,
-              scale,
-              fontSize: inlineEditRegion.fontSize,
-              fontFamily: inlineEditFont.family,
-              fontWeight: inlineEditFont.weight,
-              fontStyle: inlineEditFont.style,
-              textScaleX: inlineEditRegion.textScaleX,
-              textScaleY: inlineEditRegion.textScaleY,
-              minWidth: 96 / zoom,
-              minHeight: 44 / zoom,
-            })
-          : getInlineTextEditorLayerSize({
-              bbox: inlineEditRegion.bbox,
-              scale,
-              minWidth: 96 / zoom,
-              minHeight: 44 / zoom,
-            })
-      )
+    ? inlineEditConstrainToFrame
+      ? getInlineTextEditorLayerSize({
+          bbox: inlineEditRegion.bbox,
+          scale,
+          minWidth: 96 / zoom,
+          minHeight: 44 / zoom,
+        })
+      : getArtisticInlineTextEditorLayerSize({
+          text: inlineEdit?.text ?? '',
+          bbox: inlineEditRegion.bbox,
+          scale,
+          fontSize: inlineEditRegion.fontSize,
+          fontFamily: inlineEditFont.family,
+          fontWeight: inlineEditFont.weight,
+          fontStyle: inlineEditFont.style,
+          lineHeight: inlineEditLayout?.lineHeight,
+          minWidth: 24 / zoom,
+          minHeight: 24 / zoom,
+        })
     : null
   const startInlineEdit = useCallback(
     (region: TextRegion) => {
@@ -544,7 +573,7 @@ export default function CanvasEditor({
     const font = region ? resolveRegionFont(region) : null
     const nextBbox = region && bboxSize ? { ...region.bbox, ...bboxSize } : null
     const nextFontSize = region && font && nextBbox && layoutMode === 'balloon_fit'
-      ? layoutTextInBox(finalText || ' ', nextBbox, region.fontSize, {
+      ? getRegionTextLayout({ ...region, bbox: nextBbox }, finalText || ' ', {
           fontFamily: font.family,
           fontWeight: font.weight,
           fontStyle: font.style,
@@ -703,29 +732,23 @@ export default function CanvasEditor({
           <Layer visible={showTextOverlay}>
             {regions.map((region) => {
               const font = resolveRegionFont(region)
-              const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
-              const textAlign = normalizeTextAlign(region.textAlign)
-              const isArtistic = layoutMode === 'artistic'
-              const textScaleX = region.textScaleX ?? 1
-              const textScaleY = region.textScaleY ?? 1
               const text = region.translatedText || ' '
-              const textLayout = isArtistic
-                ? null
-                : layoutTextInBox(text, region.bbox, region.fontSize, {
-                    fontFamily: font.family,
-                    fontWeight: font.weight,
-                    fontStyle: font.style,
-                  })
-              const fontSize = isArtistic
-                ? Math.max(8, region.fontSize * scale)
-                : textLayout!.fontSize * scale
+              const regionLayout = getRegionTextLayout(region, text, {
+                fontFamily: font.family,
+                fontWeight: font.weight,
+                fontStyle: font.style,
+              })
+              const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+              const isArtistic = layoutMode === 'artistic'
+              const isArtisticFree = isArtistic && regionLayout.artisticFit === 'free'
+              const fontSize = regionLayout.fontSize * scale
               return (
                 <Fragment key={`${region.id}-${layoutMode}`}>
                   <Text
                     id={region.id}
                     x={region.bbox.x * scale}
                     y={region.bbox.y * scale}
-                    text={isArtistic ? text : textLayout!.lines.join('\n')}
+                    text={regionLayout.lines.join('\n')}
                     fontSize={fontSize}
                     fontFamily={font.family}
                     fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
@@ -734,21 +757,25 @@ export default function CanvasEditor({
                     strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
                     fillAfterStrokeEnabled
                     lineJoin={region.strokeJoin ?? 'round'}
-                    lineHeight={1.18}
+                    lineHeight={regionLayout.lineHeight}
                     {...(isArtistic
                       ? {
-                          width: (region.bbox.width * scale) / Math.max(0.0001, Math.abs(textScaleX)),
-                          wrap: 'word' as const,
-                          align: textAlign,
-                          scaleX: textScaleX,
-                          scaleY: textScaleY,
+                          width: (isArtisticFree ? regionLayout.innerWidth : region.bbox.width) * scale,
+                          height: (isArtisticFree ? regionLayout.contentHeight : region.bbox.height) * scale,
+                          padding: regionLayout.artisticFit === 'bubble_guided'
+                            ? Math.max(regionLayout.paddingX, regionLayout.paddingY) * scale
+                            : 0,
+                          wrap: 'none' as const,
+                          align: regionLayout.textAlign,
+                          scaleX: 1,
+                          scaleY: 1,
                         }
                       : {
                           width: region.bbox.width * scale,
                           height: region.bbox.height * scale,
-                          padding: Math.max(textLayout!.paddingX, textLayout!.paddingY) * scale,
+                          padding: Math.max(regionLayout.paddingX, regionLayout.paddingY) * scale,
                           wrap: 'none' as const,
-                          align: textAlign,
+                          align: regionLayout.textAlign,
                           verticalAlign: 'middle' as const,
                         })}
                     draggable={!isPanning && !isBrushActive && !isEyedropper}
@@ -765,22 +792,21 @@ export default function CanvasEditor({
                     }}
                     onTransform={(e) => {
                       const node = e.target as Konva.Text
-                      if (layoutMode === 'balloon_fit') {
-                        applyLiveTextBoxResize(node)
-                      } else {
+                      if (isArtisticFree) {
                         node.getLayer()?.batchDraw()
+                        return
                       }
+                      applyLiveTextBoxResize(node)
                     }}
                     onTransformEnd={(e) => handleTransformEnd(region, e)}
                   />
-                  {!isArtistic && textLayout!.overflow && selectedId === region.id && (
-                    <Text
-                      x={region.bbox.x * scale}
-                      y={(region.bbox.y - 20) * scale}
-                      text="ข้อความล้นกรอบ"
-                      fontSize={11 * scale}
-                      fill="#fca5a5"
-                      listening={false}
+                  {regionLayout.overflow && (
+                    <OversetTextBadge
+                      x={(region.bbox.x + region.bbox.width) * scale}
+                      y={(region.bbox.y + region.bbox.height) * scale}
+                      viewportZoom={zoom}
+                      showLabel={selectedId === region.id}
+                      labelText="ข้อความยังล้น"
                     />
                   )}
                 </Fragment>
@@ -824,11 +850,15 @@ export default function CanvasEditor({
                   fontWeight={inlineEditFont.weight}
                   fontStyle={inlineEditFont.style}
                   fontSize={inlineEditFontSize}
-                  padding={inlineEditLayoutMode === 'artistic' ? 0 : 8 * scale}
+                  lineHeight={inlineEditLineHeight}
+                  paddingX={inlineEditPaddingX}
+                  paddingY={inlineEditPaddingY}
+                  contentHeight={inlineEditContentHeight}
                   viewportZoom={zoom}
                   color={inlineEditRegion.fontColor}
                   align={inlineEditAlign}
                   layoutMode={inlineEditLayoutMode}
+                  constrainToFrame={inlineEditConstrainToFrame}
                   onChange={updateInlineEditText}
                   onFinish={finishInlineEdit}
                 />

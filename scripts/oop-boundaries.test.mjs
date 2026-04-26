@@ -15,6 +15,19 @@ async function loadViteModule(path) {
   }
 }
 
+function createAbortableFetch() {
+  return async (_url, init = {}) => new Promise((_, reject) => {
+    const signal = init.signal
+    if (signal?.aborted) {
+      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+      return
+    }
+    signal?.addEventListener('abort', () => {
+      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+    }, { once: true })
+  })
+}
+
 test('web runtime is exposed as an AppRuntime class instance', async () => {
   const { WebRuntime, webRuntime } = await loadViteModule('/src/runtime/webRuntime.ts')
 
@@ -62,6 +75,26 @@ test('OllamaClient keeps cloud status guard without an API key', async () => {
     await client.getStatus({ ollamaUrl: 'https://ollama.com' }),
     { ok: false, url: 'https://ollama.com', error: 'Ollama Cloud ต้องใช้ API key' },
   )
+})
+
+test('OllamaClient reports timeout on stalled status checks', async () => {
+  const { OllamaClient } = await loadViteModule('/src/services/ollama.ts')
+  const client = new OllamaClient()
+  const originalFetch = globalThis.fetch
+
+  globalThis.fetch = createAbortableFetch()
+
+  try {
+    const status = await client.getStatus({
+      ollamaUrl: 'http://localhost:11434',
+      timeoutMs: 20,
+    })
+
+    assert.equal(status.ok, false)
+    assert.match(status.error ?? '', /Ollama request timed out after 20ms/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })
 
 test('OllamaClient pulls a local model and reports streaming progress', async () => {
@@ -154,6 +187,26 @@ test('PanelCleanerClient posts status checks to the normalized bridge URL', asyn
     assert.equal(captured.method, 'POST')
     assert.equal(captured.headers['Content-Type'], 'application/json')
     assert.equal(captured.body.executablePath, 'C:\\Tools\\pcleaner.exe')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('PanelCleanerClient reports timeout on stalled bridge status checks', async () => {
+  const { PanelCleanerClient } = await loadViteModule('/src/services/panelcleaner-api.ts')
+  const client = new PanelCleanerClient()
+  const originalFetch = globalThis.fetch
+
+  globalThis.fetch = createAbortableFetch()
+
+  try {
+    const status = await client.getStatus({
+      bridgeUrl: 'http://localhost:5055',
+      timeoutMs: 20,
+    })
+
+    assert.equal(status.ok, false)
+    assert.match(status.error ?? '', /PanelCleaner bridge request timed out after 20ms/)
   } finally {
     globalThis.fetch = originalFetch
   }

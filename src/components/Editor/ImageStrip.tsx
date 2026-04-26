@@ -1,6 +1,6 @@
 import { useCallback, useState, type CSSProperties, type SyntheticEvent } from 'react'
 import { useAppStore } from '../../store/appStore'
-import { CheckCircle2, Loader2, CloudOff } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, CloudOff } from 'lucide-react'
 
 interface ImageStripProps {
   isOpen?: boolean
@@ -19,6 +19,18 @@ const THUMBNAIL_MAX_HEIGHT = 196
 const STRIP_WIDTH = 146
 const STRIP_MASK_FADE_TOP = 26
 const STRIP_MASK_FADE_BOTTOM = 34
+
+const statusMeta = {
+  pending: { label: '', className: '', icon: null },
+  clean_queued: { label: 'รอคลีน', className: 'bg-black/78 text-zinc-200', icon: null },
+  cleaning: { label: 'คลีน', className: 'bg-blue-500/85 text-white', icon: Loader2 },
+  clean_done: { label: 'คลีนแล้ว', className: 'bg-emerald-500/85 text-white', icon: CheckCircle2 },
+  translate_queued: { label: 'รอแปล', className: 'bg-black/78 text-zinc-200', icon: null },
+  translating: { label: 'แปล', className: 'bg-blue-500/85 text-white', icon: Loader2 },
+  processing: { label: 'ทำงาน', className: 'bg-blue-500/85 text-white', icon: Loader2 },
+  done: { label: 'เสร็จ', className: 'bg-emerald-500/85 text-white', icon: CheckCircle2 },
+  error: { label: 'พลาด', className: 'bg-red-500/88 text-white', icon: AlertCircle },
+} as const
 
 function getThumbnailHeight(metric?: ThumbnailMetric): number {
   if (!metric || metric.width <= 0 || metric.height <= 0) return 168
@@ -79,11 +91,13 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
         >
           {imageEntries.map((entry, i) => {
             const isActive = entry.id === activeImageId
-            const isDone = entry.status === 'done'
-            const isProcessing = ['processing', 'clean_queued', 'cleaning', 'translate_queued', 'translating'].includes(entry.status)
+            const meta = statusMeta[entry.status]
+            const StatusIcon = meta.icon
+            const isProcessing = ['processing', 'cleaning', 'translating'].includes(entry.status)
             const isUnloaded = entry.imageLoaded === false
             const pageNumber = entry.pageNumber ?? i + 1
             const thumbnailHeight = getThumbnailHeight(thumbnailMetrics[entry.id])
+            const previewUrl = entry.cleanedImageUrl || entry.originalUrl
 
             return (
               <button
@@ -101,12 +115,12 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
                 }}
                 title={`หน้า ${pageNumber}${isUnloaded ? ' (คลิกเพื่อโหลด)' : ''}`}
               >
-                {entry.originalUrl ? (
+                {previewUrl ? (
                   <img
-                    src={entry.originalUrl}
+                    src={previewUrl}
                     alt={`หน้า ${pageNumber}`}
                     onLoad={(event) => handleImageLoad(entry.id, event)}
-                    className="h-full w-full object-contain"
+                    className={`h-full w-full object-contain transition ${isProcessing ? 'brightness-75' : ''}`}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-white/5">
@@ -116,15 +130,17 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
                 <span className="absolute bottom-0 left-0 rounded-tr bg-black/75 px-2 py-1 text-[11px] font-bold text-[var(--mg-text)]">
                   {pageNumber}
                 </span>
-                {isDone && (
-                  <div className="absolute top-1 right-1">
-                    <CheckCircle2 size={15} className="text-[var(--mg-success)] drop-shadow" />
-                  </div>
-                )}
-                {isProcessing && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                    <Loader2 size={18} className="animate-spin text-[var(--mg-accent)]" />
-                  </div>
+                {meta.label && (
+                  <span className={`absolute right-1 top-1 inline-flex max-w-[76px] items-center gap-1 rounded-[7px] px-1.5 py-1 text-[9px] font-bold shadow ${meta.className}`}>
+                    {StatusIcon && (
+                      <StatusIcon
+                        size={10}
+                        className={isProcessing ? 'animate-spin' : ''}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span className="truncate">{meta.label}</span>
+                  </span>
                 )}
                 {isUnloaded && !isProcessing && (
                   <div className="absolute bottom-0 right-0">

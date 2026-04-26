@@ -1,16 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type Konva from 'konva'
 import type { ProcessingMode } from '../../types'
 import { useAppStore } from '../../store/appStore'
 import type { CanvasEditorHandle } from '../Editor/CanvasEditor'
-import ArtboardWorkspace from '../Editor/ArtboardWorkspace'
+import ArtboardWorkspace, { type ArtboardProcessCard } from '../Editor/ArtboardWorkspace'
 import ImageStrip from '../Editor/ImageStrip'
 import ResourceMonitor from '../Processing/ResourceMonitor'
-import ProcessingView from '../Processing/ProcessingView'
+import ProcessingView, { type ProcessingViewStatus } from '../Processing/ProcessingView'
 import LogPanel from '../Layout/LogPanel'
 import PanelToggleBar from '../Layout/PanelToggleBar'
 import OcrCorrectionModal from '../Editor/OcrCorrectionModal'
-import { Button, DropdownItem, DropdownMenu } from '../ui/primitives'
+import { DropdownItem, DropdownMenu } from '../ui/primitives'
 import type { BatchProgressState } from '../../services/batch-processing'
 import { Cpu, Eye, EyeOff, FileSearch, Loader2, MoreHorizontal, RotateCcw, ScrollText } from 'lucide-react'
 
@@ -41,6 +41,7 @@ export default function EditStep({
   const [showOcrModal, setShowOcrModal] = useState(false)
   const [showFilmstrip, setShowFilmstrip] = useState(true)
   const [viewport, setViewport] = useState({ zoom: 1, zoomPercent: 100, imageWidth: 0, imageHeight: 0 })
+  const [singleProcessStatus, setSingleProcessStatus] = useState<ProcessingViewStatus | null>(null)
 
   const activeEntry = store.imageEntries.find((entry) => entry.id === store.activeImageId)
   const activeFile = activeEntry?.file
@@ -51,6 +52,44 @@ export default function EditStep({
   const hasFailedPages = store.imageEntries.some((entry) => entry.status === 'error')
   const activePageIndex = Math.max(0, store.imageEntries.findIndex((entry) => entry.id === store.activeImageId))
   const showStatusCluster = isLoadingImage || (isBatchProcessing && batchStatus)
+  const activeProcessCard = useMemo<ArtboardProcessCard | null>(() => {
+    if (isAiProcessing && activeFile) {
+      return {
+        type: 'running',
+        label: singleProcessStatus?.label ?? 'กำลังประมวลผล',
+        message: singleProcessStatus?.state.message ?? 'กำลังเตรียมงาน...',
+        progress: singleProcessStatus?.state.progress ?? 0,
+        actionLabel: 'ยกเลิกงานนี้',
+        onAction: onCancelAI,
+      }
+    }
+
+    if (!store.isProcessing && store.processError && activeEntry?.status === 'error') {
+      return {
+        type: 'error',
+        label: 'ประมวลผลไม่สำเร็จ',
+        message: store.processError,
+        actionLabel: 'ลองอีกครั้ง',
+        onAction: onRetryAI,
+        secondaryActionLabel: 'ปิด',
+        onSecondaryAction: () => store.setProcessError(null),
+      }
+    }
+
+    return null
+  }, [
+    activeEntry?.status,
+    activeFile,
+    isAiProcessing,
+    onCancelAI,
+    onRetryAI,
+    singleProcessStatus,
+    store,
+  ])
+
+  useEffect(() => {
+    if (!isAiProcessing) setSingleProcessStatus(null)
+  }, [isAiProcessing])
 
   return (
     <>
@@ -61,6 +100,7 @@ export default function EditStep({
             stageRef={stageRef}
             editorRef={editorRef}
             onViewportChange={setViewport}
+            activeProcessCard={activeProcessCard}
           />
         ) : (
           <div className="studio-canvas flex h-full items-center justify-center">
@@ -70,45 +110,24 @@ export default function EditStep({
       </div>
 
       {isAiProcessing && activeFile && (
-        <div className="studio-canvas absolute inset-0 z-10 flex items-center justify-center">
-          <div className="w-full max-w-lg px-4">
-            <ProcessingView
-              imageFile={activeFile}
-              sourceLang={store.settings.sourceLang}
-              mode={processingMode}
-              settings={store.settings}
-              ollamaOptions={{
-                ollamaUrl: store.settings.ollamaUrl,
-                ollamaModel: store.settings.ollamaModel,
-                ollamaApiKey: store.settings.ollamaApiKey,
-              }}
-              abortSignal={store.processAbortController?.signal}
-              onComplete={(regions, cleanedUrl) => store.completeProcess(regions, cleanedUrl, processRunId)}
-              onError={(error) => store.setProcessError(error, processRunId)}
-              onLog={store.addLog}
-              retryCount={retryCount}
-            />
-            <div className="mt-3 flex justify-center">
-              <Button variant="danger" size="sm" onClick={onCancelAI}>
-                ยกเลิกงานนี้
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!store.isProcessing && store.processError && (
-        <div className="floating-panel panel-enter absolute bottom-16 left-1/2 z-20 max-w-sm -translate-x-1/2 px-4 py-3 text-center">
-          <p className="mb-2 text-sm font-medium text-[var(--mg-danger)]">{store.processError}</p>
-          <div className="flex items-center justify-center gap-2">
-            <Button variant="primary" size="sm" onClick={onRetryAI}>
-              <RotateCcw size={12} /> ลองอีกครั้ง
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => store.setProcessError(null)}>
-              ปิด
-            </Button>
-          </div>
-        </div>
+        <ProcessingView
+          imageFile={activeFile}
+          sourceLang={store.settings.sourceLang}
+          mode={processingMode}
+          settings={store.settings}
+          ollamaOptions={{
+            ollamaUrl: store.settings.ollamaUrl,
+            ollamaModel: store.settings.ollamaModel,
+            ollamaApiKey: store.settings.ollamaApiKey,
+          }}
+          abortSignal={store.processAbortController?.signal}
+          onComplete={(regions, cleanedUrl) => store.completeProcess(regions, cleanedUrl, processRunId)}
+          onError={(error) => store.setProcessError(error, processRunId)}
+          onLog={store.addLog}
+          retryCount={retryCount}
+          presentation="runner"
+          onStatusChange={setSingleProcessStatus}
+        />
       )}
 
       <ImageStrip

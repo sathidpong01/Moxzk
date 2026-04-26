@@ -63,11 +63,15 @@ export function parseApiError(raw: string): ParsedError {
   }
 
   // Detect network errors
-  if (lower.includes('fetch') || lower.includes('network') || lower.includes('econnrefused')) {
+  if (lower.includes('fetch') || lower.includes('network') || lower.includes('econnrefused') || lower.includes('timed out') || lower.includes('timeout')) {
     if (lower.includes('ollama') || lower.includes('11434')) {
-      result.shortMessage = 'เชื่อมต่อ Ollama ไม่ได้ — เปิด Ollama app หรือรัน ollama serve แล้วลองใหม่'
+      result.shortMessage = lower.includes('timed out') || lower.includes('timeout')
+        ? 'Ollama ตอบช้าเกินเวลา — ตรวจว่า service พร้อมและโมเดลไม่ค้างอยู่'
+        : 'เชื่อมต่อ Ollama ไม่ได้ — เปิด Ollama app หรือรัน ollama serve แล้วลองใหม่'
     } else if (lower.includes('panelcleaner') || lower.includes('5055')) {
-      result.shortMessage = 'เชื่อมต่อ PanelCleaner bridge ไม่ได้ — รัน npm run backend:panelcleaner แล้วลองใหม่'
+      result.shortMessage = lower.includes('timed out') || lower.includes('timeout')
+        ? 'PanelCleaner bridge ตอบช้าเกินเวลา — bridge เปิดอยู่แต่ CLI อาจยังไม่พร้อม'
+        : 'เชื่อมต่อ PanelCleaner bridge ไม่ได้ — รัน npm run backend:panelcleaner แล้วลองใหม่'
     } else {
       result.shortMessage = 'เชื่อมต่อ Server ไม่ได้ — ตรวจสอบ PanelCleaner bridge'
     }

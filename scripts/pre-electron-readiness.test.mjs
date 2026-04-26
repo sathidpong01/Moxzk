@@ -135,3 +135,11 @@ test('legacy backend docs removed and R2 export path has implementation', () => 
   assert.match(exporter, /downloadImage\(key\)/)
   assert.equal(Boolean(packageJson.dependencies?.electron || packageJson.devDependencies?.electron), false)
 })
+
+test('panelcleaner bridge keeps a lightweight health check before Electron', () => {
+  const bridge = fs.readFileSync('scripts/panelcleaner-bridge.mjs', 'utf8')
+
+  assert.match(bridge, /STATUS_CACHE_TTL_MS/)
+  assert.match(bridge, /service: 'panelcleaner-bridge'/)
+  assert.match(bridge, /getCachedPanelCleanerStatus/)
+})

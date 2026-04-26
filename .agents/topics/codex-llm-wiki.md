@@ -11,6 +11,7 @@ Use `_wiki/` for source-heavy knowledge that should compound over time.
 ## Working Rules
 
 - raw source files go under `_wiki/raw/` and stay immutable
+- Obsidian Web Clipper files usually land in `Clippings/`; treat that folder as a local-only raw source inbox
 - Codex should read `_wiki/AGENTS.md` before ingesting or querying the wiki
 - `podcast.md` is the first fast context file to read
 - `index.md` is the catalog for navigation
@@ -20,6 +21,8 @@ Use `_wiki/` for source-heavy knowledge that should compound over time.
   - then read `index.md` and only the relevant pages
   - do not load the whole wiki for narrow local code edits
 - when work finishes and produces reusable knowledge, Codex should write it back into `_wiki/` without needing a separate user prompt
+- raw clipped files should normally stay out of git; commit the compiled `_wiki/` summary instead
+- Konva/react-konva work now has a dedicated local entrypoint at `docs/llm/konva.md` and a project `llms.txt`
 
 ## Why This Exists
 

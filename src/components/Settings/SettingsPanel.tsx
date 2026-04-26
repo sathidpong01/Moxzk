@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Field, Modal, SelectField, TextareaField, TextInput } from '../ui/primitives'
+import { parseApiError } from '../../utils/parseApiError'
 
 interface SettingsPanelProps {
   settings: AppSettings
@@ -47,6 +48,9 @@ const OLLAMA_DOWNLOAD_URL = 'https://ollama.com/download/windows'
 const OLLAMA_API_DOC_URL = 'https://docs.ollama.com/api/introduction'
 const OLLAMA_PULL_DOC_URL = 'https://docs.ollama.com/api/pull'
 const GEMMA3_DOC_URL = 'https://ollama.com/library/gemma3'
+const OLLAMA_STATUS_TIMEOUT_MS = 8000
+const OLLAMA_MODELS_TIMEOUT_MS = 15000
+const PANELCLEANER_STATUS_TIMEOUT_MS = 15000
 
 const MODEL_PRESETS = [
   {
@@ -82,6 +86,12 @@ function formatBytes(value?: number): string {
 function getPullPercent(progress: OllamaPullProgress | null): number | null {
   if (!progress?.total || !progress.completed) return null
   return Math.max(0, Math.min(100, Math.round((progress.completed / progress.total) * 100)))
+}
+
+function toFriendlyServiceError(service: 'ollama' | 'panelcleaner', raw?: string): string {
+  const prefix = service === 'ollama' ? 'Ollama' : 'PanelCleaner'
+  const fallback = service === 'ollama' ? 'เชื่อมต่อ Ollama ไม่สำเร็จ' : 'เช็ค PanelCleaner ไม่สำเร็จ'
+  return parseApiError(`${prefix} ${raw ?? fallback}`).shortMessage
 }
 
 export default function SettingsPanel({
@@ -125,16 +135,28 @@ export default function SettingsPanel({
 
   const handleCheckOllama = async () => {
     setCheckingOllama(true)
-    const status = await webRuntime.ollama.getServerStatus({
-      ollamaUrl: draft.ollamaUrl,
-      ollamaApiKey: draft.ollamaApiKey,
-    })
-    setOllamaStatus(status)
-    setCheckingOllama(false)
-    if (status.ok) {
-      toast.success(status.version === 'cloud' ? 'Ollama Cloud พร้อมใช้งาน' : `Ollama ${status.version ?? ''} พร้อมใช้งาน`)
-    } else {
-      toast.error('เชื่อมต่อ Ollama ไม่สำเร็จ')
+    try {
+      const status = await webRuntime.ollama.getServerStatus({
+        ollamaUrl: draft.ollamaUrl,
+        ollamaApiKey: draft.ollamaApiKey,
+        timeoutMs: OLLAMA_STATUS_TIMEOUT_MS,
+      })
+      setOllamaStatus(status)
+      if (status.ok) {
+        toast.success(status.version === 'cloud' ? 'Ollama Cloud พร้อมใช้งาน' : `Ollama ${status.version ?? ''} พร้อมใช้งาน`)
+      } else {
+        toast.error(toFriendlyServiceError('ollama', status.error))
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setOllamaStatus({
+        ok: false,
+        url: draft.ollamaUrl,
+        error: message,
+      })
+      toast.error(toFriendlyServiceError('ollama', message))
+    } finally {
+      setCheckingOllama(false)
     }
   }
 
@@ -144,11 +166,13 @@ export default function SettingsPanel({
       const models = await webRuntime.ollama.listModels({
         ollamaUrl: draft.ollamaUrl,
         ollamaApiKey: draft.ollamaApiKey,
+        timeoutMs: OLLAMA_MODELS_TIMEOUT_MS,
       })
       setModelNames(models.map((model) => model.name || model.model || '').filter(Boolean))
       toast.success(`พบ ${models.length} โมเดล`)
     } catch (err) {
-      toast.error('โหลดรายการโมเดลไม่สำเร็จ: ' + (err instanceof Error ? err.message : String(err)))
+      const message = err instanceof Error ? err.message : String(err)
+      toast.error(`โหลดรายการโมเดลไม่สำเร็จ: ${toFriendlyServiceError('ollama', message)}`)
     } finally {
       setLoadingModels(false)
     }
@@ -198,19 +222,27 @@ export default function SettingsPanel({
 
   const handleCheckPanelCleaner = async () => {
     setCheckingPanelCleaner(true)
-    const status = await webRuntime.panelCleaner.getStatus({
-      bridgeUrl: draft.panelCleanerBridgeUrl,
-      executablePath: draft.panelCleanerExecutablePath,
-    })
-    setPanelCleanerStatus(status)
-    if (status.ok && !draft.panelCleanerExecutablePath && status.command && /[\\/]/.test(status.command)) {
-      setDraft((current) => ({ ...current, panelCleanerExecutablePath: status.command! }))
-    }
-    setCheckingPanelCleaner(false)
-    if (status.ok) {
-      toast.success(`PanelCleaner พร้อมใช้งาน${status.version ? ` (${status.version})` : ''}`)
-    } else {
-      toast.error('เช็ค PanelCleaner ไม่สำเร็จ')
+    try {
+      const status = await webRuntime.panelCleaner.getStatus({
+        bridgeUrl: draft.panelCleanerBridgeUrl,
+        executablePath: draft.panelCleanerExecutablePath,
+        timeoutMs: PANELCLEANER_STATUS_TIMEOUT_MS,
+      })
+      setPanelCleanerStatus(status)
+      if (status.ok && !draft.panelCleanerExecutablePath && status.command && /[\\/]/.test(status.command)) {
+        setDraft((current) => ({ ...current, panelCleanerExecutablePath: status.command! }))
+      }
+      if (status.ok) {
+        toast.success(`PanelCleaner พร้อมใช้งาน${status.version ? ` (${status.version})` : ''}`)
+      } else {
+        toast.error(toFriendlyServiceError('panelcleaner', status.error))
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setPanelCleanerStatus({ ok: false, error: message })
+      toast.error(toFriendlyServiceError('panelcleaner', message))
+    } finally {
+      setCheckingPanelCleaner(false)
     }
   }
 
@@ -360,7 +392,7 @@ export default function SettingsPanel({
                         <span>
                           {ollamaStatus.ok
                             ? `เชื่อมต่อ ${ollamaStatus.url} สำเร็จ${ollamaStatus.version ? ` (${ollamaStatus.version})` : ''}`
-                            : `${ollamaStatus.url}: ${ollamaStatus.error ?? 'เชื่อมต่อไม่ได้'}`}
+                            : `${ollamaStatus.url}: ${toFriendlyServiceError('ollama', ollamaStatus.error)}`}
                         </span>
                       </div>
                     )}
@@ -571,7 +603,7 @@ export default function SettingsPanel({
                         <span>
                           {panelCleanerStatus.ok
                             ? `PanelCleaner พร้อมใช้งาน${panelCleanerStatus.version ? ` (${panelCleanerStatus.version})` : ''}${panelCleanerStatus.command ? ` - ${panelCleanerStatus.command}` : ''}`
-                            : `${panelCleanerStatus.error ?? 'เช็ค PanelCleaner ไม่สำเร็จ'}${panelCleanerStatus.installHint ? ` - ${panelCleanerStatus.installHint}` : ''}`}
+                            : `${toFriendlyServiceError('panelcleaner', panelCleanerStatus.error)}${panelCleanerStatus.installHint ? ` - ${panelCleanerStatus.installHint}` : ''}`}
                         </span>
                       </div>
                     )}

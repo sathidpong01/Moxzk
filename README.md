@@ -294,12 +294,14 @@ Recommended workflow for better continuity:
 ## PanelCleaner Bridge Notes
 
 - Bridge รับรูปเป็น base64 JSON แล้วเขียน temp files ต่อ job
+- Health endpoint: `GET /health` สำหรับเช็คว่า bridge process ยังตอบอยู่
+- Deep status endpoint: `POST /panelcleaner/status` สำหรับเช็ค CLI/executable และ cache ผลช่วงสั้นเพื่อลดการ spawn ซ้ำ
 - Single endpoint: `/panelcleaner/process`
 - Batch endpoint: `/panelcleaner/batch`
-- Status endpoint: `/panelcleaner/status`
 - เรียก `pcleaner` ด้วย `spawn(..., { shell: false })`
 - จำกัด origin เฉพาะ local dev origins โดย default
 - รองรับ `PANELCLEANER_BRIDGE_PORT`, `PANELCLEANER_MAX_BODY_BYTES`, `PANELCLEANER_ALLOWED_ORIGIN`
+- รองรับ `PANELCLEANER_STATUS_CACHE_TTL_MS` สำหรับปรับ cache ของ deep status check
 - ลบ temp directory หลังจบงาน เว้นแต่ตั้ง `PANELCLEANER_KEEP_TEMP=1`
 
 ## Auth And Albums

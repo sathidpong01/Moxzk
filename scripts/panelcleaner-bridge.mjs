@@ -7,12 +7,14 @@ import { extname, join, resolve } from 'node:path'
 const PORT = Number(process.env.PANELCLEANER_BRIDGE_PORT || 5055)
 const MAX_BODY_BYTES = Number(process.env.PANELCLEANER_MAX_BODY_BYTES || 80 * 1024 * 1024)
 const KEEP_TEMP = process.env.PANELCLEANER_KEEP_TEMP === '1'
+const STATUS_CACHE_TTL_MS = Number(process.env.PANELCLEANER_STATUS_CACHE_TTL_MS || 15_000)
 const LOCAL_VENV_PCLEANER = resolve(process.cwd(), '.venv-panelcleaner', 'Scripts', 'pcleaner-cli.exe')
 const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   process.env.PANELCLEANER_ALLOWED_ORIGIN,
 ].filter(Boolean))
+const statusCache = new Map()
 
 const IMAGE_EXT_BY_MIME = new Map([
   ['image/png', '.png'],
@@ -36,14 +38,18 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && req.url === '/health') {
-      const status = await getPanelCleanerStatus()
-      sendJson(res, status.ok ? 200 : 503, status, req)
+      sendJson(res, 200, {
+        ok: true,
+        service: 'panelcleaner-bridge',
+        port: PORT,
+        cacheTtlMs: STATUS_CACHE_TTL_MS,
+      }, req)
       return
     }
 
     if (req.method === 'POST' && req.url === '/panelcleaner/status') {
       const payload = await readJsonBody(req)
-      const status = await getPanelCleanerStatus(payload?.executablePath)
+      const status = await getCachedPanelCleanerStatus(payload?.executablePath)
       sendJson(res, status.ok ? 200 : 503, status, req)
       return
     }
@@ -206,6 +212,21 @@ async function getPanelCleanerStatus(executablePath) {
   } catch (err) {
     return { ok: false, error: toSafeErrorMessage(err), installHint: 'pip install pcleaner-cli' }
   }
+}
+
+async function getCachedPanelCleanerStatus(executablePath) {
+  const normalizedPath = sanitizeExecutablePath(executablePath)
+  const cacheKey = normalizedPath ?? '__default__'
+  const now = Date.now()
+  const cached = statusCache.get(cacheKey)
+
+  if (cached && now - cached.checkedAt < STATUS_CACHE_TTL_MS) {
+    return { ...cached.status, checkedAt: cached.checkedAt, cached: true }
+  }
+
+  const status = await getPanelCleanerStatus(normalizedPath)
+  statusCache.set(cacheKey, { status, checkedAt: now })
+  return { ...status, checkedAt: now, cached: false }
 }
 
 async function runPanelCleaner(executablePath, args) {

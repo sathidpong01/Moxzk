@@ -16,6 +16,9 @@ interface WorkspaceViewport {
   y: number
 }
 
+const MIN_FIT_ZOOM = 0.2
+const MAX_FIT_ZOOM = 3
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
@@ -49,10 +52,9 @@ export function computeBoardViewport({
     Math.min(
       (stageSize.width - paddingX) / contentWidth,
       (stageSize.height - paddingY) / contentHeight,
-      1,
     ),
-    0.2,
-    1,
+    MIN_FIT_ZOOM,
+    MAX_FIT_ZOOM,
   )
 
   return {
@@ -60,4 +62,14 @@ export function computeBoardViewport({
     x: stageSize.width / 2 - (minX + contentWidth / 2) * zoom,
     y: stageSize.height / 2 - (minY + contentHeight / 2) * zoom,
   }
+}
+
+export function getViewportZoomPercent(zoom: number, artboardScale: number): number {
+  const effectiveScale = Math.max(0.0001, zoom * artboardScale)
+  return Math.max(1, Math.round(effectiveScale * 100))
+}
+
+export function getZoomFromViewportPercent(percent: number, artboardScale: number): number {
+  const safeScale = Math.max(0.0001, artboardScale)
+  return roundZoom(percent / 100 / safeScale)
 }

@@ -33,9 +33,17 @@ interface ProcessingViewProps {
   onError: (error: string) => void
   onLog?: (msg: string) => void
   retryCount?: number
+  presentation?: 'compact' | 'runner'
+  onStatusChange?: (status: ProcessingViewStatus) => void
 }
 
 type PipelineStep = 'detection' | 'ocr' | 'inpainting' | 'translating' | 'done' | 'error'
+
+export interface ProcessingViewStatus {
+  state: ProcessingState
+  step: PipelineStep
+  label: string
+}
 
 const STEPS: { id: PipelineStep; label: string; icon: typeof Search }[] = [
   { id: 'detection', label: 'คลีน', icon: Search },
@@ -97,6 +105,8 @@ export default function ProcessingView({
   onError,
   onLog,
   retryCount = 0,
+  presentation = 'compact',
+  onStatusChange,
 }: ProcessingViewProps) {
   const [state, setState] = useState<ProcessingState>({
     status: 'idle',
@@ -105,11 +115,6 @@ export default function ProcessingView({
   })
   const [currentStep, setCurrentStep] = useState<PipelineStep>('detection')
   const hasStarted = useRef(false)
-
-  const imagePreviewUrl = useMemo(
-    () => URL.createObjectURL(imageFile),
-    [imageFile],
-  )
 
   const addLog = useCallback((msg: string) => {
     const entry = `[${new Date().toLocaleTimeString()}] ${msg}`
@@ -261,30 +266,35 @@ export default function ProcessingView({
   }, [mode])
 
   const stepIndex = visibleSteps.findIndex((s) => s.id === currentStep)
+  const currentLabel = visibleSteps[stepIndex]?.label ?? 'กำลังทำงาน'
+
+  useEffect(() => {
+    onStatusChange?.({
+      state,
+      step: currentStep,
+      label: currentLabel,
+    })
+  }, [currentLabel, currentStep, onStatusChange, state])
+
+  if (presentation === 'runner') return null
 
   return (
-    <div className="flex w-full flex-col items-center space-y-3">
-      <div className="relative w-fit">
-        <img
-          src={imagePreviewUrl}
-          alt="กำลังประมวลผล"
-          className="max-h-[38vh] max-w-full rounded-lg object-contain opacity-20"
-        />
-
+    <div className="floating-panel flex w-full flex-col items-center space-y-3 px-4 py-4">
+      <div className="flex min-h-24 w-full flex-col items-center justify-center gap-3">
         {state.status !== 'done' && state.status !== 'error' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="h-10 w-10 animate-spin text-[var(--mg-accent)]" />
-            <div className="max-w-xs rounded-[8px] bg-black/72 px-4 py-2 text-center backdrop-blur">
+          <>
+            <Loader2 className="h-9 w-9 animate-spin text-[var(--mg-accent)]" />
+            <div className="max-w-xs text-center">
               <p className="text-sm font-bold text-[var(--mg-text)]">
-                {visibleSteps[stepIndex]?.label ?? 'กำลังประมวลผล...'}
+                {currentLabel}
               </p>
               <p className="mt-0.5 text-[11px] text-[var(--mg-muted)]">{state.message}</p>
             </div>
-          </div>
+          </>
         )}
 
         {state.status === 'error' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60">
+          <div className="flex flex-col items-center justify-center gap-3">
             <AlertCircle className="h-12 w-12 text-[var(--mg-danger)]" />
             <div className="max-w-sm rounded-[8px] border border-red-400/30 bg-red-500/10 px-4 py-2 text-center">
               <p className="text-sm font-medium text-red-300">เกิดข้อผิดพลาด</p>
@@ -294,7 +304,7 @@ export default function ProcessingView({
         )}
 
         {state.status === 'done' && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="flex items-center justify-center pointer-events-none">
             <div className="animate-bounce rounded-full bg-green-500/20 p-4 backdrop-blur">
               <CheckCircle2 className="h-10 w-10 text-[var(--mg-success)]" />
             </div>

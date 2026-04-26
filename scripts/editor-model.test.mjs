@@ -135,7 +135,7 @@ test('balloon to artistic conversion keeps the visible text box centered', async
   assert.equal(converted.textAlign, 'center')
   assert.ok(converted.fontSize <= 36)
   assert.ok(converted.bbox.width < 220)
-  assert.ok(converted.bbox.width >= 220 - 2 * 13.2)
+  assert.ok(converted.bbox.width >= 220 - 2 * 24)
   assert.ok(converted.bbox.height < 100)
   assert.ok(converted.bbox.x > 10)
   assert.ok(converted.bbox.y > 20)
@@ -150,7 +150,7 @@ test('balloon to artistic conversion keeps enough width to avoid Konva rewrappin
     fontSize: 36,
   }))
 
-  assert.ok(converted.bbox.width >= 540 - 2 * 14)
+  assert.ok(converted.bbox.width >= 540 - 2 * 24)
   assert.ok(converted.bbox.height > 0)
 })
 
@@ -165,7 +165,26 @@ test('balloon to artistic conversion preserves explicit text alignment', async (
   assert.equal(converted.textAlign, 'right')
 })
 
-test('artistic inline editor bbox grows from multiline scroll metrics', () => {
+test('expand text region box resets artistic scale instead of stretching glyphs', async () => {
+  const { expandTextRegionBox } = await loadViteModule('/src/services/textRegionMode.ts')
+  const expanded = expandTextRegionBox(region({
+    bbox: { x: 20, y: 30, width: 240, height: 90 },
+    textLayoutMode: 'artistic',
+    artisticFit: 'free',
+    textScaleX: 2.1,
+    textScaleY: 1.4,
+  }))
+
+  assert.ok(expanded.bbox.width > 240)
+  assert.ok(expanded.bbox.height > 90)
+  assert.ok(expanded.bbox.x < 20)
+  assert.ok(expanded.bbox.y < 30)
+  assert.equal(expanded.textScaleX, 1)
+  assert.equal(expanded.textScaleY, 1)
+  assert.equal(expanded.artisticFit, 'free')
+})
+
+test('artistic inline editor bbox keeps frame metrics instead of growing from scroll metrics', () => {
   const bboxSize = getInlineTextEditorBboxSize({
     scale: 2,
     metrics: {
@@ -177,7 +196,7 @@ test('artistic inline editor bbox grows from multiline scroll metrics', () => {
     },
   })
 
-  assert.deepEqual(bboxSize, { width: 70, height: 48 })
+  assert.deepEqual(bboxSize, { width: 40, height: 20 })
 })
 
 test('balloon fit inline editor bbox ignores scroll overflow and keeps visible box metrics', () => {

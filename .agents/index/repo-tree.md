@@ -46,22 +46,37 @@ Root: `MG_Translater`
 |-- _wiki/
 |   |-- concepts/
 |   |   |-- .gitkeep
-|   |   `-- codex-first-llm-wiki.md
+|   |   |-- codex-first-llm-wiki.md
+|   |   |-- konva-ai-documentation.md
+|   |   `-- konva-image-dragging.md
 |   |-- entities/
 |   |   `-- .gitkeep
 |   |-- outputs/
 |   |   `-- .gitkeep
 |   |-- raw/
-|   |   `-- .gitkeep
+|   |   |-- .gitkeep
+|   |   `-- Getting Started with Konva — HTML5 Canvas 2D Framework  Konva - JavaScript Canvas 2d Library.md
 |   |-- sources/
 |   |   |-- .gitkeep
-|   |   `-- 2026-04-23-karpathy-llm-wiki-note.md
+|   |   |-- 2026-04-23-karpathy-llm-wiki-note.md
+|   |   |-- 2026-04-25-konva-ai-tools.md
+|   |   `-- 2026-04-25-konva-drag-image.md
 |   |-- AGENTS.md
 |   |-- index.md
 |   |-- log.md
 |   |-- podcast.md
 |   `-- README.md
+|-- Clippings/
+|   |-- How to use portals in react-konva  Konva - JavaScript Canvas 2d Library.md
+|   |-- HTML5 Canvas All Konva performance tips list  Konva - JavaScript Canvas 2d Library.md
+|   |-- HTML5 Canvas Drag and Drop an Image  Konva - JavaScript Canvas 2d Library.md
+|   |-- HTML5 Canvas Drag and Drop Tutorial  Konva - JavaScript Canvas 2d Library.md
+|   |-- HTML5 Canvas Optimize Strokes Performance Tip  Konva - JavaScript Canvas 2d Library.md
+|   |-- HTML5 Canvas Set Shape Opacity Tutorial  Konva - JavaScript Canvas 2d Library.md
+|   `-- HTML5 Canvas Set Shape Stroke Color and Width Tutorial  Konva - JavaScript Canvas 2d Library.md
 |-- docs/
+|   |-- llm/
+|   |   `-- konva.md
 |   `-- cloudflare-d1-schema.md
 |-- drizzle/
 |   |-- meta/
@@ -78,8 +93,11 @@ Root: `MG_Translater`
 |   |-- album-open.test.mjs
 |   |-- album-save-plan.test.mjs
 |   |-- batch-processing.test.mjs
+|   |-- cache-services.test.mjs
 |   |-- d1-schema.test.mjs
+|   |-- editor-history-service.test.mjs
 |   |-- editor-model.test.mjs
+|   |-- editor-processing-ui.test.mjs
 |   |-- export-drawer.test.mjs
 |   |-- export-preview-cache.test.mjs
 |   |-- export-preview-viewport.test.mjs
@@ -87,10 +105,12 @@ Root: `MG_Translater`
 |   |-- exporter.test.mjs
 |   |-- inline-text-editor.test.mjs
 |   |-- ollama-prompt.test.mjs
+|   |-- oop-boundaries.test.mjs
 |   |-- panelcleaner-bridge.mjs
 |   |-- panelcleaner-csv.mjs
 |   |-- panelcleaner-csv.test.mjs
 |   |-- pre-electron-readiness.test.mjs
+|   |-- settings-model-guide.test.mjs
 |   |-- story-context.test.mjs
 |   |-- text-hud-position.test.mjs
 |   |-- text-layout.test.mjs
@@ -160,6 +180,7 @@ Root: `MG_Translater`
 |   |   |-- cleanup-provider.ts
 |   |   |-- cloudflareApi.ts
 |   |   |-- editorCursor.ts
+|   |   |-- editorHistory.ts
 |   |   |-- exportDrawer.ts
 |   |   |-- exporter.ts
 |   |   |-- exportPreview.ts
@@ -174,6 +195,7 @@ Root: `MG_Translater`
 |   |   |-- ollama.ts
 |   |   |-- panelcleaner-api.ts
 |   |   |-- projectDraftStorage.ts
+|   |   |-- request-timeout.ts
 |   |   |-- settingsStorage.ts
 |   |   |-- sourceLanguage.ts
 |   |   |-- storageService.ts
@@ -221,6 +243,7 @@ Root: `MG_Translater`
 |-- DESIGN.md
 |-- drizzle.config.ts
 |-- index.html
+|-- llms.txt
 |-- new.md
 |-- package.json
 |-- README.md

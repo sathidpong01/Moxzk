@@ -25,6 +25,8 @@ The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollam
   - For research, repeated questions, architecture direction, or work that likely depends on accumulated knowledge, read `_wiki/podcast.md` first, then `_wiki/index.md`, then only the relevant pages.
   - For narrow implementation work, targeted bug fixes, or obvious local code edits, do not load `_wiki/` by default.
   - Do not read the entire wiki at session start unless the task explicitly requires a broad wiki audit.
+- Treat `Clippings/` as the local Web Clipper inbox. Read files there as raw sources, do not edit them, and compile durable summaries into `_wiki/`.
+- For Konva/react-konva canvas work, read `docs/llm/konva.md` and prefer official Konva MCP or LLM-readable docs for API details.
 - When a completed task produces durable knowledge worth reusing, update `_wiki/` without waiting for a separate save request:
   - save or update the relevant page
   - refresh `_wiki/podcast.md`

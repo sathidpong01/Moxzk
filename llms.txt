@@ -1,0 +1,49 @@
+# MG_Translater
+
+> React 19 + Vite + TypeScript manga image editor for cleanup, OCR/translation, text overlay editing, and Cloudflare-backed album storage.
+
+MG_Translater uses Konva/react-konva for the canvas editor, local PanelCleaner and Ollama integrations for image cleanup and OCR/translation, and a Cloudflare Worker with D1/R2 for album persistence.
+
+## Start Here
+
+- [Agent guide](AGENTS.md): repo entrypoint for AI coding agents
+- [Current agent policy](.agents/AGENTS.md): workflow, context, and verification rules
+- [Active project state](.agents/active.md): current task state and next action
+- [Repo tree](.agents/index/repo-tree.md): generated project map
+- [Codex wiki](./_wiki/README.md): local LLM-readable knowledge base
+
+## Architecture
+
+- [Service overview](.agents/topics/service-overview.md): frontend, local processing, Cloudflare backend, persistence, verification targets
+- [Cloudflare D1 schema](docs/cloudflare-d1-schema.md): database schema context
+
+## Konva And Canvas
+
+- [Konva AI docs for this repo](docs/llm/konva.md): official Konva AI resources, MCP command, and repo-specific canvas rules
+- [Konva image dragging concept](./_wiki/concepts/konva-image-dragging.md): local distilled guidance for draggable images
+- [Konva drag image source](./_wiki/sources/2026-04-25-konva-drag-image.md): ingested Konva clipping summary
+
+Official Konva LLM-readable sources:
+
+- https://konvajs.org/llms.txt
+- https://konvajs.org/llms-full.txt
+- https://konvajs.org/.well-known/ai-plugin.json
+- https://konvajs.org/docs/ai_tools.html
+
+## Commands
+
+- Install: `npm install`
+- Dev: `npm run dev`
+- Build: `npm run build`
+- Tests: `npm test`
+- Focused editor tests: `npm run test:editor`
+- Worker dry run: `npm run worker:check`
+- Refresh repo context: `npm run context:refresh`
+
+## Agent Rules
+
+- Read `AGENTS.md` and `.agents/AGENTS.md` first.
+- For Konva/canvas work, read `docs/llm/konva.md` before changing editor interaction code.
+- For research or repeated questions, read `_wiki/podcast.md`, `_wiki/index.md`, then only relevant wiki pages.
+- Treat `Clippings/` as local-only raw Web Clipper source material.
+- Preserve Thai text as UTF-8.

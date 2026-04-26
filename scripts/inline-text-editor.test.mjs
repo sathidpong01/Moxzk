@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   getArtisticInlineTextEditorLayerSize,
   getInlineTextEditorBboxSize,
+  getInlineTextEditorFontSize,
   getInlineTextEditorLayerSize,
   getInlineTextEditorTheme,
   shouldFinishInlineTextEditorOnPointerDown,
@@ -36,7 +37,17 @@ test('inline text editor layer size keeps a usable minimum edit area', () => {
   )
 })
 
-test('artistic inline text editor layer size follows real text lines instead of old balloon box', () => {
+test('inline text editor font size matches scaled canvas text without an 8px floor', () => {
+  const size = getInlineTextEditorFontSize({
+    fontSize: 31,
+    scale: 0.15,
+  })
+
+  assert.ok(Math.abs(size - 4.65) < 0.0001)
+  assert.ok(size < 8)
+})
+
+test('artistic inline text editor layer size follows natural text bounds', () => {
   const size = getArtisticInlineTextEditorLayerSize({
     text: 'AA\nBBBB',
     bbox: { x: 0, y: 0, width: 400, height: 180 },

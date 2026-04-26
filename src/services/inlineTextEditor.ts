@@ -30,6 +30,12 @@ export interface InlineTextEditorLayerSize {
   height: number
 }
 
+export interface InlineTextEditorFontSizeInput {
+  fontSize: number
+  scale: number
+  minFontSize?: number
+}
+
 export interface ArtisticInlineTextEditorLayerSizeInput {
   text: string
   bbox: BoundingBox
@@ -82,14 +88,11 @@ export function getInlineTextEditorLayerSize({
 
 export function getArtisticInlineTextEditorLayerSize({
   text,
-  bbox: _bbox,
   scale,
   fontSize,
   fontFamily,
   fontWeight,
   fontStyle,
-  textScaleX = 1,
-  textScaleY = 1,
   minWidth = 96,
   minHeight = 44,
   lineHeight = 1.18,
@@ -102,12 +105,18 @@ export function getArtisticInlineTextEditorLayerSize({
     lineHeight,
     measureText,
   })
-  const scaleX = Math.max(0.0001, Math.abs(textScaleX))
-  const scaleY = Math.max(0.0001, Math.abs(textScaleY))
   return {
-    width: Math.max(minWidth, content.width * scale * scaleX),
-    height: Math.max(minHeight, content.height * scale * scaleY),
+    width: Math.max(minWidth, content.width * scale),
+    height: Math.max(minHeight, content.height * scale),
   }
+}
+
+export function getInlineTextEditorFontSize({
+  fontSize,
+  scale,
+  minFontSize = 1,
+}: InlineTextEditorFontSizeInput): number {
+  return Math.max(minFontSize, fontSize * scale)
 }
 
 export function getInlineTextEditorBboxSize({
@@ -117,15 +126,9 @@ export function getInlineTextEditorBboxSize({
   minHeight = 16,
 }: InlineTextEditorBboxSizeInput): { width: number; height: number } {
   const denominator = Math.max(0.0001, scale)
-  const measuredWidth = metrics.layoutMode === 'artistic'
-    ? Math.max(metrics.width, metrics.scrollWidth ?? 0)
-    : metrics.width
-  const measuredHeight = metrics.layoutMode === 'artistic'
-    ? Math.max(metrics.height, metrics.scrollHeight ?? 0)
-    : metrics.height
   return {
-    width: Math.max(minWidth, measuredWidth / denominator),
-    height: Math.max(minHeight, measuredHeight / denominator),
+    width: Math.max(minWidth, metrics.width / denominator),
+    height: Math.max(minHeight, metrics.height / denominator),
   }
 }
 

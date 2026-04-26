@@ -1,13 +1,16 @@
-import type { BoundingBox, MoodType, TextRegion } from '../types'
+import type { BoundingBox, MoodType, TextRegion, TextBalloonShape } from '../types'
 import { lookupMemory, saveMemory } from './translationMemory'
 import { buildStoryContextBlock, type TranslationStoryContext } from './story-context'
 import { detectSourceLanguageFromText, normalizeSourceLanguage } from './sourceLanguage'
+import { runWithRequestTimeout } from './request-timeout'
+import { normalizeTextBalloonShape } from '../utils/textLayout'
 
 export interface OllamaOptions {
   ollamaUrl?: string
   ollamaModel?: string
   ollamaApiKey?: string
   signal?: AbortSignal
+  timeoutMs?: number
   storyContext?: TranslationStoryContext
 }
 
@@ -50,6 +53,8 @@ interface OllamaTranslationItem {
   translatedText?: string
   mood?: string
   suggestedFont?: string
+  balloonShape?: string
+  bubbleShape?: string
   bbox?: Partial<BoundingBox>
   x?: number
   y?: number
@@ -203,7 +208,8 @@ Return JSON only, with this exact shape:
       "original": "OCR text",
       "translated": "Thai translation",
       "mood": "normal",
-      "suggestedFont": "normal"
+      "suggestedFont": "normal",
+      "balloonShape": "round"
     }
   ]
 }
@@ -212,6 +218,7 @@ Rules:
 - Preserve every input index.
 - Choose mood from the allowed mood values only.
 - Choose suggestedFont from the allowed font values only.
+- Choose balloonShape from: round, cloud, box.
 - Do not include markdown fences or explanations.`
 }
 
@@ -250,7 +257,8 @@ Return JSON only, with this exact shape:
       "original": "source text",
       "translated": "Thai translation",
       "mood": "normal",
-      "suggestedFont": "normal"
+      "suggestedFont": "normal",
+      "balloonShape": "round"
     }
   ]
 }
@@ -261,6 +269,7 @@ Rules:
 - If a region contains no readable text, return that index with empty original and translated strings.
 - mood must be one of: normal, shouting, whisper, comedy, narration, sfx.
 - suggestedFont must be one of: normal, normal_bold, normal_italic, shouting, comedy, comedy_bold, whisper, narration, sfx, cute.
+- balloonShape must be one of: round, cloud, box.
 - Output JSON only.`
 }
 
@@ -294,7 +303,8 @@ Return JSON only, with this exact shape:
       "original": "source text",
       "translated": "Thai translation",
       "mood": "normal",
-      "suggestedFont": "normal"
+      "suggestedFont": "normal",
+      "balloonShape": "round"
     }
   ]
 }
@@ -308,6 +318,7 @@ Rules:
 - Keep source transcription as complete as possible. Do not omit words just because they wrap across lines.
 - mood must be one of: normal, shouting, whisper, comedy, narration, sfx.
 - suggestedFont must be one of: normal, normal_bold, normal_italic, shouting, comedy, comedy_bold, whisper, narration, sfx, cute.
+- balloonShape must be one of: round, cloud, box.
 - Output JSON only.`
 }
 
@@ -348,6 +359,20 @@ function calcAutoFontSize(text: string, bbox: BoundingBox): number {
 
 function parseMood(mood?: string): MoodType {
   return MOODS.includes(mood as MoodType) ? (mood as MoodType) : 'normal'
+}
+
+function inferBalloonShape(
+  rawShape: string | undefined,
+  mood: MoodType,
+  bbox: BoundingBox,
+): TextBalloonShape {
+  const explicit = normalizeTextBalloonShape(rawShape, mood)
+  if (rawShape === 'round' || rawShape === 'cloud' || rawShape === 'box' || rawShape === 'bubble') {
+    return explicit
+  }
+  if (mood === 'narration') return 'box'
+  if (bbox.width / Math.max(1, bbox.height) < 1.12 && bbox.height >= 84) return 'cloud'
+  return explicit
 }
 
 function stripJsonFences(raw: string): string {
@@ -392,6 +417,7 @@ function toTextRegions(
     const original = item.original || ocrTexts[index] || ''
     const translated = item.translated || item.translatedText || original
     const mood = parseMood(item.mood)
+    const balloonShape = inferBalloonShape(item.balloonShape || item.bubbleShape, mood, bbox)
 
     return {
       id: `region-${index}`,
@@ -406,6 +432,8 @@ function toTextRegions(
       strokeWidth: 0,
       strokeColor: '#ffffff',
       textLayoutMode: 'balloon_fit',
+      balloonShape,
+      artisticFit: 'free',
       textAlign: 'center',
       textScaleX: 1,
       textScaleY: 1,
@@ -477,6 +505,7 @@ function toVisionTextRegions(parsed: OllamaTranslationResponse, translate: boole
       ? (item.translated || item.translatedText || original)
       : ''
     const mood = parseMood(item.mood)
+    const balloonShape = inferBalloonShape(item.balloonShape || item.bubbleShape, mood, bbox)
 
     return [{
       id: `region-${index}`,
@@ -491,6 +520,8 @@ function toVisionTextRegions(parsed: OllamaTranslationResponse, translate: boole
       strokeWidth: 0,
       strokeColor: '#ffffff',
       textLayoutMode: 'balloon_fit',
+      balloonShape,
+      artisticFit: 'free',
       textAlign: 'center',
       textScaleX: 1,
       textScaleY: 1,
@@ -504,17 +535,20 @@ async function postOllamaChat(
   format?: 'json',
 ): Promise<string> {
   const model = options.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL
-  const res = await fetch(buildOllamaApiUrl(options.ollamaUrl, '/api/chat'), {
-    method: 'POST',
-    headers: buildHeaders(options),
-    signal: options.signal,
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: false,
-      ...(format ? { format } : {}),
+  const res = await runWithRequestTimeout(
+    { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
+    (signal) => fetch(buildOllamaApiUrl(options.ollamaUrl, '/api/chat'), {
+      method: 'POST',
+      headers: buildHeaders(options),
+      signal,
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: false,
+        ...(format ? { format } : {}),
+      }),
     }),
-  })
+  )
 
   const data = await parseJsonResponse<OllamaChatResponse>(res)
   const content = data.message?.content ?? data.response ?? ''
@@ -740,9 +774,13 @@ export async function getOllamaStatus(options: OllamaOptions = {}): Promise<Olla
   }
 
   try {
-    const res = await fetch(buildOllamaApiUrl(url, '/api/version'), {
-      headers: buildHeaders(options),
-    })
+    const res = await runWithRequestTimeout(
+      { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
+      (signal) => fetch(buildOllamaApiUrl(url, '/api/version'), {
+        headers: buildHeaders(options),
+        signal,
+      }),
+    )
     const data = await parseJsonResponse<{ version?: string }>(res)
     return { ok: true, url, version: data.version || (isOllamaCloudUrl(url) ? 'cloud' : undefined) }
   } catch (err) {
@@ -756,9 +794,13 @@ export async function listOllamaModels(options: OllamaOptions = {}): Promise<Oll
     throw new Error('Ollama Cloud ต้องใช้ API key')
   }
 
-  const res = await fetch(buildOllamaApiUrl(url, '/api/tags'), {
-    headers: buildHeaders(options),
-  })
+  const res = await runWithRequestTimeout(
+    { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
+    (signal) => fetch(buildOllamaApiUrl(url, '/api/tags'), {
+      headers: buildHeaders(options),
+      signal,
+    }),
+  )
   const data = await parseJsonResponse<{ models?: OllamaModelTag[] }>(res)
   return Array.isArray(data.models) ? data.models : []
 }
@@ -772,12 +814,15 @@ export async function pullOllamaModel(options: OllamaPullOptions): Promise<Ollam
     throw new Error('การติดตั้งโมเดลในเครื่องรองรับเฉพาะ Local Ollama endpoint')
   }
 
-  const res = await fetch(buildOllamaApiUrl(url, '/api/pull'), {
-    method: 'POST',
-    headers: buildHeaders(options),
-    signal: options.signal,
-    body: JSON.stringify({ model, stream: true }),
-  })
+  const res = await runWithRequestTimeout(
+    { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
+    (signal) => fetch(buildOllamaApiUrl(url, '/api/pull'), {
+      method: 'POST',
+      headers: buildHeaders(options),
+      signal,
+      body: JSON.stringify({ model, stream: true }),
+    }),
+  )
 
   if (!res.ok) {
     const text = await res.text()

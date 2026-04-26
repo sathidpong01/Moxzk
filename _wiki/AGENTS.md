@@ -16,13 +16,14 @@ Balanced default:
   1. `podcast.md`
   2. `index.md`
   3. relevant pages in `sources/`, `concepts/`, `entities/`, or `outputs/`
-  4. raw source files in `raw/` only when needed
+  4. raw source files in `raw/` or `../Clippings/` only when needed
 - For narrow coding work that is clearly local to a few repo files, skip `_wiki/` unless the user asks for historical or research context.
 - Do not read the entire wiki by default.
 
 ## Directory Rules
 
 - Never edit files inside `raw/`
+- Never edit files inside `../Clippings/`; treat them as Web Clipper source snapshots
 - Prefer updating an existing page over creating a near-duplicate
 - Keep pages linkable and easy to scan
 - Preserve Thai text as UTF-8
@@ -39,6 +40,13 @@ When the user asks to ingest a source:
 4. Update `index.md`
 5. Refresh `podcast.md` with the newest high-value context in 300 to 500 words
 6. Append an entry to `log.md`
+
+Clipping convention:
+
+- Obsidian Web Clipper output normally lands in `../Clippings/`
+- Keep those files as raw inputs
+- Capture the original `source`, `created`, `description`, and useful tags from frontmatter when creating `_wiki/sources/` pages
+- If the clipping is about this codebase's implementation patterns, also update a concept page under `concepts/`
 
 ### Query
 
@@ -104,6 +112,7 @@ Use simple Markdown. Prefer this structure when useful:
 ## Prompt Starters
 
 - `Read _wiki/AGENTS.md and ingest _wiki/raw/<file>`
+- `Read _wiki/AGENTS.md and ingest Clippings/<file>`
 - `Answer from the wiki only, then tell me which pages you used`
 - `Lint _wiki and propose the next 3 missing pages`
 - `Save this answer into _wiki/outputs/ and update the index`
