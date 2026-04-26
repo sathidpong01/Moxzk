@@ -19,6 +19,12 @@ interface DesktopClaimResponse {
   }
 }
 
+interface DesktopSessionCookie {
+  name: string
+  value: string
+  targetOrigins: Set<string>
+}
+
 interface LoopbackCallbackServer {
   callbackUrl: string
   waitForTicket(): Promise<string>
@@ -30,6 +36,8 @@ declare const __MG_WORKER_API_BASE__: string
 const DESKTOP_LOGIN_TIMEOUT_MS = 5 * 60 * 1000
 
 let activeGoogleLogin: Promise<NativeAuthActionResult> | null = null
+let desktopSessionCookie: DesktopSessionCookie | null = null
+let requestHeaderBridgeInstalled = false
 
 export function signInWithGoogleSystemBrowser(): Promise<NativeAuthActionResult> {
   if (activeGoogleLogin) {
@@ -106,6 +114,7 @@ async function setElectronSessionCookies(
       path: '/',
     })
   }))
+  rememberDesktopSessionCookie(targets, cookie)
 }
 
 function getSessionCookieTargets(apiBase: string): URL[] {
@@ -122,6 +131,62 @@ function getSessionCookieTargets(apiBase: string): URL[] {
     }
   }
   return Array.from(new Map(targets.map((target) => [target.origin, target])).values())
+}
+
+function rememberDesktopSessionCookie(
+  targets: URL[],
+  cookie: DesktopClaimResponse['cookie'],
+): void {
+  desktopSessionCookie = {
+    name: cookie.name,
+    value: cookie.value,
+    targetOrigins: new Set(targets.map((target) => target.origin)),
+  }
+  installRequestHeaderBridge()
+}
+
+function installRequestHeaderBridge(): void {
+  if (requestHeaderBridgeInstalled) return
+  requestHeaderBridgeInstalled = true
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    if (!desktopSessionCookie || !shouldAttachDesktopSession(details.url)) {
+      callback({ requestHeaders: details.requestHeaders })
+      return
+    }
+
+    const { Cookie: existingCookie, cookie: existingLowerCookie, ...remainingHeaders } = details.requestHeaders
+    const requestHeaders = {
+      ...remainingHeaders,
+      Cookie: mergeCookieHeader(
+        existingCookie || existingLowerCookie,
+        desktopSessionCookie,
+      ),
+    }
+    callback({ requestHeaders })
+  })
+}
+
+function shouldAttachDesktopSession(url: string): boolean {
+  try {
+    const target = new URL(url)
+    return desktopSessionCookie?.targetOrigins.has(target.origin) === true
+      && target.pathname.startsWith('/api/')
+  } catch {
+    return false
+  }
+}
+
+function mergeCookieHeader(
+  existingCookieHeader: string | undefined,
+  cookie: DesktopSessionCookie,
+): string {
+  const nextCookie = `${cookie.name}=${encodeURIComponent(cookie.value)}`
+  if (!existingCookieHeader) return nextCookie
+  const preserved = existingCookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .filter((part) => part && !part.startsWith(`${cookie.name}=`))
+  return [...preserved, nextCookie].join('; ')
 }
 
 async function createLoopbackCallbackServer(): Promise<LoopbackCallbackServer> {
