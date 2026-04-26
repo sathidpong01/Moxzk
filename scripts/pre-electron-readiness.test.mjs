@@ -215,8 +215,11 @@ test('Electron shell keeps secure BrowserWindow defaults and external navigation
   assert.match(mainProcess, /ELECTRON_RENDERER_URL/)
   assert.match(mainProcess, /loadFile\(path\.join\(mainDir,\s*'..\/renderer\/index\.html'\)\)/)
   assert.match(electronVite, /VITE_CLOUDFLARE_API_URL/)
+  assert.match(electronVite, /defaultElectronWorkerApiUrl/)
+  assert.match(electronVite, /mg-translater-api\.sathidpong01\.workers\.dev/)
   assert.match(electronVite, /target:\s*workerApiTarget/)
   assert.match(electronVite, /__MG_WORKER_API_BASE__:\s*JSON\.stringify\(workerApiTarget\)/)
+  assert.match(electronVite, /import\.meta\.env\.VITE_CLOUDFLARE_API_URL/)
   assert.match(electronVite, /'\/api'/)
 })
 
@@ -339,11 +342,13 @@ test('desktop draft codec round-trips multi-page image assets and edits', async 
   URL.revokeObjectURL(cleanedUrl)
 })
 
-test('Electron production API calls require an explicit remote Worker URL', () => {
+test('Electron production API calls have a remote Worker URL through electron-vite defaults', () => {
   const api = fs.readFileSync('src/services/cloudflareApi.ts', 'utf8')
+  const electronVite = fs.readFileSync('electron.vite.config.ts', 'utf8')
 
   assert.match(api, /VITE_CLOUDFLARE_API_URL/)
   assert.match(api, /isElectronRenderer/)
   assert.match(api, /Set VITE_CLOUDFLARE_API_URL for Electron production builds/)
   assert.match(api, /import\.meta\.env\.DEV\)\s*return ''/)
+  assert.match(electronVite, /defaultElectronWorkerApiUrl/)
 })

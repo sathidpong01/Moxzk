@@ -9,7 +9,7 @@ Use this checklist as the acceptance path for Electron V1 and later desktop phas
 3. Export as ZIP and confirm a native save dialog writes the archive.
 4. Export to folder and confirm individual images are written through the native folder picker.
 5. Close and relaunch the app; confirm desktop draft restore returns the page list, active page, regions, brush strokes, and local image assets.
-6. Confirm production Electron builds require `VITE_CLOUDFLARE_API_URL` for remote Worker API calls.
+6. Confirm Electron dev/build uses the default remote Worker, or respects `VITE_CLOUDFLARE_API_URL` when overriding it.
 7. Confirm Google OAuth opens in the system browser, returns to the loopback callback, and Electron refreshes into a signed-in state.
 8. Open Settings > Cleanup, click `เริ่ม PanelCleaner`, then confirm PanelCleaner status becomes ready or returns a clear external dependency error.
 9. Open Settings > AI / Models with a localhost endpoint, click `เริ่ม Ollama`, then confirm Ollama status becomes ready or returns a clear install/PATH error.

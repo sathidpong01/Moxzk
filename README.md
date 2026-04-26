@@ -217,11 +217,10 @@ npm run electron:dev
 Build Electron shell:
 
 ```bash
-$env:VITE_CLOUDFLARE_API_URL = "https://mg-translater-api.<your-subdomain>.workers.dev"
 npm run electron:build
 ```
 
-Electron production build ต้องตั้ง `VITE_CLOUDFLARE_API_URL` เพื่อให้ desktop app เรียก remote Cloudflare Worker ได้ชัดเจน. Dev shell ยังใช้ Vite dev server/proxy ได้เหมือน web dev.
+Electron dev/build ใช้ remote Worker หลัก `https://mg-translater-api.sathidpong01.workers.dev` เป็นค่า default ถ้าไม่ได้ตั้ง `VITE_CLOUDFLARE_API_URL`. ตั้ง env เฉพาะเมื่อต้องการชี้ไป Worker อื่น.
 
 Electron local service start เป็นตัวช่วยสำหรับเครื่อง dev: PanelCleaner ยังเป็น external CLI ที่ต้องติดตั้งแยก และ Ollama ยังเป็น external app/CLI ไม่ได้ถูก bundle เข้า release.
 

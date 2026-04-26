@@ -6,11 +6,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const projectRoot = dirname(fileURLToPath(import.meta.url))
+const defaultElectronWorkerApiUrl = 'https://mg-translater-api.sathidpong01.workers.dev'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, projectRoot, '')
   const configuredWorkerApiTarget = env.VITE_CLOUDFLARE_API_URL?.trim().replace(/\/+$/, '')
-  const workerApiTarget = configuredWorkerApiTarget || 'http://localhost:8787'
+  const workerApiTarget = configuredWorkerApiTarget || defaultElectronWorkerApiUrl
 
   return {
     main: {
@@ -43,6 +44,9 @@ export default defineConfig(({ mode }) => {
     renderer: {
       root: '.',
       envPrefix: ['VITE_'],
+      define: {
+        'import.meta.env.VITE_CLOUDFLARE_API_URL': JSON.stringify(workerApiTarget),
+      },
       plugins: [
         react(),
         tailwindcss(),
