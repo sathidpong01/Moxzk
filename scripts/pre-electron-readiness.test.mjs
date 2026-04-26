@@ -137,7 +137,11 @@ test('legacy backend docs removed, R2 export path exists, and Electron V1 depend
   assert.equal(Boolean(packageJson.devDependencies?.electron), true)
   assert.equal(Boolean(packageJson.devDependencies?.['electron-vite']), true)
   assert.equal(packageJson.scripts?.['electron:dev'], 'node scripts/electron-dev.mjs')
-  assert.match(fs.readFileSync('scripts/electron-dev.mjs', 'utf8'), /Stop-Process/)
+  const electronDevScript = fs.readFileSync('scripts/electron-dev.mjs', 'utf8')
+  assert.match(electronDevScript, /Stop-Process/)
+  assert.match(electronDevScript, /process\.execPath/)
+  assert.match(electronDevScript, /electron-vite', 'bin', 'electron-vite\.js'/)
+  assert.doesNotMatch(electronDevScript, /npx\.cmd/)
 })
 
 test('panelcleaner bridge keeps a lightweight health check before Electron', () => {
