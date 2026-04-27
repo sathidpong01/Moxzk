@@ -16,7 +16,7 @@
   --mg-success: #22c55e;
   --mg-warning: #f59e0b;
   --mg-shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
-  --mg-titlebar-height: 0px;
+  --mg-chrome-height: 0px;
 }
 
 * {
@@ -65,34 +65,75 @@ button:disabled {
   isolation: isolate;
 }
 
-.mg-has-custom-titlebar {
-  --mg-titlebar-height: 36px;
+.mg-has-custom-chrome {
+  --mg-chrome-height: 4.5rem;
 }
 
-.mg-titlebar {
+.mg-app-chrome {
   -webkit-app-region: drag;
-  background: color-mix(in srgb, var(--mg-surface-2) 96%, black);
-  color: var(--mg-text);
   user-select: none;
 }
 
-.mg-window-drag {
+.mg-chrome-drag {
   -webkit-app-region: drag;
 }
 
 .mg-window-no-drag,
+.mg-command-dock,
+.mg-window-controls,
 .mg-window-control {
   -webkit-app-region: no-drag;
 }
 
+.mg-project-chip,
+.mg-command-dock {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(10, 10, 11, 0.78);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
+}
+
+.mg-command-dock {
+  min-height: 2.75rem;
+}
+
+.mg-split-button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.mg-split-button .mg-button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.mg-split-button .mg-button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.mg-chrome-divider {
+  width: 1px;
+  height: 1.45rem;
+  margin: 0 0.15rem 0 0.25rem;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.mg-window-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
 .mg-window-control {
   display: inline-flex;
-  width: 46px;
-  height: 100%;
+  width: 2rem;
+  height: 2rem;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 0;
+  border-radius: 7px;
   background: transparent;
   color: var(--mg-muted);
   transition: background-color 120ms ease, color 120ms ease;
@@ -106,10 +147,6 @@ button:disabled {
 .mg-window-control-close:hover {
   background: #c42b1c;
   color: #ffffff;
-}
-
-.mg-floating-header {
-  top: calc(var(--mg-titlebar-height) + 0.75rem);
 }
 
 .mg-dot-backdrop {

@@ -54,13 +54,13 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
   }
 
   return (
-    <div className="pointer-events-none fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-2">
+    <div className="pointer-events-none fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-1.5">
       {brushToolActive && (
-        <div className="pointer-events-auto flex items-center gap-2 rounded-[16px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
+        <div className="pointer-events-auto flex items-center gap-1.5 rounded-[13px] border border-white/10 bg-[rgba(10,10,11,0.78)] px-2 py-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
           {activeTool === 'eyedropper' ? (
-            <div className="flex items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 py-2">
+            <div className="flex items-center gap-2 rounded-[9px] bg-white/[0.055] px-2.5 py-1.5 ring-1 ring-white/[0.06]">
               <div
-                className="h-7 w-7 rounded-[8px] border border-white/10"
+                className="h-6 w-6 rounded-[7px] border border-white/10"
                 style={{ backgroundColor: store.brushColor }}
               />
               <span className="text-sm font-bold text-[var(--mg-text)]">{store.brushColor}</span>
@@ -68,12 +68,12 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
           ) : (
             <>
               <TooltipSurface label="สีแปรง">
-                <label className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-[12px] bg-white/[0.04] transition hover:bg-white/[0.08]">
+                <label className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[9px] bg-white/[0.055] ring-1 ring-white/[0.06] transition hover:bg-white/[0.1]">
                   <input
                     type="color"
                     value={store.brushColor}
                     onChange={(event) => store.setBrushColor(event.target.value)}
-                    className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent"
+                    className="h-5 w-5 cursor-pointer rounded border-0 bg-transparent"
                     aria-label="สีแปรง"
                   />
                 </label>
@@ -110,8 +110,8 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
         </div>
       )}
 
-      <div className="pointer-events-auto flex items-center gap-2 rounded-[18px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
-        <div className="flex items-center gap-1 rounded-[12px] bg-white/[0.03] px-1 py-1">
+      <div className="pointer-events-auto flex items-center gap-1.5 rounded-[14px] border border-white/10 bg-[rgba(10,10,11,0.78)] px-2 py-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5 ring-1 ring-white/[0.06]">
           <TooltipSurface label="ย้อนกลับ" shortcut="Ctrl+Z">
             <button
               className={dockButtonClass(canUndo)}
@@ -178,12 +178,12 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
           </DropdownMenu>
         </div>
 
-        <div className="flex items-center gap-1 rounded-[12px] bg-white/[0.03] px-1 py-1">
+        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5 ring-1 ring-white/[0.06]">
           {TOOL_ICONS.map(({ id, icon: Icon, label, shortcut }) => (
             <TooltipSurface key={id} label={label} shortcut={shortcut}>
               <button
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-[12px] text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+                  'flex h-8 w-8 items-center justify-center rounded-[9px] text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
                   activeTool === id && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
                 )}
                 onClick={() => setTool(id)}
@@ -195,14 +195,14 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
           ))}
         </div>
 
-        <div className="flex items-center gap-1 rounded-[12px] bg-white/[0.03] px-1 py-1">
+        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5 ring-1 ring-white/[0.06]">
           <TooltipSurface label="ซูมออก">
             <button className={dockButtonClass(true)} onClick={() => editorRef.current?.zoomOut()} aria-label="ซูมออก">
               <ZoomOut size={15} />
             </button>
           </TooltipSurface>
           <TooltipSurface label="เปอร์เซ็นต์ซูม">
-            <label className="flex h-9 w-[4rem] items-center justify-center rounded-[12px] px-1.5 text-xs font-bold text-[var(--mg-text)] transition hover:bg-white/[0.06]">
+            <label className="flex h-8 w-[3.7rem] items-center justify-center rounded-[9px] px-1.5 text-[11px] font-bold text-[var(--mg-text)] transition hover:bg-white/[0.06]">
               <span className="grid w-full grid-cols-[0.6rem_minmax(0,1fr)_0.6rem] items-center">
                 <span className="invisible text-center text-[var(--mg-dim)]">%</span>
                 <input
@@ -258,7 +258,7 @@ function DockNumericField({
 }) {
   return (
     <TooltipSurface label={label}>
-      <label className="flex h-9 items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 text-sm text-[var(--mg-text)]">
+      <label className="flex h-8 items-center gap-1.5 rounded-[9px] bg-white/[0.055] px-2.5 text-xs text-[var(--mg-text)] ring-1 ring-white/[0.06]">
         <span className="text-xs font-bold text-[var(--mg-muted)]">{label}</span>
         <input
           type="number"
@@ -272,7 +272,7 @@ function DockNumericField({
               onChange(Math.max(min, Math.min(max, nextValue)))
             }
           }}
-          className="w-12 bg-transparent text-right outline-none"
+          className="w-10 bg-transparent text-right outline-none"
         />
         {suffix ? <span className="text-xs text-[var(--mg-muted)]">{suffix}</span> : null}
       </label>
@@ -282,7 +282,7 @@ function DockNumericField({
 
 function dockButtonClass(enabled: boolean): string {
   return cn(
-    'flex h-9 w-9 items-center justify-center rounded-[12px] text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+    'flex h-8 w-8 items-center justify-center rounded-[9px] text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
     enabled && 'cursor-pointer',
     !enabled && 'cursor-not-allowed opacity-40',
   )
@@ -290,14 +290,14 @@ function dockButtonClass(enabled: boolean): string {
 
 function dockCountButtonClass(enabled: boolean): string {
   return cn(
-    'flex h-9 items-center gap-1 rounded-[12px] px-2 text-xs font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+    'flex h-8 items-center gap-1 rounded-[9px] px-1.5 text-[11px] font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
     enabled && 'cursor-pointer',
     !enabled && 'cursor-not-allowed opacity-40',
   )
 }
 
 function dockFitButtonClass(): string {
-  return 'flex h-9 cursor-pointer items-center gap-1 rounded-[12px] px-3 text-xs font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]'
+  return 'flex h-8 cursor-pointer items-center gap-1 rounded-[9px] px-2.5 text-[11px] font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]'
 }
 
 function describeEditorHistory(entry: EditorHistoryEntry, direction: 'undo' | 'redo'): string {

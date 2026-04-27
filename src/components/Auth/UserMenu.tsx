@@ -32,7 +32,7 @@ export default function UserMenu() {
   return (
     <DropdownMenu
       trigger={(
-        <button className="mg-button mg-button-ghost mg-button-sm">
+        <button className="mg-button mg-button-ghost mg-button-sm px-2" aria-label={displayName}>
         {avatarUrl ? (
           <img
             src={avatarUrl}
@@ -45,9 +45,6 @@ export default function UserMenu() {
             <User size={10} className="text-blue-300" />
           </div>
         )}
-        <span className="hidden sm:inline text-xs max-w-[80px] truncate">
-          {displayName}
-        </span>
         </button>
       )}
       className="w-52"

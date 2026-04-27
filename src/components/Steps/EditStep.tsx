@@ -10,7 +10,7 @@ import ProcessingView, { type ProcessingViewStatus } from '../Processing/Process
 import LogPanel from '../Layout/LogPanel'
 import PanelToggleBar from '../Layout/PanelToggleBar'
 import OcrCorrectionModal from '../Editor/OcrCorrectionModal'
-import { DropdownItem, DropdownMenu } from '../ui/primitives'
+import { DropdownItem, DropdownMenu, TooltipSurface } from '../ui/primitives'
 import type { BatchProgressState } from '../../services/batch-processing'
 import { Cpu, Eye, EyeOff, FileSearch, Loader2, MoreHorizontal, RotateCcw, ScrollText } from 'lucide-react'
 
@@ -136,14 +136,16 @@ export default function EditStep({
         onToggle={() => setShowFilmstrip((value) => !value)}
       />
 
-      <div className="pointer-events-none absolute right-3 top-16 z-20 flex flex-col items-end gap-2">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-[16px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
-          <div className="rounded-[12px] bg-white/[0.04] px-3 py-2 text-right">
-            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">หน้า</div>
-            <div className="text-sm font-bold text-[var(--mg-text)]">
-              {Math.max(1, activePageIndex + 1)}/{Math.max(store.imageEntries.length, 1)}
+      <div className="pointer-events-none absolute right-3 top-[4.75rem] z-20 flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2">
+        <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-[14px] border border-white/10 bg-[rgba(10,10,11,0.78)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+          <TooltipSurface label="หน้าปัจจุบัน">
+            <div className="flex h-9 min-w-14 flex-col items-center justify-center rounded-[10px] bg-black/[0.34] px-2 text-center ring-1 ring-white/[0.08]">
+              <span className="text-[10px] font-bold leading-none text-[var(--mg-muted)]">หน้า</span>
+              <span className="mt-0.5 text-[13px] font-black leading-none text-[var(--mg-text)]">
+                {Math.max(1, activePageIndex + 1)}/{Math.max(store.imageEntries.length, 1)}
+              </span>
             </div>
-          </div>
+          </TooltipSurface>
 
           <button
             className={clusterButtonClass()}
@@ -151,7 +153,7 @@ export default function EditStep({
             disabled={store.regions.length === 0}
           >
             <FileSearch size={14} />
-            <span>OCR</span>
+            <span className="hidden sm:inline">OCR</span>
           </button>
 
           <button
@@ -195,7 +197,7 @@ export default function EditStep({
         </div>
 
         {showStatusCluster && (
-          <div className="pointer-events-auto flex min-w-52 items-center gap-2 rounded-[14px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
+          <div className="pointer-events-auto flex min-w-52 items-center gap-2 rounded-[12px] border border-white/10 bg-[rgba(10,10,11,0.78)] px-3 py-2 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
             {isLoadingImage && (
               <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--mg-text)]">
                 <Loader2 size={14} className="animate-spin" /> กำลังโหลดหน้า...
@@ -240,9 +242,9 @@ export default function EditStep({
 
 function clusterButtonClass(active = false): string {
   return [
-    'inline-flex h-10 items-center gap-2 rounded-[12px] px-3 text-sm font-bold transition',
+    'inline-flex h-9 shrink-0 items-center gap-2 rounded-[10px] px-3 text-sm font-bold transition',
     active
-      ? 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)]'
-      : 'bg-white/[0.04] text-[var(--mg-text)] hover:bg-white/[0.08]',
+      ? 'bg-[var(--mg-accent)] text-white shadow-[0_6px_18px_rgba(37,99,235,0.28)] hover:bg-[var(--mg-accent)]'
+      : 'bg-white/[0.055] text-[var(--mg-text)] ring-1 ring-white/[0.06] hover:bg-white/[0.1]',
   ].join(' ')
 }

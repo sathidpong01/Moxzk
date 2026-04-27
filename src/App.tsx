@@ -15,12 +15,12 @@ import UploadStep from './components/Steps/UploadStep'
 import EditStep from './components/Steps/EditStep'
 import SettingsPanel from './components/Settings/SettingsPanel'
 import FontConfigPage from './components/Settings/FontConfigPage'
-import AppTitleBar from './components/Layout/AppTitleBar'
+import AppChromeBar from './components/Layout/AppChromeBar'
 import WorkspaceBackdrop from './components/Layout/WorkspaceBackdrop'
 import { Button, DropdownItem, DropdownMenu, IconButton, Modal, SelectField } from './components/ui/primitives'
 import { getAppRuntime } from './runtime'
 import { Toaster } from 'sonner'
-import { BookOpen, Download, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
+import { BookOpen, ChevronDown, Download, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
 import type { ProcessingMode } from './types'
 
 // ── Main App ─────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ function App() {
   const [clearProjectConfirmOpen, setClearProjectConfirmOpen] = useState(false)
   const [exportDrawerOpen, setExportDrawerOpen] = useState(false)
   const appRuntime = getAppRuntime()
-  const hasCustomTitleBar = appRuntime.kind === 'electron' && appRuntime.capabilities.canUseCustomWindowControls
+  const hasCustomChrome = appRuntime.kind === 'electron' && appRuntime.capabilities.canUseCustomWindowControls
   const albumTitle = albumStore.currentAlbum?.title?.trim() || 'โปรเจกต์ใหม่'
   const activePageIndex = Math.max(0, store.imageEntries.findIndex((entry) => entry.id === store.activeImageId))
   const headerStatus = getHeaderStatus({
@@ -86,6 +86,7 @@ function App() {
     handleCancelAI,
     handleRetryAI,
     handleSaveToAlbum,
+    handleSaveAsAlbum,
     isBatchProcessing,
     batchStatus,
   } = useEditorActions({
@@ -130,11 +131,10 @@ function App() {
   }
 
   return (
-    <div className={`studio-shell relative isolate h-screen overflow-hidden ${hasCustomTitleBar ? 'mg-has-custom-titlebar' : ''}`}>
+    <div className={`studio-shell relative isolate h-screen overflow-hidden ${hasCustomChrome ? 'mg-has-custom-chrome' : ''}`}>
       <WorkspaceBackdrop />
-      <AppTitleBar />
-      <header className="mg-floating-header pointer-events-none fixed left-3 right-3 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
-        <div className="floating-panel-sm mg-header-panel pointer-events-auto flex w-fit max-w-full min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
+      <header className="mg-app-chrome fixed left-3 right-3 top-3 z-50 flex min-w-0 items-center gap-3">
+        <div className="mg-project-chip mg-window-no-drag flex max-w-[min(22rem,45vw)] min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
           <BookOpen size={16} className="hidden shrink-0 text-[var(--mg-muted)] sm:block" />
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-[var(--mg-text)]" title={albumTitle}>{albumTitle}</div>
@@ -142,7 +142,9 @@ function App() {
           </div>
         </div>
 
-        <div className="floating-panel-sm mg-header-panel pointer-events-auto flex min-w-0 max-w-full shrink-0 items-center justify-self-end gap-1 px-2 py-2 sm:gap-2">
+        <div className="mg-chrome-drag flex min-w-6 flex-1 self-stretch" aria-hidden="true" />
+
+        <div className="mg-command-dock mg-window-no-drag flex min-w-0 max-w-full shrink-0 items-center justify-self-end gap-1 px-2 py-2 sm:gap-2">
           {store.currentStep === 'edit' && (
             <>
               <input
@@ -158,11 +160,24 @@ function App() {
                 onClick={() => addImagesInputRef.current?.click()}
               >
                 <ImagePlus size={14} />
-                <span className="hidden sm:inline">เพิ่มหน้า</span>
+                <span className="hidden sm:inline">เพิ่มรูป</span>
               </button>
-              <button className="mg-button mg-button-soft mg-button-sm mg-mobile-hidden gap-1" onClick={handleSaveToAlbum}>
-                <Save size={14} /> บันทึก
-              </button>
+              <div className="mg-split-button mg-mobile-hidden">
+                <button className="mg-button mg-button-soft mg-button-sm gap-1 rounded-r-none border-r-0" onClick={handleSaveToAlbum}>
+                  <Save size={14} /> บันทึก
+                </button>
+                <DropdownMenu
+                  trigger={(
+                    <button className="mg-button mg-button-soft mg-button-sm rounded-l-none px-2" aria-label="ตัวเลือกการบันทึก">
+                      <ChevronDown size={13} />
+                    </button>
+                  )}
+                >
+                  <DropdownItem onClick={handleSaveAsAlbum}>
+                    <Save size={14} /> บันทึกเป็น
+                  </DropdownItem>
+                </DropdownMenu>
+              </div>
               <SelectField
                 value={processingMode}
                 onChange={setProcessingMode}
@@ -197,9 +212,8 @@ function App() {
               </button>
               <DropdownMenu
                 trigger={(
-                  <button className="mg-button mg-button-ghost mg-button-sm gap-1">
+                  <button className="mg-button mg-button-ghost mg-button-sm px-2" aria-label="เพิ่มเติม">
                     <MoreHorizontal size={14} />
-                    <span className="hidden lg:inline">เพิ่มเติม</span>
                   </button>
                 )}
               >
@@ -246,6 +260,7 @@ function App() {
             </>
           )}
           <UserMenu />
+          <AppChromeBar />
         </div>
       </header>
 

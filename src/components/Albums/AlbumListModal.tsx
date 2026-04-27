@@ -24,10 +24,10 @@ import {
   User,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { buildStorageKey, fileToBlob, generateThumbnail, imageUrlToBlob, prepareImageUpload, uploadPreparedImage } from '../../services/storageService'
 import { getAlbumOpenPlan } from '../../services/albumOpen'
 import { exportAlbumPages } from '../../services/exporter'
-import { getNextAlbumPageNumber, getPersistedPageStatus, resolveAlbumSaveTarget } from '../../services/albumSavePlan'
+import { saveEditorImagesToAlbum } from '../../services/albumEditorSave'
+import { generateThumbnail } from '../../services/storageService'
 import { SelectField, TextInput } from '../ui/primitives'
 
 type ModalView = 'list' | 'detail' | 'create'
@@ -66,8 +66,6 @@ export default function AlbumListModal() {
     setCurrentAlbum,
     fetchPages,
     deletePage,
-    updatePage,
-    saveCurrentToPage,
   } = useAlbumStore()
 
   const [view, setView] = useState<ModalView>('list')
@@ -121,166 +119,19 @@ export default function AlbumListModal() {
   // ── Save current editor images to an album ──
   const handleSaveToAlbum = useCallback(
     async (album: Album) => {
-      const appState = useAppStore.getState()
-      const userId = useAuthStore.getState().user?.id
-      if (!userId) return
-
-      const images = appState.imageEntries
-      if (!images || images.length === 0) {
-        toast.warning('ไม่มีรูปภาพให้บันทึก')
-        return
-      }
-
       setSaving(true)
-      // Fetch current pages to know next page_number
-      const existingPages = await fetchPages(album.id, 'summary')
-      let nextPageNum = getNextAlbumPageNumber(existingPages)
-
-      let savedCount = 0
-      for (const entry of images) {
-        try {
-          const target = resolveAlbumSaveTarget(entry, existingPages, nextPageNum)
-          const pageNumber = target.pageNumber
-          let originalKey = entry.originalR2Key ?? (target.existingPage?.original_key as string | null) ?? undefined
-          let cleanedKey = entry.cleanedR2Key ?? (target.existingPage?.cleaned_key as string | null) ?? undefined
-          let thumbnailKey = (target.existingPage?.thumbnail_key as string | null) ?? undefined
-          let originalHash = entry.originalHash
-          let cleanedHash = entry.cleanedHash
-          let thumbnailHash = entry.thumbnailHash
-          let cleanedBlobForThumbnail: Blob | null = null
-
-          // Generate a thumbnail from the cleaned image when available; otherwise use the original.
-          let localThumbnailDataUrl: string | undefined
-          let thumbnailSource: Blob | null = null
-          let thumbnailBlob: Blob | null = null
-          if (entry.cleanedImageUrl) {
-            cleanedBlobForThumbnail = await imageUrlToBlob(entry.cleanedImageUrl)
-            thumbnailSource = cleanedBlobForThumbnail
-          } else if (entry.file) {
-            thumbnailSource = fileToBlob(entry.file)
-          } else if (entry.originalUrl) {
-            try {
-              thumbnailSource = await imageUrlToBlob(entry.originalUrl)
-            } catch {
-              thumbnailSource = null
-            }
-          }
-          if (thumbnailSource && (!thumbnailKey || !thumbnailHash)) {
-            thumbnailBlob = await generateThumbnail(thumbnailSource)
-            localThumbnailDataUrl = await new Promise<string>((res, rej) => {
-              const reader = new FileReader()
-              reader.onload = () => res(reader.result as string)
-              reader.onerror = rej
-              reader.readAsDataURL(thumbnailBlob!)
-            })
-          }
-
-          // ── Try R2 upload (optional) ──
-          try {
-            if (entry.file && (!originalKey || !originalHash)) {
-              const origKey = buildStorageKey(userId, album.id, pageNumber, 'original')
-              const prepared = await prepareImageUpload(fileToBlob(entry.file))
-              if (!originalKey || originalHash !== prepared.sha256) {
-                const origResult = await uploadPreparedImage(prepared, origKey)
-                originalKey = origResult.key
-              }
-              originalHash = prepared.sha256
-            }
-            if (entry.cleanedImageUrl && (!cleanedKey || !cleanedHash)) {
-              const cleanKey = buildStorageKey(userId, album.id, pageNumber, 'cleaned')
-              const cleanedBlob = cleanedBlobForThumbnail ?? await imageUrlToBlob(entry.cleanedImageUrl)
-              const prepared = await prepareImageUpload(cleanedBlob)
-              if (!cleanedKey || cleanedHash !== prepared.sha256) {
-                const cleanResult = await uploadPreparedImage(prepared, cleanKey)
-                cleanedKey = cleanResult.key
-              }
-              cleanedHash = prepared.sha256
-            }
-            if (thumbnailSource && (!thumbnailKey || !thumbnailHash)) {
-              const thumbKey = buildStorageKey(userId, album.id, pageNumber, 'thumbnail')
-              const prepared = await prepareImageUpload(thumbnailBlob ?? await generateThumbnail(thumbnailSource))
-              if (!thumbnailKey || thumbnailHash !== prepared.sha256) {
-                const thumbResult = await uploadPreparedImage(prepared, thumbKey)
-                thumbnailKey = thumbResult.key
-              }
-              thumbnailHash = prepared.sha256
-            }
-          } catch (uploadErr) {
-            console.warn('[save] R2 upload skipped:', uploadErr)
-          }
-
-          // ── Always save metadata to Supabase DB ──
-          const status: AlbumPage['status'] = getPersistedPageStatus(entry)
-          const pagePayload = {
-            regions: entry.regions ?? appState.regions,
-            brushStrokes: entry.brushStrokes ?? appState.brushStrokes,
-            status,
-            artboardX: entry.artboardX ?? null,
-            artboardY: entry.artboardY ?? null,
-          }
-
-          let result = target.existingPage
-          if (target.existingPage) {
-            await updatePage(target.existingPage.id, {
-              page_number: pageNumber,
-              original_key: originalKey ?? null,
-              cleaned_key: cleanedKey ?? null,
-              thumbnail_key: thumbnailKey ?? null,
-              regions: pagePayload.regions,
-              brush_strokes: pagePayload.brushStrokes,
-              status,
-              processing_mode: 'full',
-              artboard_x: pagePayload.artboardX,
-              artboard_y: pagePayload.artboardY,
-            })
-          } else {
-            result = await saveCurrentToPage(album.id, pageNumber, pagePayload)
-          }
-
-          if (result) {
-            const { updatePage, updateAlbum } = useAlbumStore.getState()
-            if (!target.existingPage) {
-              await updatePage(result.id, {
-                original_key: originalKey ?? null,
-                cleaned_key: cleanedKey ?? null,
-                thumbnail_key: thumbnailKey ?? null,
-                artboard_x: entry.artboardX ?? null,
-                artboard_y: entry.artboardY ?? null,
-              })
-            }
-            useAppStore.getState().updateImageEntry(entry.id, {
-              albumPageId: result.id,
-              originalR2Key: originalKey,
-              cleanedR2Key: cleanedKey,
-              originalHash,
-              cleanedHash,
-              thumbnailHash,
-              pageNumber,
-            })
-            // Auto-set album cover from first saved page
-            if (savedCount === 0 && !album.cover_key && localThumbnailDataUrl) {
-              await updateAlbum(album.id, { cover_key: localThumbnailDataUrl })
-            }
-            savedCount++
-            if (!target.existingPage) nextPageNum++
-          }
-        } catch (err) {
-          console.error('[save] Error saving page:', err)
-          toast.error(`บันทึกหน้า ${entry.pageNumber ?? nextPageNum} ล้มเหลว`)
+      try {
+        const result = await saveEditorImagesToAlbum(album)
+        if (result.savedCount > 0) {
+          setCurrentAlbum(result.album)
+          setDetailLoadError(null)
+          closeModal()
         }
-      }
-
-      setSaving(false)
-      if (savedCount > 0) {
-        await fetchPages(album.id, 'summary')
-        const updatedAlbum = useAlbumStore.getState().albums.find((item) => item.id === album.id) ?? album
-        setCurrentAlbum(updatedAlbum)
-        setDetailLoadError(null)
-        toast.success(`บันทึก ${savedCount} หน้าลง "${album.title}" แล้ว`)
-        closeModal()
+      } finally {
+        setSaving(false)
       }
     },
-    [fetchPages, saveCurrentToPage, setCurrentAlbum, updatePage, closeModal],
+    [setCurrentAlbum, closeModal],
   )
 
   const handleOpenAlbum = useCallback(

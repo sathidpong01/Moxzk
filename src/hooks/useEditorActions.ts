@@ -8,6 +8,7 @@ import { exportImageEntries, renderImageEntryToBlob } from '../services/exporter
 import { getAppRuntime } from '../runtime'
 import { runBatchAiQueue, type BatchProgressState } from '../services/batch-processing'
 import { downloadImage } from '../services/storageService'
+import { saveEditorImagesToAlbum } from '../services/albumEditorSave'
 import { toast } from 'sonner'
 import { autoStartRequiredLocalServices } from '../services/localServiceAutoStart'
 
@@ -205,15 +206,33 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
     toast.info('จะหยุดหลังงานปัจจุบันเสร็จ')
   }, [])
 
-  const handleSaveToAlbum = useCallback(() => {
+  const handleSaveToAlbum = useCallback(async () => {
     const user = useAuthStore.getState().user
     if (!user) {
       useAuthStore.getState().setShowAuthModal(true)
       toast.info('กรุณาเข้าสู่ระบบก่อนบันทึก')
       return
     }
+    store.saveActiveEntryState()
+    const currentAlbum = useAlbumStore.getState().currentAlbum
+    if (!currentAlbum) {
+      useAlbumStore.getState().openForSave()
+      toast.info('เลือกอัลบั้มปลายทางก่อนบันทึก')
+      return
+    }
+    await saveEditorImagesToAlbum(currentAlbum)
+  }, [store])
+
+  const handleSaveAsAlbum = useCallback(() => {
+    const user = useAuthStore.getState().user
+    if (!user) {
+      useAuthStore.getState().setShowAuthModal(true)
+      toast.info('กรุณาเข้าสู่ระบบก่อนบันทึก')
+      return
+    }
+    store.saveActiveEntryState()
     useAlbumStore.getState().openForSave()
-  }, [])
+  }, [store])
 
   return {
     retryCount,
@@ -229,5 +248,6 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
     handleCancelAI,
     handleRetryAI,
     handleSaveToAlbum,
+    handleSaveAsAlbum,
   }
 }
