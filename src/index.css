@@ -87,7 +87,6 @@ button:disabled {
 
 .mg-project-chip,
 .mg-command-dock {
-  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   background: rgba(10, 10, 11, 0.78);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
@@ -254,7 +253,6 @@ button:disabled {
 .floating-panel,
 .floating-panel-sm {
   background: color-mix(in srgb, var(--mg-surface-2) 94%, transparent);
-  border: 1px solid var(--mg-border);
   border-radius: 8px;
   box-shadow: var(--mg-shadow);
   color: var(--mg-text);
@@ -506,7 +504,6 @@ button:disabled {
 .mg-pill {
   align-items: center;
   gap: 0.25rem;
-  border: 1px solid var(--mg-border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   color: var(--mg-muted);
@@ -551,7 +548,7 @@ button:disabled {
 
 .mg-button-soft {
   background: rgba(255, 255, 255, 0.07);
-  border-color: var(--mg-border);
+  border-color: transparent;
 }
 
 .mg-button-primary {
@@ -567,7 +564,7 @@ button:disabled {
 .mg-button-danger {
   background: rgba(239, 68, 68, 0.16);
   color: #fecaca;
-  border-color: rgba(239, 68, 68, 0.28);
+  border-color: transparent;
 }
 
 .mg-button-sm {
@@ -678,7 +675,6 @@ button:disabled {
 .mg-popover-list {
     z-index: 220;
     min-width: 13rem;
-    border: 1px solid var(--mg-border);
   border-radius: 8px;
   background: var(--mg-surface-2);
   padding: 0.35rem;

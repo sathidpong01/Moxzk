@@ -1142,11 +1142,11 @@ export default function ArtboardWorkspace({
         </Stage>
         {eyedropPreview && (
           <div
-            className="fixed z-100 pointer-events-none flex items-center gap-2 rounded-[8px] border border-[var(--mg-border)] bg-black/85 px-2.5 py-1.5 shadow-lg backdrop-blur"
+            className="fixed z-100 pointer-events-none flex items-center gap-2 rounded-[8px] bg-black/85 px-2.5 py-1.5 shadow-lg backdrop-blur"
             style={{ left: eyedropPreview.x + 20, top: eyedropPreview.y - 10 }}
           >
             <div
-              className="h-6 w-6 rounded border-2 border-[var(--mg-border-strong)]"
+              className="h-6 w-6 rounded"
               style={{ backgroundColor: eyedropPreview.color }}
             />
             <span className="font-mono text-xs text-[var(--mg-text)]">{eyedropPreview.color}</span>
@@ -1438,10 +1438,10 @@ function ArtboardProcessCardOverlay({
       >
         <div
           className={[
-            'pointer-events-auto rounded-[8px] border px-3 py-3 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md',
+            'pointer-events-auto rounded-[8px] px-3 py-3 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-md',
             card.type === 'error'
-              ? 'border-red-400/35 bg-red-950/80'
-              : 'border-white/12 bg-black/82',
+              ? 'bg-red-950/80'
+              : 'bg-black/82',
           ].join(' ')}
           style={{ width: cardWidth, transform: 'translate(-50%, calc(-100% - 12px))' }}
           onMouseDown={stopDomEvent}

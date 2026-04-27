@@ -68,7 +68,7 @@ function SegmentedPicker<T extends string | number>({
       role="group"
       aria-label={ariaLabel}
       className={cn(
-        'gap-2 rounded-[18px] border border-white/6 bg-white/[0.03] p-1.5',
+        'gap-2 rounded-[18px] bg-white/[0.03] p-1.5',
         !className?.includes('grid') && 'flex flex-wrap',
         className
       )}
@@ -82,12 +82,12 @@ function SegmentedPicker<T extends string | number>({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              'min-w-0 min-h-10 cursor-pointer rounded-[14px] border py-2 text-sm font-bold transition',
+              'min-w-0 min-h-10 cursor-pointer rounded-[14px] py-2 text-sm font-bold transition',
               stretch && 'flex-1',
               buttonClassName,
               active
-                ? 'border-[rgba(96,165,250,0.35)] bg-[rgba(37,99,235,0.18)] text-white'
-                : 'border-transparent bg-transparent text-[var(--mg-muted)] hover:border-white/6 hover:bg-white/[0.05] hover:text-[var(--mg-text)]',
+                ? 'bg-[rgba(37,99,235,0.18)] text-white'
+                : 'bg-transparent text-[var(--mg-muted)] hover:bg-white/[0.05] hover:text-[var(--mg-text)]',
             )}
           >
             {option.label}
@@ -106,10 +106,10 @@ function PreviewZoomBar({
   onChange: (zoom: number) => void
 }) {
   const zoomPercent = Math.round(clampViewerZoom(zoom) * 100)
-  const buttonClassName = 'flex h-10 w-10 cursor-pointer items-center justify-center rounded-[14px] border border-transparent text-[var(--mg-muted)] transition hover:border-white/6 hover:bg-white/[0.05] hover:text-[var(--mg-text)]'
+  const buttonClassName = 'flex h-10 w-10 cursor-pointer items-center justify-center rounded-[14px] text-[var(--mg-muted)] transition hover:bg-white/[0.05] hover:text-[var(--mg-text)]'
 
   return (
-    <div className="flex items-center gap-1 rounded-[18px] border border-white/6 bg-white/[0.03] p-1.5">
+    <div className="flex items-center gap-1 rounded-[18px] bg-white/[0.03] p-1.5">
       <button
         type="button"
         className={buttonClassName}
@@ -119,7 +119,7 @@ function PreviewZoomBar({
       >
         <ZoomOut size={16} />
       </button>
-      <div className="min-w-16 rounded-[12px] border border-white/8 bg-black/20 px-3 py-2 text-center font-mono text-xs font-bold text-[var(--mg-text)]">
+      <div className="min-w-16 rounded-[12px] bg-black/20 px-3 py-2 text-center font-mono text-xs font-bold text-[var(--mg-text)]">
         {zoomPercent}%
       </div>
       <button
@@ -425,8 +425,8 @@ export default function ExportDrawer({
     <Dialog open={isOpen} onClose={onClose} className="relative z-[220]">
       <div className="fixed inset-0 bg-black/45 backdrop-blur-[2px]" aria-hidden="true" />
       <div className="fixed inset-0 flex justify-end overflow-hidden">
-        <DialogPanel className="flex h-full w-full max-w-[72rem] flex-col border-l border-white/8 bg-[rgba(11,11,12,0.98)] shadow-[-24px_0_64px_rgba(0,0,0,0.45)] backdrop-blur">
-          <div className="flex items-center justify-between gap-4 border-b border-white/8 px-6 py-4">
+        <DialogPanel className="flex h-full w-full max-w-[72rem] flex-col bg-[rgba(11,11,12,0.98)] shadow-[-24px_0_64px_rgba(0,0,0,0.45)] backdrop-blur">
+          <div className="flex items-center justify-between gap-4 px-6 py-4">
             <div className="min-w-0">
               <DialogTitle className="sr-only">ส่งออกโปรเจกต์</DialogTitle>
               <p className="text-sm font-medium text-[var(--mg-muted)]">
@@ -442,7 +442,7 @@ export default function ExportDrawer({
 
           <div className="min-h-0 flex-1 overflow-hidden p-4 sm:p-5">
             <div className="grid h-full gap-4 xl:grid-cols-[minmax(0,1fr)_20.5rem]">
-              <section className="min-h-0 rounded-[24px] border border-white/6 bg-white/[0.02] p-4">
+              <section className="min-h-0 rounded-[24px] bg-white/[0.02] p-4">
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <SegmentedPicker
@@ -456,7 +456,7 @@ export default function ExportDrawer({
                     <PreviewZoomBar zoom={previewZoom} onChange={setPreviewZoom} />
                   </div>
 
-                  <div className="mt-4 min-h-0 flex-1 rounded-[22px] border border-white/6 bg-[rgba(255,255,255,0.02)] p-3">
+                  <div className="mt-4 min-h-0 flex-1 rounded-[22px] bg-[rgba(255,255,255,0.02)] p-3">
                     {activeEntry && canShowActivePreview && activeTranslatedUrl ? (
                       <SplitView
                         originalImageUrl={activeOriginalUrl || activeTranslatedUrl}
@@ -466,7 +466,7 @@ export default function ExportDrawer({
                         onZoomChange={setPreviewZoom}
                       />
                     ) : (
-                      <div className="flex h-full min-h-[24rem] flex-col items-center justify-center rounded-[18px] border border-dashed border-white/10 bg-black/20 px-6 text-center text-[var(--mg-muted)]">
+                      <div className="flex h-full min-h-[24rem] flex-col items-center justify-center rounded-[18px] bg-black/20 px-6 text-center text-[var(--mg-muted)]">
                         <ImageIcon size={40} aria-hidden="true" />
                         <p className="mt-4 text-sm font-bold text-[var(--mg-text)]">
                           {isRenderingPreview
@@ -487,7 +487,7 @@ export default function ExportDrawer({
                   </div>
 
                   {selectedEntries.length > 1 && (
-                    <div className="mt-4 shrink-0 rounded-[22px] border border-white/6 bg-[rgba(255,255,255,0.02)] p-3">
+                    <div className="mt-4 shrink-0 rounded-[22px] bg-[rgba(255,255,255,0.02)] p-3">
                       <div className="relative">
                         <button
                           type="button"
@@ -495,7 +495,7 @@ export default function ExportDrawer({
                           onClick={() => scrollPreviewStripByPage('backward')}
                           disabled={!canScrollPreviewBackward}
                           className={cn(
-                            'absolute left-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/8 bg-[rgba(7,7,7,0.88)] text-[var(--mg-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
+                            'absolute left-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(7,7,7,0.88)] text-[var(--mg-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
                             canScrollPreviewBackward ? 'cursor-pointer opacity-100 hover:bg-[rgba(18,18,18,0.96)]' : 'pointer-events-none opacity-0',
                           )}
                         >
@@ -508,7 +508,7 @@ export default function ExportDrawer({
                           onClick={() => scrollPreviewStripByPage('forward')}
                           disabled={!canScrollPreviewForward}
                           className={cn(
-                            'absolute right-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/8 bg-[rgba(7,7,7,0.88)] text-[var(--mg-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
+                            'absolute right-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(7,7,7,0.88)] text-[var(--mg-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
                             canScrollPreviewForward ? 'cursor-pointer opacity-100 hover:bg-[rgba(18,18,18,0.96)]' : 'pointer-events-none opacity-0',
                           )}
                         >
@@ -538,10 +538,10 @@ export default function ExportDrawer({
                                   aria-pressed={isActive}
                                   onClick={() => setActivePreviewId(entry.id)}
                                   className={cn(
-                                    'w-[8.5rem] cursor-pointer overflow-hidden rounded-[18px] border bg-white/[0.025] text-left transition hover:border-white/14 hover:bg-white/[0.04]',
+                                    'w-[8.5rem] cursor-pointer overflow-hidden rounded-[18px] bg-white/[0.025] text-left transition hover:bg-white/[0.04]',
                                     isActive
-                                      ? 'border-[rgba(96,165,250,0.35)] bg-[rgba(37,99,235,0.12)]'
-                                      : 'border-white/6',
+                                      ? 'bg-[rgba(37,99,235,0.12)]'
+                                      : '',
                                   )}
                                 >
                                   <div className="flex aspect-[2/3] items-center justify-center bg-black/35">
@@ -559,7 +559,7 @@ export default function ExportDrawer({
                                       </div>
                                     )}
                                   </div>
-                                  <div className="flex items-center justify-between gap-2 border-t border-white/6 px-3 py-2 text-xs">
+                                  <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
                                     <span className="font-bold text-[var(--mg-text)]">หน้า {entry.pageNumber ?? '?'}</span>
                                     <span className="truncate text-[var(--mg-muted)]">
                                       {renderedPreviewUrls[entry.id]
@@ -580,7 +580,7 @@ export default function ExportDrawer({
                 </div>
               </section>
 
-              <aside className="min-h-0 rounded-[24px] border border-white/6 bg-white/[0.02] p-4">
+              <aside className="min-h-0 rounded-[24px] bg-white/[0.02] p-4">
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="shrink-0">
                     <h2 className="text-lg font-bold text-[var(--mg-text)]">ตั้งค่าส่งออก</h2>
@@ -642,8 +642,8 @@ export default function ExportDrawer({
 
                     {sortedEntries.length > 1 && (
                       <Field as="fieldset" label="หน้า" className="min-h-0 gap-2">
-                        <div className="min-h-0 rounded-[20px] border border-white/6 bg-black/20 p-2.5">
-                          <label className="flex items-center gap-3 rounded-[14px] border border-white/6 bg-white/[0.03] px-3 py-2.5 text-sm font-bold text-[var(--mg-text)]">
+                        <div className="min-h-0 rounded-[20px] bg-black/20 p-2.5">
+                          <label className="flex items-center gap-3 rounded-[14px] bg-white/[0.03] px-3 py-2.5 text-sm font-bold text-[var(--mg-text)]">
                             <input
                               type="checkbox"
                               checked={allSelected}
@@ -660,10 +660,10 @@ export default function ExportDrawer({
                                 <label
                                   key={entry.id}
                                   className={cn(
-                                    'flex items-center justify-between gap-3 rounded-[14px] border px-3 py-2.5 text-sm transition',
+                                    'flex items-center justify-between gap-3 rounded-[14px] px-3 py-2.5 text-sm transition',
                                     checked
-                                      ? 'border-[rgba(96,165,250,0.28)] bg-[rgba(37,99,235,0.12)]'
-                                      : 'border-transparent bg-transparent hover:border-white/6 hover:bg-white/[0.04]',
+                                      ? 'bg-[rgba(37,99,235,0.12)]'
+                                      : 'bg-transparent hover:bg-white/[0.04]',
                                   )}
                                 >
                                   <span className="flex min-w-0 items-center gap-3">

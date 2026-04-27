@@ -137,9 +137,9 @@ export default function EditStep({
       />
 
       <div className="pointer-events-none absolute right-3 top-[4.75rem] z-20 flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2">
-        <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-[14px] border border-white/10 bg-[rgba(10,10,11,0.78)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+        <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-[14px] bg-[rgba(10,10,11,0.78)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
           <TooltipSurface label="หน้าปัจจุบัน">
-            <div className="flex h-9 min-w-14 flex-col items-center justify-center rounded-[10px] bg-black/[0.34] px-2 text-center ring-1 ring-white/[0.08]">
+            <div className="flex h-9 min-w-14 flex-col items-center justify-center rounded-[10px] bg-black/[0.34] px-2 text-center">
               <span className="text-[10px] font-bold leading-none text-[var(--mg-muted)]">หน้า</span>
               <span className="mt-0.5 text-[13px] font-black leading-none text-[var(--mg-text)]">
                 {Math.max(1, activePageIndex + 1)}/{Math.max(store.imageEntries.length, 1)}
@@ -197,7 +197,7 @@ export default function EditStep({
         </div>
 
         {showStatusCluster && (
-          <div className="pointer-events-auto flex min-w-52 items-center gap-2 rounded-[12px] border border-white/10 bg-[rgba(10,10,11,0.78)] px-3 py-2 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+          <div className="pointer-events-auto flex min-w-52 items-center gap-2 rounded-[12px] bg-[rgba(10,10,11,0.78)] px-3 py-2 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
             {isLoadingImage && (
               <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--mg-text)]">
                 <Loader2 size={14} className="animate-spin" /> กำลังโหลดหน้า...
@@ -245,6 +245,6 @@ function clusterButtonClass(active = false): string {
     'inline-flex h-9 shrink-0 items-center gap-2 rounded-[10px] px-3 text-sm font-bold transition',
     active
       ? 'bg-[var(--mg-accent)] text-white shadow-[0_6px_18px_rgba(37,99,235,0.28)] hover:bg-[var(--mg-accent)]'
-      : 'bg-white/[0.055] text-[var(--mg-text)] ring-1 ring-white/[0.06] hover:bg-white/[0.1]',
+      : 'bg-white/[0.055] text-[var(--mg-text)] hover:bg-white/[0.1]',
   ].join(' ')
 }

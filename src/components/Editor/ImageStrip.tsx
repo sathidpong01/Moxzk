@@ -79,8 +79,8 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
       <div
         className={`floating-panel-sm panel-enter relative flex max-h-[74vh] flex-col items-center overflow-hidden transition-all duration-200 ease-out ${
           isOpen
-            ? 'translate-x-0 border-opacity-100 px-3 py-6 opacity-100'
-            : 'w-0 -translate-x-2 border-opacity-0 p-0 opacity-0'
+            ? 'translate-x-0 px-3 py-6 opacity-100'
+            : 'w-0 -translate-x-2 p-0 opacity-0'
         }`}
         style={isOpen ? { width: STRIP_WIDTH } : undefined}
         aria-hidden={!isOpen}
@@ -102,12 +102,12 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
             return (
               <button
                 key={entry.id}
-                className={`relative shrink-0 overflow-hidden rounded-[12px] border-2 bg-white/[0.03] transition ${
+                className={`relative shrink-0 overflow-hidden rounded-[12px] bg-white/[0.03] transition ${
                   isActive
-                    ? 'border-[var(--mg-accent)] ring-2 ring-blue-400/30'
+                    ? 'bg-blue-500/[0.16]'
                     : isUnloaded
-                      ? 'border-white/10 opacity-70 hover:border-white/30'
-                      : 'border-white/10 hover:border-white/30'
+                      ? 'opacity-70 hover:bg-white/[0.06]'
+                      : 'hover:bg-white/[0.06]'
                 }`}
                 style={{ width: THUMBNAIL_WIDTH, height: thumbnailHeight }}
                 onClick={() => {
@@ -155,7 +155,7 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
       {showToggle && (
         <button
           type="button"
-          className="ml-1.5 flex h-12 w-6 items-center justify-center rounded-[8px] border border-[var(--mg-border)] bg-black/65 text-[var(--mg-text)] backdrop-blur transition hover:border-white/30 hover:bg-white/10"
+          className="ml-1.5 flex h-12 w-6 items-center justify-center rounded-[8px] bg-black/65 text-[var(--mg-text)] backdrop-blur transition hover:bg-white/10"
           onClick={onToggle}
           aria-label={isOpen ? 'ซ่อนแถบหน้า' : 'แสดงแถบหน้า'}
           title={isOpen ? 'ซ่อนแถบหน้า' : 'แสดงแถบหน้า'}

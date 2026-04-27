@@ -150,7 +150,7 @@ export function TooltipSurface({
       {children}
       <div
         className={cn(
-          'pointer-events-none absolute left-1/2 z-[360] min-w-max -translate-x-1/2 rounded-[10px] border border-white/10 bg-[rgba(10,10,10,0.98)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--mg-text)] shadow-[0_14px_28px_rgba(0,0,0,0.38)] transition duration-150',
+          'pointer-events-none absolute left-1/2 z-[360] min-w-max -translate-x-1/2 rounded-[10px] bg-[rgba(10,10,10,0.98)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--mg-text)] shadow-[0_14px_28px_rgba(0,0,0,0.38)] transition duration-150',
           open ? 'opacity-100' : 'opacity-0',
           side === 'top' ? '-top-2 -translate-y-full' : '-bottom-2 translate-y-full',
         )}
@@ -193,7 +193,7 @@ export function DisclosureSection({
   return (
     <Disclosure defaultOpen={defaultOpen}>
       {({ open }) => (
-        <section className={cn('rounded-[8px] border border-[var(--mg-border)] bg-white/[0.025]', className)}>
+        <section className={cn('rounded-[8px] bg-white/[0.025]', className)}>
           <DisclosureButton className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left">
             <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">{title}</span>
             <ChevronDown
@@ -202,7 +202,7 @@ export function DisclosureSection({
               aria-hidden="true"
             />
           </DisclosureButton>
-          <DisclosurePanel className="space-y-3 border-t border-[var(--mg-border)] px-3 py-3">
+          <DisclosurePanel className="space-y-3 px-3 py-3">
             {children}
           </DisclosurePanel>
         </section>
@@ -386,7 +386,7 @@ export function Tabs<T extends string>({
   const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value))
   return (
     <TabGroup selectedIndex={selectedIndex} onChange={(index) => onChange(options[index].value)}>
-      <TabList className="inline-flex rounded-[8px] border border-[var(--mg-border)] bg-white/5 p-1">
+      <TabList className="inline-flex rounded-[8px] bg-white/5 p-1">
         {options.map((option) => (
           <Tab
             key={option.value}

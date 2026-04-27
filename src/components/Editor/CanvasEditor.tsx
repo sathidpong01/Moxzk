@@ -607,8 +607,8 @@ export default function CanvasEditor({
 
   return (
     <div className="studio-canvas flex h-full min-h-0 flex-col">
-      <div className="absolute left-3 top-16 z-20 flex items-center gap-1.5 rounded-[8px] border border-[var(--mg-border)] bg-black/45 p-1 backdrop-blur">
-        <div className="flex items-center rounded-[7px] border border-[var(--mg-border)]">
+      <div className="absolute left-3 top-16 z-20 flex items-center gap-1.5 rounded-[8px] bg-black/45 p-1 backdrop-blur">
+        <div className="flex items-center rounded-[7px] bg-black/20">
           <button
             className="mg-icon-button h-7 w-7"
             onClick={() => applyZoom(zoom - 0.1)}
@@ -905,11 +905,11 @@ export default function CanvasEditor({
         {/* Eyedropper preview tooltip */}
         {eyedropPreview && (
           <div
-            className="fixed z-100 pointer-events-none flex items-center gap-2 rounded-[8px] border border-[var(--mg-border)] bg-black/85 px-2.5 py-1.5 shadow-lg backdrop-blur"
+            className="fixed z-100 pointer-events-none flex items-center gap-2 rounded-[8px] bg-black/85 px-2.5 py-1.5 shadow-lg backdrop-blur"
             style={{ left: eyedropPreview.x + 20, top: eyedropPreview.y - 10 }}
           >
             <div
-              className="h-6 w-6 rounded border-2 border-[var(--mg-border-strong)]"
+              className="h-6 w-6 rounded"
               style={{ backgroundColor: eyedropPreview.color }}
             />
             <span className="font-mono text-xs text-[var(--mg-text)]">{eyedropPreview.color}</span>

@@ -328,7 +328,7 @@ export default function ContextualTextHud({
         className="pointer-events-auto absolute overflow-visible"
         style={{ left: placement.left, top: placement.top }}
       >
-        <div className="flex w-max max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-1.5 overflow-visible rounded-[18px] border border-white/8 bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
+        <div className="flex w-max max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-1.5 overflow-visible rounded-[18px] bg-[rgba(11,11,12,0.96)] px-3 py-2 shadow-[0_18px_42px_rgba(0,0,0,0.42)] backdrop-blur">
           <div ref={textBoxMenuRef} className="relative">
             <TooltipSurface label="รูปแบบกล่องข้อความ">
               <button
@@ -345,7 +345,7 @@ export default function ContextualTextHud({
               </button>
             </TooltipSurface>
             {textBoxMenuOpen && (
-              <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-[14px] border border-white/10 bg-[rgba(11,11,12,0.98)] p-2 shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
+              <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-[14px] bg-[rgba(11,11,12,0.98)] p-2 shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
                 <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--mg-dim)]">การวาง</div>
                 <div className="grid grid-cols-2 gap-1">
                   <button
@@ -460,13 +460,13 @@ export default function ContextualTextHud({
               </button>
             </TooltipSurface>
             {fontMenuOpen && (
-              <div className="absolute left-0 top-full mt-2 w-64 rounded-[16px] border border-white/10 bg-[rgba(11,11,12,0.98)] p-2 shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
+              <div className="absolute left-0 top-full mt-2 w-64 rounded-[16px] bg-[rgba(11,11,12,0.98)] p-2 shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
                 <input
                   type="search"
                   value={fontQuery}
                   onChange={(event) => setFontQuery(event.target.value)}
                   placeholder="ค้นหาฟอนต์"
-                  className="h-9 w-full rounded-[10px] border border-white/8 bg-white/[0.04] px-3 text-sm text-[var(--mg-text)] outline-none placeholder:text-[var(--mg-dim)] focus:border-[var(--mg-accent)]"
+                  className="h-9 w-full rounded-[10px] border-0 bg-white/[0.04] px-3 text-sm text-[var(--mg-text)] outline-none placeholder:text-[var(--mg-dim)]"
                   aria-label="ค้นหาฟอนต์"
                 />
                 <div className="mt-2 max-h-64 overflow-y-auto pr-1">
@@ -654,7 +654,7 @@ export default function ContextualTextHud({
           </TooltipSurface>
 
           {regionLayout?.overflow && (
-            <div className="ml-1 flex items-center gap-1 rounded-[12px] border border-[#7f1d1d] bg-[#7f1d1d1f] px-2 py-1 text-xs">
+            <div className="ml-1 flex items-center gap-1 rounded-[12px] bg-[#7f1d1d1f] px-2 py-1 text-xs">
               <span className="font-bold text-[#fecaca]">
                 {regionLayout.overflowReason === 'readability' ? 'คำแปลยาว/ตัวเล็ก' : 'ข้อความยังล้น'}
               </span>

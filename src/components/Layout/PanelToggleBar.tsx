@@ -56,11 +56,11 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
   return (
     <div className="pointer-events-none fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 flex-col items-center gap-1.5">
       {brushToolActive && (
-        <div className="pointer-events-auto flex items-center gap-1.5 rounded-[13px] border border-white/10 bg-[rgba(10,10,11,0.78)] px-2 py-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+        <div className="pointer-events-auto flex items-center gap-1.5 rounded-[13px] bg-[rgba(10,10,11,0.78)] px-2 py-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
           {activeTool === 'eyedropper' ? (
-            <div className="flex items-center gap-2 rounded-[9px] bg-white/[0.055] px-2.5 py-1.5 ring-1 ring-white/[0.06]">
+            <div className="flex items-center gap-2 rounded-[9px] bg-white/[0.055] px-2.5 py-1.5">
               <div
-                className="h-6 w-6 rounded-[7px] border border-white/10"
+                className="h-6 w-6 rounded-[7px]"
                 style={{ backgroundColor: store.brushColor }}
               />
               <span className="text-sm font-bold text-[var(--mg-text)]">{store.brushColor}</span>
@@ -68,7 +68,7 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
           ) : (
             <>
               <TooltipSurface label="สีแปรง">
-                <label className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[9px] bg-white/[0.055] ring-1 ring-white/[0.06] transition hover:bg-white/[0.1]">
+                <label className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[9px] bg-white/[0.055] transition hover:bg-white/[0.1]">
                   <input
                     type="color"
                     value={store.brushColor}
@@ -110,8 +110,8 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
         </div>
       )}
 
-      <div className="pointer-events-auto flex items-center gap-1.5 rounded-[14px] border border-white/10 bg-[rgba(10,10,11,0.78)] px-2 py-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
-        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5 ring-1 ring-white/[0.06]">
+      <div className="pointer-events-auto flex items-center gap-1.5 rounded-[14px] bg-[rgba(10,10,11,0.78)] px-2 py-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5">
           <TooltipSurface label="ย้อนกลับ" shortcut="Ctrl+Z">
             <button
               className={dockButtonClass(canUndo)}
@@ -178,7 +178,7 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
           </DropdownMenu>
         </div>
 
-        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5 ring-1 ring-white/[0.06]">
+        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5">
           {TOOL_ICONS.map(({ id, icon: Icon, label, shortcut }) => (
             <TooltipSurface key={id} label={label} shortcut={shortcut}>
               <button
@@ -195,7 +195,7 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
           ))}
         </div>
 
-        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5 ring-1 ring-white/[0.06]">
+        <div className="flex items-center gap-0.5 rounded-[10px] bg-[rgba(10,10,11,0.78)] px-0.5 py-0.5">
           <TooltipSurface label="ซูมออก">
             <button className={dockButtonClass(true)} onClick={() => editorRef.current?.zoomOut()} aria-label="ซูมออก">
               <ZoomOut size={15} />
@@ -258,7 +258,7 @@ function DockNumericField({
 }) {
   return (
     <TooltipSurface label={label}>
-      <label className="flex h-8 items-center gap-1.5 rounded-[9px] bg-white/[0.055] px-2.5 text-xs text-[var(--mg-text)] ring-1 ring-white/[0.06]">
+      <label className="flex h-8 items-center gap-1.5 rounded-[9px] bg-white/[0.055] px-2.5 text-xs text-[var(--mg-text)]">
         <span className="text-xs font-bold text-[var(--mg-muted)]">{label}</span>
         <input
           type="number"
