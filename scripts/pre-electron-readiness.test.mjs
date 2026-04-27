@@ -246,6 +246,10 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
     'runtime:projectDraft.clear',
     'runtime:localServices.startPanelCleanerBridge',
     'runtime:localServices.startOllama',
+    'runtime:localServices.beginUsage',
+    'runtime:localServices.endUsage',
+    'runtime:localServices.getManagedStatus',
+    'runtime:localServices.stopOwnedServices',
     'runtime:auth.signInWithGoogle',
   ]) {
     assert.match(channels, new RegExp(channel.replace('.', '\\.')))
@@ -255,10 +259,18 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
   assert.doesNotMatch(channels, /customProtocolAuth/)
   assert.match(preload, /contextBridge\.exposeInMainWorld\('mgRuntime'/)
   assert.match(preload, /localServices/)
+  assert.match(preload, /beginUsage/)
+  assert.match(preload, /endUsage/)
+  assert.match(preload, /getManagedStatus/)
+  assert.match(preload, /stopOwnedServices/)
   assert.match(preload, /auth/)
   assert.match(preload, /ipcRenderer\.invoke/)
   assert.match(mainIpc, /startPanelCleanerBridge/)
   assert.match(mainIpc, /startOllama/)
+  assert.match(mainIpc, /beginUsage/)
+  assert.match(mainIpc, /endUsage/)
+  assert.match(mainIpc, /getManagedStatus/)
+  assert.match(mainIpc, /stopOwnedServices/)
   assert.match(mainIpc, /signInWithGoogleSystemBrowser/)
   assert.doesNotMatch(rendererRuntime, /ipcRenderer/)
 })
@@ -272,6 +284,10 @@ test('Electron runtime installs through window bridge and keeps unsupported desk
   assert.match(runtime, /kind = 'electron'/)
   assert.match(runtime, /canPickNativeFolders:\s*true/)
   assert.match(runtime, /canStartLocalServices:\s*true/)
+  assert.match(runtime, /bridge\.localServices\.beginUsage/)
+  assert.match(runtime, /bridge\.localServices\.endUsage/)
+  assert.match(runtime, /bridge\.localServices\.getManagedStatus/)
+  assert.match(runtime, /bridge\.localServices\.stopOwnedServices/)
   assert.match(runtime, /bridge\.localServices\.startOllama/)
   assert.match(runtime, /bridge\.localServices\.startPanelCleanerBridge/)
   assert.match(runtime, /bridge\.auth\.signInWithGoogle/)
@@ -308,16 +324,35 @@ test('Electron Google login uses system browser and loopback ticket claim', () =
 test('Electron native service launcher is loopback-only and keeps external dependencies explicit', () => {
   const serviceLauncher = fs.readFileSync('electron/main/localServices.ts', 'utf8')
   const settingsPanel = fs.readFileSync('src/components/Settings/SettingsPanel.tsx', 'utf8')
+  const processingView = fs.readFileSync('src/components/Processing/ProcessingView.tsx', 'utf8')
+  const editorActions = fs.readFileSync('src/hooks/useEditorActions.ts', 'utf8')
+  const panelCleanerClient = fs.readFileSync('src/services/panelcleaner-api.ts', 'utf8')
+  const ollamaClient = fs.readFileSync('src/services/ollama.ts', 'utf8')
+  const mainProcess = fs.readFileSync('electron/main/index.ts', 'utf8')
 
   assert.match(serviceLauncher, /spawn/)
   assert.match(serviceLauncher, /http:\/\/127\.0\.0\.1:5055\/health/)
   assert.match(serviceLauncher, /http:\/\/127\.0\.0\.1:11434\/api\/version/)
+  assert.match(serviceLauncher, /PANELCLEANER_IDLE_TIMEOUT_MS/)
+  assert.match(serviceLauncher, /OLLAMA_IDLE_TIMEOUT_MS/)
+  assert.match(serviceLauncher, /ownedByApp/)
+  assert.match(serviceLauncher, /beginUsage/)
+  assert.match(serviceLauncher, /endUsage/)
+  assert.match(serviceLauncher, /stopOwnedServices/)
   assert.match(serviceLauncher, /PANELCLEANER_ALLOWED_ORIGIN/)
   assert.match(serviceLauncher, /scripts', 'panelcleaner-bridge\.mjs'/)
   assert.match(serviceLauncher, /ollama\.exe/)
   assert.match(settingsPanel, /handleStartPanelCleaner/)
   assert.match(settingsPanel, /handleStartOllama/)
+  assert.match(settingsPanel, /handleStopOwnedServices/)
+  assert.match(settingsPanel, /หยุด local services ที่แอปเปิดไว้/)
+  assert.match(settingsPanel, /describeManagedStatus/)
   assert.match(settingsPanel, /appRuntime\.localServices/)
+  assert.match(processingView, /autoStartRequiredLocalServices/)
+  assert.match(editorActions, /autoStartRequiredLocalServices/)
+  assert.match(panelCleanerClient, /withLocalServiceUsage\('panelcleaner'/)
+  assert.match(ollamaClient, /withLocalServiceUsage\('ollama'/)
+  assert.match(mainProcess, /shutdownOwnedServices/)
   assert.doesNotMatch(settingsPanel, /ipcRenderer/)
 })
 

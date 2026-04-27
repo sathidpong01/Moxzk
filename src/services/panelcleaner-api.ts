@@ -1,6 +1,7 @@
 import type { BoundingBox } from '../types'
 import type { OcrRegion, StreamProgress, TranslatorResponse } from './translator-api'
 import { runWithRequestTimeout } from './request-timeout'
+import { withLocalServiceUsage } from './localServiceUsage'
 
 export interface PanelCleanerOptions {
   bridgeUrl?: string
@@ -91,22 +92,24 @@ export async function processImageWithPanelCleaner(
 ): Promise<TranslatorResponse> {
   onProgress?.({ status: 'progress', message: 'PanelCleaner: preparing image' })
 
-  const res = await runWithRequestTimeout(
-    { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
-    async (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/process`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image: {
-          name: file.name,
-          mimeType: file.type || 'image/png',
-          base64: await fileToBase64(file),
-        },
-        executablePath: options.executablePath || undefined,
-        runOcr: options.runOcr ?? false,
+  const res = await withLocalServiceUsage('panelcleaner', () =>
+    runWithRequestTimeout(
+      { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
+      async (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: {
+            name: file.name,
+            mimeType: file.type || 'image/png',
+            base64: await fileToBase64(file),
+          },
+          executablePath: options.executablePath || undefined,
+          runOcr: options.runOcr ?? false,
+        }),
+        signal,
       }),
-      signal,
-    }),
+    ),
   )
 
   const data = await readBridgeResponse(res)
@@ -131,24 +134,26 @@ export async function processImagesWithPanelCleanerBatch(
   if (images.length === 0) return []
   onProgress?.({ status: 'progress', message: `PanelCleaner: preparing ${images.length} images` })
 
-  const res = await runWithRequestTimeout(
-    { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
-    async (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/batch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        images: await Promise.all(images.map(async (item) => ({
-          id: item.id,
-          image: {
-            name: item.file.name,
-            mimeType: item.file.type || 'image/png',
-            base64: await fileToBase64(item.file),
-          },
-        }))),
-        executablePath: options.executablePath || undefined,
+  const res = await withLocalServiceUsage('panelcleaner', () =>
+    runWithRequestTimeout(
+      { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
+      async (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          images: await Promise.all(images.map(async (item) => ({
+            id: item.id,
+            image: {
+              name: item.file.name,
+              mimeType: item.file.type || 'image/png',
+              base64: await fileToBase64(item.file),
+            },
+          }))),
+          executablePath: options.executablePath || undefined,
+        }),
+        signal,
       }),
-      signal,
-    }),
+    ),
   )
 
   const data = await readBridgeBatchResponse(res)
@@ -167,14 +172,16 @@ export async function processImagesWithPanelCleanerBatch(
 
 export async function getPanelCleanerStatus(options: PanelCleanerOptions = {}): Promise<PanelCleanerStatus> {
   try {
-    const res = await runWithRequestTimeout(
-      { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
-      (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ executablePath: options.executablePath || undefined }),
-        signal,
-      }),
+    const res = await withLocalServiceUsage('panelcleaner', () =>
+      runWithRequestTimeout(
+        { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
+        (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ executablePath: options.executablePath || undefined }),
+          signal,
+        }),
+      ),
     )
     const data = await readBridgeJson(res)
     if (!res.ok) return { ok: false, error: data.error, installHint: data.installHint }

@@ -13,6 +13,8 @@ export function setAppRuntime(runtime: AppRuntime): void {
 
 export type {
   AppRuntime,
+  LocalServiceName,
+  ManagedServiceStatus,
   RuntimeActionResult,
   RuntimeExportDestination,
   RuntimeExportFile,

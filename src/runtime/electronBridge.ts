@@ -31,6 +31,16 @@ export interface NativeServiceActionResult {
   error?: string
 }
 
+export type NativeLocalServiceName = 'panelcleaner' | 'ollama'
+
+export interface NativeManagedServiceStatus {
+  running: boolean
+  ownedByApp: boolean
+  inFlightCount: number
+  idleTimeoutMs: number | null
+  idleDeadlineAt: number | null
+}
+
 export interface MgRuntimeBridge {
   files: {
     saveFile(file: NativeFilePayload): Promise<NativeResult<string>>
@@ -46,6 +56,10 @@ export interface MgRuntimeBridge {
     clear(): Promise<NativeResult<void>>
   }
   localServices: {
+    beginUsage(service: NativeLocalServiceName): Promise<NativeResult<void>>
+    endUsage(service: NativeLocalServiceName): Promise<NativeResult<void>>
+    getManagedStatus(): Promise<NativeResult<Record<NativeLocalServiceName, NativeManagedServiceStatus>>>
+    stopOwnedServices(): Promise<NativeResult<NativeServiceActionResult>>
     startPanelCleanerBridge(): Promise<NativeResult<NativeServiceActionResult>>
     startOllama(): Promise<NativeResult<NativeServiceActionResult>>
   }

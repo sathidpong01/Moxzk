@@ -2,9 +2,17 @@ import { app, dialog, ipcMain } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { signInWithGoogleSystemBrowser } from './desktopAuth'
-import { startOllama, startPanelCleanerBridge } from './localServices'
+import {
+  beginUsage,
+  endUsage,
+  getManagedStatus,
+  startOllama,
+  startPanelCleanerBridge,
+  stopOwnedServices,
+} from './localServices'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import type {
+  NativeLocalServiceName,
   NativeFilePayload,
   NativeProjectDraftPayload,
   NativeResult,
@@ -56,6 +64,24 @@ export function registerRuntimeIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.localServicesStartOllama, async () => {
     return nativeActionResult(startOllama)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesBeginUsage, async (_event, service: NativeLocalServiceName) => {
+    beginUsage(service)
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesEndUsage, async (_event, service: NativeLocalServiceName) => {
+    endUsage(service)
+    return { ok: true }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesGetManagedStatus, async () => {
+    return nativeActionResult(getManagedStatus)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesStopOwnedServices, async () => {
+    return nativeActionResult(stopOwnedServices)
   })
 
   ipcMain.handle(IPC_CHANNELS.authSignInWithGoogle, async () => {

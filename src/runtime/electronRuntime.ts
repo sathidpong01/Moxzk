@@ -5,6 +5,8 @@ import { decodeDesktopProjectDraft, encodeDesktopProjectDraft } from './desktopD
 import type { MgRuntimeBridge, NativeFilePayload, NativeResult } from './electronBridge'
 import type {
   AppRuntime,
+  LocalServiceName,
+  ManagedServiceStatus,
   RuntimeActionResult,
   RuntimeExportFile,
   RuntimeProjectDraft,
@@ -69,6 +71,20 @@ export class ElectronRuntime implements AppRuntime {
   }
 
   readonly localServices = {
+    beginUsage: async (service: LocalServiceName): Promise<void> => {
+      await unwrapNativeResult(await this.bridge.localServices.beginUsage(service))
+    },
+    endUsage: async (service: LocalServiceName): Promise<void> => {
+      await unwrapNativeResult(await this.bridge.localServices.endUsage(service))
+    },
+    getManagedStatus: async (): Promise<Record<LocalServiceName, ManagedServiceStatus>> => {
+      return unwrapNativeResult(await this.bridge.localServices.getManagedStatus())
+    },
+    stopOwnedServices: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.localServices.stopOwnedServices()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
     startOllama: async (): Promise<RuntimeActionResult> => {
       const result = await this.bridge.localServices.startOllama()
       if (!result.ok) return { ok: false, error: result.error }

@@ -2,11 +2,14 @@ import { app, BrowserWindow, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerRuntimeIpcHandlers } from './ipc'
+import { shutdownOwnedServices } from './localServices'
 
 const mainFilePath = fileURLToPath(import.meta.url)
 const mainDir = path.dirname(mainFilePath)
 
 registerRuntimeIpcHandlers()
+
+let isShuttingDownOwnedServices = false
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -52,6 +55,15 @@ void app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+})
+
+app.on('before-quit', (event) => {
+  if (isShuttingDownOwnedServices) return
+  isShuttingDownOwnedServices = true
+  event.preventDefault()
+  void shutdownOwnedServices().finally(() => {
+    app.quit()
   })
 })
 

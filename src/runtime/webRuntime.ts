@@ -6,7 +6,14 @@ import * as FileSaver from 'file-saver'
 import { defaultPanelCleanerClient } from '../services/panelcleaner-api'
 import { clearProjectDraft, loadProjectDraft, saveProjectDraft } from '../services/projectDraftStorage'
 import { getGoogleRedirectUrl } from '../services/cloudflareApi'
-import type { AppRuntime, RuntimeActionResult, RuntimeExportFile, RuntimeSaveExportOptions } from './types'
+import type {
+  AppRuntime,
+  LocalServiceName,
+  ManagedServiceStatus,
+  RuntimeActionResult,
+  RuntimeExportFile,
+  RuntimeSaveExportOptions,
+} from './types'
 
 export class WebRuntime implements AppRuntime {
   readonly kind = 'web'
@@ -40,6 +47,25 @@ export class WebRuntime implements AppRuntime {
   }
 
   readonly localServices = {
+    beginUsage: async (_service: LocalServiceName) => {},
+    endUsage: async (_service: LocalServiceName) => {},
+    getManagedStatus: async (): Promise<Record<LocalServiceName, ManagedServiceStatus>> => ({
+      panelcleaner: {
+        running: false,
+        ownedByApp: false,
+        inFlightCount: 0,
+        idleTimeoutMs: null,
+        idleDeadlineAt: null,
+      },
+      ollama: {
+        running: false,
+        ownedByApp: false,
+        inFlightCount: 0,
+        idleTimeoutMs: null,
+        idleDeadlineAt: null,
+      },
+    }),
+    stopOwnedServices: () => unsupportedRuntimeAction('Web runtime cannot stop local services.'),
     startOllama: () => unsupportedRuntimeAction('Web runtime cannot start Ollama.'),
     startPanelCleanerBridge: () => unsupportedRuntimeAction('Web runtime cannot start PanelCleaner bridge.'),
   }

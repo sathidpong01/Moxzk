@@ -21,6 +21,16 @@ export interface RuntimeActionResult {
   error?: string
 }
 
+export type LocalServiceName = 'panelcleaner' | 'ollama'
+
+export interface ManagedServiceStatus {
+  running: boolean
+  ownedByApp: boolean
+  inFlightCount: number
+  idleTimeoutMs: number | null
+  idleDeadlineAt: number | null
+}
+
 export interface RuntimeProjectDraft {
   version: 1
   savedAt: number
@@ -64,6 +74,10 @@ export interface AppRuntime {
     clear(): Promise<void>
   }
   localServices: {
+    beginUsage(service: LocalServiceName): Promise<void>
+    endUsage(service: LocalServiceName): Promise<void>
+    getManagedStatus(): Promise<Record<LocalServiceName, ManagedServiceStatus>>
+    stopOwnedServices(): Promise<RuntimeActionResult>
     startOllama(): Promise<RuntimeActionResult>
     startPanelCleanerBridge(): Promise<RuntimeActionResult>
   }

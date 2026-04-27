@@ -2,17 +2,26 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'vite'
 
+const viteModuleCache = new Map()
+
 async function loadViteModule(path) {
-  const server = await createServer({
-    appType: 'custom',
-    logLevel: 'silent',
-    server: { middlewareMode: true },
-  })
-  try {
-    return await server.ssrLoadModule(path)
-  } finally {
-    await server.close()
-  }
+  if (viteModuleCache.has(path)) return viteModuleCache.get(path)
+
+  const loaded = (async () => {
+    const server = await createServer({
+      appType: 'custom',
+      logLevel: 'silent',
+      server: { middlewareMode: true },
+    })
+    try {
+      return await server.ssrLoadModule(path)
+    } finally {
+      await server.close()
+    }
+  })()
+
+  viteModuleCache.set(path, loaded)
+  return loaded
 }
 
 function createAbortableFetch() {
@@ -37,6 +46,38 @@ test('web runtime is exposed as an AppRuntime class instance', async () => {
   assert.equal(typeof webRuntime.ollama.getServerStatus, 'function')
   assert.equal(typeof webRuntime.files.saveExportFiles, 'function')
   assert.equal(typeof webRuntime.ollama.pullModel, 'function')
+  assert.equal(typeof webRuntime.localServices.beginUsage, 'function')
+  assert.equal(typeof webRuntime.localServices.getManagedStatus, 'function')
+})
+
+test('web runtime local service lifecycle helpers stay inert and explicit', async () => {
+  const { webRuntime } = await loadViteModule('/src/runtime/webRuntime.ts')
+
+  await webRuntime.localServices.beginUsage('ollama')
+  await webRuntime.localServices.endUsage('panelcleaner')
+  assert.deepEqual(
+    await webRuntime.localServices.getManagedStatus(),
+    {
+      panelcleaner: {
+        running: false,
+        ownedByApp: false,
+        inFlightCount: 0,
+        idleTimeoutMs: null,
+        idleDeadlineAt: null,
+      },
+      ollama: {
+        running: false,
+        ownedByApp: false,
+        inFlightCount: 0,
+        idleTimeoutMs: null,
+        idleDeadlineAt: null,
+      },
+    },
+  )
+  assert.deepEqual(
+    await webRuntime.localServices.stopOwnedServices(),
+    { ok: false, error: 'Web runtime cannot stop local services.' },
+  )
 })
 
 test('OllamaClient preserves cloud API key and api path behavior', async () => {

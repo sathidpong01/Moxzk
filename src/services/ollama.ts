@@ -4,6 +4,7 @@ import { buildStoryContextBlock, type TranslationStoryContext } from './story-co
 import { detectSourceLanguageFromText, normalizeSourceLanguage } from './sourceLanguage'
 import { runWithRequestTimeout } from './request-timeout'
 import { normalizeTextBalloonShape } from '../utils/textLayout'
+import { withLocalServiceUsage } from './localServiceUsage'
 
 export interface OllamaOptions {
   ollamaUrl?: string
@@ -553,19 +554,22 @@ async function postOllamaChat(
   format?: 'json',
 ): Promise<string> {
   const model = options.ollamaModel?.trim() || DEFAULT_OLLAMA_MODEL
-  const res = await runWithRequestTimeout(
-    { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
-    (signal) => fetch(buildOllamaApiUrl(options.ollamaUrl, '/api/chat'), {
-      method: 'POST',
-      headers: buildHeaders(options),
-      signal,
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: false,
-        ...(format ? { format } : {}),
+  const res = await withLocalServiceUsage(
+    'ollama',
+    () => runWithRequestTimeout(
+      { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
+      (signal) => fetch(buildOllamaApiUrl(options.ollamaUrl, '/api/chat'), {
+        method: 'POST',
+        headers: buildHeaders(options),
+        signal,
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          ...(format ? { format } : {}),
+        }),
       }),
-    }),
+    ),
   )
 
   const data = await parseJsonResponse<OllamaChatResponse>(res)
@@ -792,12 +796,14 @@ export async function getOllamaStatus(options: OllamaOptions = {}): Promise<Olla
   }
 
   try {
-    const res = await runWithRequestTimeout(
-      { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
-      (signal) => fetch(buildOllamaApiUrl(url, '/api/version'), {
-        headers: buildHeaders(options),
-        signal,
-      }),
+    const res = await withLocalServiceUsage('ollama', () =>
+      runWithRequestTimeout(
+        { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
+        (signal) => fetch(buildOllamaApiUrl(url, '/api/version'), {
+          headers: buildHeaders(options),
+          signal,
+        }),
+      ),
     )
     const data = await parseJsonResponse<{ version?: string }>(res)
     return { ok: true, url, version: data.version || (isOllamaCloudUrl(url) ? 'cloud' : undefined) }
@@ -812,12 +818,14 @@ export async function listOllamaModels(options: OllamaOptions = {}): Promise<Oll
     throw new Error('Ollama Cloud ต้องใช้ API key')
   }
 
-  const res = await runWithRequestTimeout(
-    { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
-    (signal) => fetch(buildOllamaApiUrl(url, '/api/tags'), {
-      headers: buildHeaders(options),
-      signal,
-    }),
+  const res = await withLocalServiceUsage('ollama', () =>
+    runWithRequestTimeout(
+      { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
+      (signal) => fetch(buildOllamaApiUrl(url, '/api/tags'), {
+        headers: buildHeaders(options),
+        signal,
+      }),
+    ),
   )
   const data = await parseJsonResponse<{ models?: OllamaModelTag[] }>(res)
   return Array.isArray(data.models) ? data.models : []
@@ -832,14 +840,16 @@ export async function pullOllamaModel(options: OllamaPullOptions): Promise<Ollam
     throw new Error('การติดตั้งโมเดลในเครื่องรองรับเฉพาะ Local Ollama endpoint')
   }
 
-  const res = await runWithRequestTimeout(
-    { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
-    (signal) => fetch(buildOllamaApiUrl(url, '/api/pull'), {
-      method: 'POST',
-      headers: buildHeaders(options),
-      signal,
-      body: JSON.stringify({ model, stream: true }),
-    }),
+  const res = await withLocalServiceUsage('ollama', () =>
+    runWithRequestTimeout(
+      { label: 'Ollama', signal: options.signal, timeoutMs: options.timeoutMs },
+      (signal) => fetch(buildOllamaApiUrl(url, '/api/pull'), {
+        method: 'POST',
+        headers: buildHeaders(options),
+        signal,
+        body: JSON.stringify({ model, stream: true }),
+      }),
+    ),
   )
 
   if (!res.ok) {

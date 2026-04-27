@@ -12,6 +12,8 @@ import {
 } from '../../services/cleanup-diff-bboxes'
 import type { BoundingBox } from '../../types'
 import type { StreamProgress } from '../../services/translator-api'
+import { getAppRuntime } from '../../runtime'
+import { autoStartRequiredLocalServices } from '../../services/localServiceAutoStart'
 import {
   Search,
   FileText,
@@ -21,6 +23,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface ProcessingViewProps {
   imageFile: File
@@ -140,6 +143,20 @@ export default function ProcessingView({
     const run = async () => {
       try {
         const cleanupLabel = 'PanelCleaner'
+        const startupResult = await autoStartRequiredLocalServices({
+          runtime: getAppRuntime(),
+          settings,
+          mode,
+          reporter: {
+            onLoading: (service, message) => toast.loading(message, { id: `${service}-start` }),
+            onSuccess: (service, message) => toast.success(message, { id: `${service}-start` }),
+            onError: (service, message) => toast.error(message, { id: `${service}-start` }),
+            onLog: addLog,
+          },
+        })
+        if (!startupResult.ok) {
+          throw new Error(startupResult.error ?? 'ไม่สามารถเริ่ม local services ได้')
+        }
 
         // Smart retry: skip cleanup backend if we already have OCR/cleaned results
         let cleanedImageBlob = _cachedCleanedBlob

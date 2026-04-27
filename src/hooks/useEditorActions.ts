@@ -9,6 +9,7 @@ import { getAppRuntime } from '../runtime'
 import { runBatchAiQueue, type BatchProgressState } from '../services/batch-processing'
 import { downloadImage } from '../services/storageService'
 import { toast } from 'sonner'
+import { autoStartRequiredLocalServices } from '../services/localServiceAutoStart'
 
 interface UseEditorActionsOptions {
   onOpenExportDrawer: () => void
@@ -139,36 +140,27 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
     state.clearLogs()
     state.addLog(`Batch AI: เริ่ม ${retryFailedOnly ? 'หน้าที่พลาด' : 'ทุกหน้า'}`)
 
-    // Auto-start local services when running inside Electron
-    const runtime = getAppRuntime()
-    if (runtime.capabilities.canStartLocalServices) {
-      const needsClean = entries.some((entry) =>
-        (retryFailedOnly ? entry.status === 'error' : entry.status !== 'done') &&
-        !entry.cleanedImageUrl &&
-        entry.file,
-      )
-      if (needsClean || mode === 'clean_only') {
-        toast.loading('กำลังเริ่ม PanelCleaner bridge…', { id: 'pcleaner-start' })
-        const pcResult = await runtime.localServices.startPanelCleanerBridge()
-        if (pcResult.ok) {
-          toast.success('PanelCleaner bridge พร้อมใช้งาน', { id: 'pcleaner-start' })
-          state.addLog('Auto-start: PanelCleaner bridge พร้อมแล้ว')
-        } else {
-          toast.error(`PanelCleaner: ${pcResult.error ?? 'เริ่มไม่ได้'}`, { id: 'pcleaner-start' })
-          state.addLog(`Auto-start: PanelCleaner bridge ล้มเหลว — ${pcResult.error ?? 'unknown error'}`)
-        }
-      }
-      if (mode !== 'clean_only') {
-        toast.loading('กำลังเริ่ม Ollama…', { id: 'ollama-start' })
-        const ollamaResult = await runtime.localServices.startOllama()
-        if (ollamaResult.ok) {
-          toast.success('Ollama พร้อมใช้งาน', { id: 'ollama-start' })
-          state.addLog('Auto-start: Ollama พร้อมแล้ว')
-        } else {
-          toast.error(`Ollama: ${ollamaResult.error ?? 'เริ่มไม่ได้'}`, { id: 'ollama-start' })
-          state.addLog(`Auto-start: Ollama ล้มเหลว — ${ollamaResult.error ?? 'unknown error'}`)
-        }
-      }
+    const needsClean = entries.some((entry) =>
+      (retryFailedOnly ? entry.status === 'error' : entry.status !== 'done') &&
+      !entry.cleanedImageUrl &&
+      entry.file,
+    )
+    const startupResult = await autoStartRequiredLocalServices({
+      runtime: getAppRuntime(),
+      settings: state.settings,
+      mode,
+      needsCleanup: needsClean || mode === 'clean_only',
+      reporter: {
+        onLoading: (service, message) => toast.loading(message, { id: `${service}-start` }),
+        onSuccess: (service, message) => toast.success(message, { id: `${service}-start` }),
+        onError: (service, message) => toast.error(message, { id: `${service}-start` }),
+        onLog: state.addLog,
+      },
+    })
+    if (!startupResult.ok) {
+      setIsBatchProcessing(false)
+      setBatchStatus(null)
+      return
     }
 
     try {

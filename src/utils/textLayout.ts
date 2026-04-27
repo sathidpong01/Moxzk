@@ -511,7 +511,9 @@ function buildLineWidths(width: number, lineCount: number, shape: NormalizedText
       return width * ratio
     }
 
-    const ratio = Math.max(0.62, Math.sqrt(Math.max(0, 1 - (edgePressure * 0.78) ** 2)) * 0.96)
+    // round: raise the minimum from 0.62→0.68 and scale from 0.96→0.98 so
+    // top/bottom lines are less cramped and Thai text fits without overflow.
+    const ratio = Math.max(0.68, Math.sqrt(Math.max(0, 1 - (edgePressure * 0.78) ** 2)) * 0.98)
     return width * ratio
   })
 }
@@ -519,19 +521,23 @@ function buildLineWidths(width: number, lineCount: number, shape: NormalizedText
 function getLayoutPaddingX(bbox: BoxLike, shape: NormalizedTextBalloonShape): number {
   if (shape === 'box') return Math.max(4, Math.min(14, bbox.width * 0.06))
   if (shape === 'cloud') return Math.max(12, Math.min(36, bbox.width * 0.17))
-  return Math.max(10, Math.min(30, bbox.width * 0.145))
+  // round: reduced from 0.145→0.13 to give Thai text more horizontal room
+  return Math.max(8, Math.min(26, bbox.width * 0.13))
 }
 
 function getLayoutPaddingY(bbox: BoxLike, shape: NormalizedTextBalloonShape): number {
   if (shape === 'box') return Math.max(3, Math.min(12, bbox.height * 0.08))
   if (shape === 'cloud') return Math.max(8, Math.min(24, bbox.height * 0.16))
-  return Math.max(7, Math.min(22, bbox.height * 0.14))
+  // round: reduced from 0.14→0.12 to give Thai text more vertical room
+  return Math.max(6, Math.min(20, bbox.height * 0.12))
 }
 
 function getFitComfortScale(shape: NormalizedTextBalloonShape): number {
   if (shape === 'box') return 0.97
-  if (shape === 'cloud') return 0.9
-  return 0.92
+  if (shape === 'cloud') return 0.92
+  // round: raised from 0.92→0.96 — the binary search is already tight;
+  // over-scaling down causes re-wraps that can accidentally overflow.
+  return 0.96
 }
 
 function getPreferredShapeLineCount(
@@ -552,7 +558,9 @@ function getPreferredShapeLineCount(
     .filter(Boolean)
   if (paragraphs.length === 0) return 1
 
-  const fillRatio = shape === 'cloud' ? 0.58 : 0.64
+  // round: 0.64→0.68 gives a better line-count estimate for Thai text
+  // which tends to use more of the available width per line than Latin.
+  const fillRatio = shape === 'cloud' ? 0.58 : 0.68
   const estimated = paragraphs.reduce((sum, paragraph) => {
     const measured = measure(paragraph.replace(/\s+/g, ' '), fontSize)
     return sum + Math.max(1, Math.ceil(measured / Math.max(1, width * fillRatio)))

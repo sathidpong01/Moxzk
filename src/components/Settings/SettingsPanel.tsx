@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { AppSettings, TranslationMode } from '../../types'
 import type { OllamaPullProgress, OllamaStatus } from '../../services/ollama'
 import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
 import { getAppRuntime } from '../../runtime'
+import type { LocalServiceName, ManagedServiceStatus } from '../../runtime'
 import {
   AlertCircle,
   BookOpenText,
@@ -27,6 +28,7 @@ import {
 import { toast } from 'sonner'
 import { Button, Field, Modal, SelectField, TextareaField, TextInput } from '../ui/primitives'
 import { parseApiError } from '../../utils/parseApiError'
+import { isLocalServiceUrl } from '../../services/localServiceAutoStart'
 
 interface SettingsPanelProps {
   settings: AppSettings
@@ -51,6 +53,7 @@ const GEMMA3_DOC_URL = 'https://ollama.com/library/gemma3'
 const OLLAMA_STATUS_TIMEOUT_MS = 8000
 const OLLAMA_MODELS_TIMEOUT_MS = 15000
 const PANELCLEANER_STATUS_TIMEOUT_MS = 15000
+const LOCAL_SERVICE_STATUS_POLL_MS = 1000
 
 const MODEL_PRESETS = [
   {
@@ -107,14 +110,42 @@ function toFriendlyServiceError(service: 'ollama' | 'panelcleaner', raw?: string
   return parseApiError(`${prefix} ${raw ?? fallback}`).shortMessage
 }
 
-function isLocalServiceUrl(value: string): boolean {
-  if (!value.trim()) return true
-  try {
-    const url = new URL(value)
-    return ['localhost', '127.0.0.1', '::1'].includes(url.hostname)
-  } catch {
-    return false
+const EMPTY_MANAGED_STATUS: Record<LocalServiceName, ManagedServiceStatus> = {
+  panelcleaner: {
+    running: false,
+    ownedByApp: false,
+    inFlightCount: 0,
+    idleTimeoutMs: null,
+    idleDeadlineAt: null,
+  },
+  ollama: {
+    running: false,
+    ownedByApp: false,
+    inFlightCount: 0,
+    idleTimeoutMs: null,
+    idleDeadlineAt: null,
+  },
+}
+
+function formatRemainingTime(deadlineAt: number | null): string | null {
+  if (!deadlineAt) return null
+  const remainingMs = Math.max(0, deadlineAt - Date.now())
+  const totalSeconds = Math.ceil(remainingMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes <= 0) return `${seconds} วินาที`
+  if (seconds === 0) return `${minutes} นาที`
+  return `${minutes} นาที ${seconds} วินาที`
+}
+
+function describeManagedStatus(status: ManagedServiceStatus): string {
+  if (status.inFlightCount > 0) return 'กำลังใช้งาน'
+  if (status.running && status.ownedByApp) {
+    const remaining = formatRemainingTime(status.idleDeadlineAt)
+    return remaining ? `แอปเปิดไว้ · ปิดในอีก ${remaining}` : 'แอปเปิดไว้'
   }
+  if (status.running) return 'เปิดจากภายนอก'
+  return 'ยังไม่ทำงาน'
 }
 
 export default function SettingsPanel({
@@ -137,6 +168,8 @@ export default function SettingsPanel({
   const [checkingPanelCleaner, setCheckingPanelCleaner] = useState(false)
   const [startingOllama, setStartingOllama] = useState(false)
   const [startingPanelCleaner, setStartingPanelCleaner] = useState(false)
+  const [localServiceStatus, setLocalServiceStatus] = useState<Record<LocalServiceName, ManagedServiceStatus>>(EMPTY_MANAGED_STATUS)
+  const [stoppingOwnedServices, setStoppingOwnedServices] = useState(false)
 
   const installedModels = useMemo(() => new Set(modelNames), [modelNames])
   const pullPercent = getPullPercent(pullProgress)
@@ -144,6 +177,19 @@ export default function SettingsPanel({
   const canStartLocalServices = appRuntime.capabilities.canStartLocalServices
   const canStartOllama = canStartLocalServices && isLocalServiceUrl(draft.ollamaUrl)
   const canStartPanelCleaner = canStartLocalServices && isLocalServiceUrl(draft.panelCleanerBridgeUrl)
+  const hasOwnedServices = localServiceStatus.ollama.ownedByApp || localServiceStatus.panelcleaner.ownedByApp
+
+  const refreshManagedStatuses = useCallback(async () => {
+    if (!canStartLocalServices) {
+      setLocalServiceStatus(EMPTY_MANAGED_STATUS)
+      return
+    }
+    try {
+      setLocalServiceStatus(await appRuntime.localServices.getManagedStatus())
+    } catch {
+      setLocalServiceStatus(EMPTY_MANAGED_STATUS)
+    }
+  }, [appRuntime.localServices, canStartLocalServices])
 
   useEffect(() => {
     if (isOpen) {
@@ -155,8 +201,17 @@ export default function SettingsPanel({
       setPullingModel(null)
       setStartingOllama(false)
       setStartingPanelCleaner(false)
+      void refreshManagedStatuses()
     }
-  }, [isOpen, settings])
+  }, [isOpen, refreshManagedStatuses, settings])
+
+  useEffect(() => {
+    if (!isOpen || !canStartLocalServices) return
+    const timer = window.setInterval(() => {
+      void refreshManagedStatuses()
+    }, LOCAL_SERVICE_STATUS_POLL_MS)
+    return () => window.clearInterval(timer)
+  }, [canStartLocalServices, isOpen, refreshManagedStatuses])
 
   const handleSave = () => {
     onSave({ ...draft, theme: 'studio-dark' })
@@ -173,6 +228,7 @@ export default function SettingsPanel({
         timeoutMs: OLLAMA_STATUS_TIMEOUT_MS,
       })
       setOllamaStatus(status)
+      await refreshManagedStatuses()
       if (status.ok) {
         toast.success(status.version === 'cloud' ? 'Ollama Cloud พร้อมใช้งาน' : `Ollama ${status.version ?? ''} พร้อมใช้งาน`)
       } else {
@@ -216,6 +272,7 @@ export default function SettingsPanel({
       if (result.ok) {
         toast.success('เริ่ม Ollama แล้ว')
         await handleCheckOllama()
+        await refreshManagedStatuses()
       } else {
         toast.error(toFriendlyServiceError('ollama', result.error))
       }
@@ -278,6 +335,7 @@ export default function SettingsPanel({
         timeoutMs: PANELCLEANER_STATUS_TIMEOUT_MS,
       })
       setPanelCleanerStatus(status)
+      await refreshManagedStatuses()
       if (status.ok && !draft.panelCleanerExecutablePath && status.command && /[\\/]/.test(status.command)) {
         setDraft((current) => ({ ...current, panelCleanerExecutablePath: status.command! }))
       }
@@ -302,6 +360,7 @@ export default function SettingsPanel({
       if (result.ok) {
         toast.success('เริ่ม PanelCleaner bridge แล้ว')
         await handleCheckPanelCleaner()
+        await refreshManagedStatuses()
       } else {
         toast.error(toFriendlyServiceError('panelcleaner', result.error))
       }
@@ -310,6 +369,23 @@ export default function SettingsPanel({
       toast.error(toFriendlyServiceError('panelcleaner', message))
     } finally {
       setStartingPanelCleaner(false)
+    }
+  }
+
+  const handleStopOwnedServices = async () => {
+    setStoppingOwnedServices(true)
+    try {
+      const result = await appRuntime.localServices.stopOwnedServices()
+      if (result.ok) {
+        toast.success('หยุด local services ที่แอปเปิดไว้แล้ว')
+      } else {
+        toast.error(result.error ?? 'หยุด local services ไม่สำเร็จ')
+      }
+      await refreshManagedStatuses()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setStoppingOwnedServices(false)
     }
   }
 
@@ -400,14 +476,14 @@ export default function SettingsPanel({
                     <StatusTile
                       icon={<Cpu size={16} />}
                       label="Ollama"
-                      value={ollamaStatus?.ok ? 'พร้อมใช้งาน' : 'ยังไม่ได้ตรวจ'}
-                      tone={ollamaStatus?.ok ? 'good' : 'muted'}
+                      value={describeManagedStatus(localServiceStatus.ollama)}
+                      tone={localServiceStatus.ollama.running ? 'good' : 'muted'}
                     />
                     <StatusTile
                       icon={<Server size={16} />}
                       label="PanelCleaner"
-                      value={panelCleanerStatus?.ok ? 'พร้อมใช้งาน' : 'ยังไม่ได้ตรวจ'}
-                      tone={panelCleanerStatus?.ok ? 'good' : 'muted'}
+                      value={describeManagedStatus(localServiceStatus.panelcleaner)}
+                      tone={localServiceStatus.panelcleaner.running ? 'good' : 'muted'}
                     />
                     <StatusTile
                       icon={<Workflow size={16} />}
@@ -415,6 +491,25 @@ export default function SettingsPanel({
                       value={appRuntime.kind === 'web' ? 'Web phase' : 'Electron'}
                       tone="muted"
                     />
+                  </div>
+                </SettingsRow>
+                <SettingsRow title="บริการ local ที่แอปควบคุม" description="แอปจะหยุดเฉพาะ service ที่ตัวเองเป็นคนเปิดไว้ และจะไม่แตะ process ที่เปิดจากภายนอก">
+                  <div className="space-y-3">
+                    <div className="mg-notice">
+                      <Workflow size={14} />
+                      <span>
+                        Ollama: {describeManagedStatus(localServiceStatus.ollama)} | PanelCleaner: {describeManagedStatus(localServiceStatus.panelcleaner)}
+                      </span>
+                    </div>
+                    <Button
+                      variant="soft"
+                      size="sm"
+                      onClick={handleStopOwnedServices}
+                      disabled={!hasOwnedServices || stoppingOwnedServices}
+                    >
+                      {stoppingOwnedServices ? <Loader2 size={12} className="animate-spin" /> : <Server size={12} />}
+                      หยุด local services ที่แอปเปิดไว้
+                    </Button>
                   </div>
                 </SettingsRow>
               </SettingsSheet>
@@ -474,6 +569,10 @@ export default function SettingsPanel({
                         </span>
                       </div>
                     )}
+                    <div className="mg-notice">
+                      <Workflow size={14} />
+                      <span>สถานะที่แอปจัดการ: {describeManagedStatus(localServiceStatus.ollama)}</span>
+                    </div>
                   </div>
                 </SettingsRow>
 
@@ -722,6 +821,10 @@ export default function SettingsPanel({
                         </span>
                       </div>
                     )}
+                    <div className="mg-notice">
+                      <Workflow size={14} />
+                      <span>สถานะที่แอปจัดการ: {describeManagedStatus(localServiceStatus.panelcleaner)}</span>
+                    </div>
                   </div>
                 </SettingsRow>
               </SettingsSheet>

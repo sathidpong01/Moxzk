@@ -23,6 +23,8 @@ test('settings exposes a zero-knowledge Ollama model tutorial', () => {
   assert.match(source, /ติดตั้งในเครื่องนี้/)
   assert.match(source, /คัดลอกคำสั่ง/)
   assert.match(source, /Electron/)
+  assert.match(source, /หยุด local services ที่แอปเปิดไว้/)
+  assert.match(source, /สถานะที่แอปจัดการ/)
 })
 
 test('settings keeps translation guidance separate from model setup', () => {

@@ -22,6 +22,10 @@ const bridge: MgRuntimeBridge = {
     clear: () => ipcRenderer.invoke(IPC_CHANNELS.projectDraftClear),
   },
   localServices: {
+    beginUsage: (service) => ipcRenderer.invoke(IPC_CHANNELS.localServicesBeginUsage, service),
+    endUsage: (service) => ipcRenderer.invoke(IPC_CHANNELS.localServicesEndUsage, service),
+    getManagedStatus: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesGetManagedStatus),
+    stopOwnedServices: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStopOwnedServices),
     startPanelCleanerBridge: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStartPanelCleanerBridge),
     startOllama: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStartOllama),
   },
