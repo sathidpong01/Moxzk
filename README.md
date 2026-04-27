@@ -2,12 +2,12 @@
 
 React/Vite image editor สำหรับคลีนภาพมังงะและแปลเป็นภาษาไทย โดยใช้ PanelCleaner, Ollama vision model และ Cloudflare Worker/D1/R2 เป็นแกนหลัก
 
-Electron desktop คือ primary target. React/Vite รันเป็น renderer ภายใน Electron shell และ Electron V1 shipped แล้ว — รองรับ native IPC สำหรับ export, desktop draft persistence, local service start helpers สำหรับ PanelCleaner/Ollama และ Google OAuth ผ่าน system browser ผ่าน `AppRuntime`. Web runtime ยังใช้เป็น fallback และสำหรับ CI. เฟสถัดไปคือ secure local storage และ custom protocol auth.
+Windows Electron desktop คือ target เดียวของแอปนี้. React/Vite รันเป็น renderer ภายใน Windows Electron shell และ Electron V1 shipped แล้ว — รองรับ native IPC สำหรับ export, desktop draft persistence, local service start helpers สำหรับ PanelCleaner/Ollama, Google OAuth ผ่าน system browser, และ frameless window controls ผ่าน `AppRuntime`. Web runtime ยังใช้เป็น fallback และสำหรับ CI; Linux/macOS ไม่ใช่ planned target. เฟสถัดไปคือ secure local storage และ custom protocol auth.
 
 ## Current Direction
 
 - Frontend: React 19 + Vite 8 + TypeScript
-- Desktop shell: Electron + electron-vite ผ่าน `AppRuntime`
+- Windows desktop shell: Electron + electron-vite ผ่าน `AppRuntime`
 - UI: Tailwind CSS 4 + Headless UI primitives + custom studio-dark design system
 - Editor: Konva/react-konva พร้อม multi-artboard workspace
 - Cleanup: PanelCleaner external CLI ผ่าน local bridge
@@ -29,7 +29,7 @@ Electron desktop คือ primary target. React/Vite รันเป็น rend
 - Albums บน Cloudflare D1/R2 พร้อม Google OAuth, email/password, session cookie และ ownership checks
 - Export หลายหน้า โดยเลือกทุกหน้าเป็นค่าเริ่มต้น หรือเลือกเฉพาะบางหน้า
 - Export ผ่าน File System Access API เมื่อ browser รองรับ และ fallback เป็น ZIP
-- Electron dev shell รองรับ native save dialog, folder export และ desktop draft restore
+- Electron dev shell รองรับ native save dialog, folder export, desktop draft restore และ Windows frameless title bar
 
 ## Architecture
 

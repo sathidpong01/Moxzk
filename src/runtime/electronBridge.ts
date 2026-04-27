@@ -41,6 +41,10 @@ export interface NativeManagedServiceStatus {
   idleDeadlineAt: number | null
 }
 
+export interface NativeWindowState {
+  isMaximized: boolean
+}
+
 export interface MgRuntimeBridge {
   files: {
     saveFile(file: NativeFilePayload): Promise<NativeResult<string>>
@@ -65,6 +69,13 @@ export interface MgRuntimeBridge {
   }
   auth: {
     signInWithGoogle(): Promise<NativeResult<NativeServiceActionResult>>
+  }
+  windowControls: {
+    minimize(): Promise<NativeResult<void>>
+    toggleMaximize(): Promise<NativeResult<NativeWindowState>>
+    close(): Promise<NativeResult<void>>
+    getState(): Promise<NativeResult<NativeWindowState>>
+    onStateChange(callback: (state: NativeWindowState) => void): () => void
   }
 }
 

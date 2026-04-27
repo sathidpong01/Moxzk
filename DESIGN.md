@@ -33,9 +33,10 @@ MG_Translater คือเครื่องมือทำความสะอ
    - งานที่หนักและผูกกับเครื่องผู้ใช้ เช่น PanelCleaner และ Ollama อยู่ฝั่ง local runtime
    - งานที่ต้องการบัญชี, ownership, metadata, และ object storage อยู่ฝั่ง Cloudflare Worker + D1/R2
 
-4. `Desktop-native Electron shell is the primary target`
-   - Electron V1 is shipped. React/Vite runs as the renderer inside the Electron shell.
-   - native capability (export, draft, local service start, Google OAuth) ผ่าน `AppRuntime` ทั้งหมด
+4. `Windows-native Electron shell is the only app target`
+   - Electron V1 is shipped. React/Vite runs as the renderer inside the Windows Electron shell.
+   - native capability (export, draft, local service start, Google OAuth, frameless window controls) ผ่าน `AppRuntime` ทั้งหมด
+   - Linux/macOS ไม่ใช่ planned target ของโปรเจคนี้
    - business logic ไม่ถูกผูกกับ browser API แบบตรง ทำให้ยังคงเปลี่ยน runtime implementation ได้ทีละส่วน
 
 5. `Thai translation continuity matters`
@@ -54,6 +55,7 @@ MG_Translater คือเครื่องมือทำความสะอ
 ## Explicit Non-Goals
 
 - ไม่ทำ mobile-first UI ในเฟสปัจจุบัน
+- ไม่วางแผนรองรับ Linux/macOS ในเฟสปัจจุบัน
 - ไม่ vendor โค้ด GPLv3 ของ PanelCleaner เข้ามาใน repo
 - ไม่เก็บ secret สำคัญไว้ใน `VITE_*` env เพื่อใช้ตรงใน browser
 - ไม่ออกแบบให้ AI แปลแทนมนุษย์แบบไม่มีขั้น review/แก้ไข
@@ -235,7 +237,7 @@ Cloudflare Worker เป็น API layer หลักของระบบ:
 
 runtime abstraction คือหัวใจของ design ระยะกลางของโปรเจคนี้
 
-interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที่ browser ทำได้กับ capability ที่ native shell จะทำได้ในอนาคต
+interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที่ browser fallback ทำได้กับ capability ที่ Windows native shell ทำได้
 
 ขอบเขตหลักของ runtime:
 
@@ -249,19 +251,22 @@ interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที
   - export หลายไฟล์
 - `projectDraft`
   - save/load/clear draft
+- `windowControls`
+  - ควบคุม frameless Windows window: minimize, maximize/restore, close, และ state sync
 - `capabilities`
   - ประกาศว่า runtime นี้ทำ native action อะไรได้บ้าง
 
-### Electron runtime (primary)
+### Windows Electron runtime (primary)
 
-`src/runtime/electronRuntime.ts` คือ primary runtime ที่ใช้ใน production desktop build
+`src/runtime/electronRuntime.ts` คือ primary runtime ที่ใช้ใน production Windows desktop build
 
 - native save dialog สำหรับ ZIP/single-file export
 - native folder export ผ่าน main process
 - desktop draft persistence ใต้ Electron `userData`
-- typed IPC สำหรับ export/draft โดยไม่ expose raw `ipcRenderer`
+- typed IPC สำหรับ export/draft/window controls โดยไม่ expose raw `ipcRenderer`
 - native start helper สำหรับ PanelCleaner bridge และ Ollama
 - Google OAuth ผ่าน system browser + loopback one-time ticket
+- Windows frameless window พร้อม React-rendered title bar
 
 ### Web runtime (fallback / CI)
 
@@ -271,6 +276,7 @@ interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที
 - `canPickNativeFolders = true` เฉพาะ browser ที่รองรับ `showDirectoryPicker`
 - `canSecureStoreSecrets = false`
 - `canUseCustomProtocolAuth = false`
+- `canUseCustomWindowControls = false`
 
 ผลเชิง design:
 
@@ -279,18 +285,19 @@ interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที
 - project draft ใช้ IndexedDB
 - secret ระดับระบบยังไม่ถือว่าปลอดภัยพอใน browser shell
 
-### Electron target
+### Windows Electron target
 
-Electron V1 เพิ่ม shell แบบ "เปลี่ยน runtime implementation ไม่เปลี่ยน business model" แล้ว โดยยังคง renderer เป็น React/Vite browser-style app และให้ native action วิ่งผ่าน `AppRuntime`
+Electron V1 เพิ่ม Windows shell แบบ "เปลี่ยน runtime implementation ไม่เปลี่ยน business model" แล้ว โดยยังคง renderer เป็น React/Vite browser-style app และให้ native action วิ่งผ่าน `AppRuntime`
 
 สิ่งที่ V1 รองรับ:
 
 - native save dialog สำหรับ ZIP/single-file export
 - native folder export ผ่าน main process
 - desktop draft persistence โดยเก็บ manifest และ image assets ใต้ Electron `userData`
-- typed IPC สำหรับ export/draft และ local service start โดยไม่ expose raw `ipcRenderer`
+- typed IPC สำหรับ export/draft, local service start, และ frameless window controls โดยไม่ expose raw `ipcRenderer`
 - native start helper สำหรับ PanelCleaner bridge และ local Ollama โดยยังถือว่า PanelCleaner/Ollama เป็น external dependencies
 - Google OAuth ผ่าน system browser + loopback one-time ticket โดยไม่ render Google login ใน Electron window
+- Windows frameless window ที่ใช้ React title bar และ custom minimize/maximize/close controls
 
 สิ่งที่ยังเป็นเฟสถัดไป:
 
@@ -450,20 +457,20 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 
 ## Current Limitations
 
-- Electron V1 shipped พร้อม native IPC, draft persistence, local service start, และ Google OAuth ผ่าน system browser
+- Electron V1 shipped พร้อม native IPC, draft persistence, local service start, Google OAuth ผ่าน system browser, และ Windows frameless window controls
 - ยังไม่มี installer/signing/auto-update สำหรับ production distribution
 - secure secret storage และ custom protocol auth (`mg-translater://auth/callback`) ยังเป็นเฟสถัดไป
 - verification สำคัญหลายอย่างยังต้องพึ่ง browser smoke test นอกเหนือจาก unit/script tests
 
 ## Next Design Step
 
-MG_Translater ได้ขยับจาก web-first editor มาเป็น desktop-native Electron workstation แล้ว โดยไม่เสียโครงสร้างหลักของระบบ
+MG_Translater ได้ขยับจาก web-first editor มาเป็น Windows-native Electron workstation แล้ว โดยไม่เสียโครงสร้างหลักของระบบ
 
 เฟสถัดไปที่สมเหตุสมผลที่สุดคือ:
 
 - เพิ่ม secure secret storage ผ่าน Electron keychain/safeStorage
 - custom protocol auth callback (`mg-translater://auth/callback`)
-- installer, code signing, และ auto-update pipeline สำหรับ production distribution
+- Windows installer, code signing, และ auto-update pipeline สำหรับ production distribution
 
 ## Key Reference Files
 

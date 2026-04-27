@@ -21,4 +21,5 @@ export type {
   RuntimeExportResult,
   RuntimeProjectDraft,
   RuntimeSaveExportOptions,
+  RuntimeWindowState,
 } from './types'

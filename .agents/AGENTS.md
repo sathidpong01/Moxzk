@@ -14,7 +14,7 @@ Use it to keep project state close to the codebase instead of burying it in chat
 
 ## Project Shape
 
-MG_Translater is a desktop-first Electron application for manga cleanup and Thai translation. React 19 + Vite 8 + TypeScript runs as the renderer inside the Electron shell; Electron V1 is the primary acceptance target.
+MG_Translater is a Windows-only Electron desktop application for manga cleanup and Thai translation. React 19 + Vite 8 + TypeScript runs as the renderer inside the Windows Electron shell; Electron V1 is the primary acceptance target and Linux/macOS are not planned targets.
 The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollama OCR/translation, and a Cloudflare Worker backed by D1/R2. The web runtime remains available as a fallback and for CI.
 
 ## Working Rules
@@ -33,7 +33,7 @@ The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollam
   - refresh `_wiki/podcast.md`
   - update `_wiki/index.md` when navigation changes
   - append `_wiki/log.md`
-- For browser-facing work, verify layout and runtime behavior in a real browser when practical.
+- For browser-facing work, verify layout and runtime behavior in a real browser when practical. For Electron work, verify the Windows desktop shell; Linux/macOS behavior is out of scope unless explicitly requested.
 - For Worker, D1, auth, storage, and export behavior, add or update focused tests.
 - During implementation, run the smallest relevant focused test group first; reserve full `npm test` for pre-commit/pre-push, broad refactors, and shared cross-cutting changes.
 - Run `npm run build` when TypeScript, React, runtime contracts, or shared interfaces change.

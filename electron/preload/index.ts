@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import type {
   MgRuntimeBridge,
@@ -31,6 +31,21 @@ const bridge: MgRuntimeBridge = {
   },
   auth: {
     signInWithGoogle: () => ipcRenderer.invoke(IPC_CHANNELS.authSignInWithGoogle),
+  },
+  windowControls: {
+    minimize: () => ipcRenderer.invoke(IPC_CHANNELS.windowControlsMinimize),
+    toggleMaximize: () => ipcRenderer.invoke(IPC_CHANNELS.windowControlsToggleMaximize),
+    close: () => ipcRenderer.invoke(IPC_CHANNELS.windowControlsClose),
+    getState: () => ipcRenderer.invoke(IPC_CHANNELS.windowControlsGetState),
+    onStateChange: (callback) => {
+      const handler = (_event: IpcRendererEvent, state: { isMaximized: boolean }) => {
+        callback(state)
+      }
+      ipcRenderer.on(IPC_CHANNELS.windowControlsStateChanged, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.windowControlsStateChanged, handler)
+      }
+    },
   },
 }
 

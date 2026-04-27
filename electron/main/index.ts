@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerRuntimeIpcHandlers } from './ipc'
 import { shutdownOwnedServices } from './localServices'
+import { IPC_CHANNELS } from '../shared/ipcChannels'
 
 const mainFilePath = fileURLToPath(import.meta.url)
 const mainDir = path.dirname(mainFilePath)
@@ -13,10 +14,14 @@ let isShuttingDownOwnedServices = false
 
 function createWindow(): void {
   const win = new BrowserWindow({
+    title: 'MG_Translater',
     width: 1440,
     height: 960,
     minWidth: 1024,
     minHeight: 720,
+    frame: false,
+    thickFrame: true,
+    roundedCorners: true,
     show: false,
     backgroundColor: '#0b1020',
     webPreferences: {
@@ -29,7 +34,12 @@ function createWindow(): void {
 
   win.once('ready-to-show', () => {
     win.show()
+    sendWindowState(win)
   })
+
+  win.on('maximize', () => sendWindowState(win))
+  win.on('unmaximize', () => sendWindowState(win))
+  win.on('restore', () => sendWindowState(win))
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)
@@ -52,10 +62,6 @@ function createWindow(): void {
 
 void app.whenReady().then(() => {
   createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
 })
 
 app.on('before-quit', (event) => {
@@ -68,8 +74,15 @@ app.on('before-quit', (event) => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  app.quit()
 })
+
+function sendWindowState(win: BrowserWindow): void {
+  if (win.isDestroyed() || win.webContents.isDestroyed()) return
+  win.webContents.send(IPC_CHANNELS.windowControlsStateChanged, {
+    isMaximized: win.isMaximized(),
+  })
+}
 
 function shouldOpenExternally(targetUrl: string, currentUrl: string): boolean {
   try {

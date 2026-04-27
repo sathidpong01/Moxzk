@@ -44,4 +44,4 @@ For the fuller project context layer, read `.agents/AGENTS.md` first, then load 
 - Treat PanelCleaner as an external CLI dependency. Do not vendor GPLv3 PanelCleaner code into this repo.
 - Keep Cloudflare D1 schema changes in Drizzle migrations and run the relevant checks before shipping.
 - Preserve Thai text as UTF-8. Check for replacement characters (`U+FFFD`) after editing Thai content.
-- Desktop/Electron is the primary acceptance target. Keep desktop workflows stable first and do not spend implementation effort on small-screen/mobile layouts unless the user explicitly asks for it.
+- Windows desktop/Electron is the only supported app target. Keep Windows desktop workflows stable first and do not spend implementation effort on Linux/macOS or small-screen/mobile layouts unless the user explicitly asks for it.

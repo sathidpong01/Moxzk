@@ -30,7 +30,9 @@ const child = spawn(process.execPath, [electronViteCli, ...(electronViteArgs.len
 let stopping = false
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => stopChild(signal))
+  process.on(signal, () => {
+    void stopChild(signal)
+  })
 }
 
 child.on('exit', (code) => {
@@ -42,10 +44,14 @@ child.on('error', (error) => {
   process.exit(1)
 })
 
-function stopChild(signal) {
+async function stopChild(signal) {
   if (stopping) return
   stopping = true
-  if (!child.killed) child.kill()
+  if (process.platform === 'win32' && child.pid) {
+    await run('taskkill.exe', ['/pid', String(child.pid), '/t', '/f']).catch(() => {})
+  } else if (!child.killed) {
+    child.kill()
+  }
   const exitCode = signal === 'SIGINT' ? 130 : 143
   setTimeout(() => process.exit(exitCode), 500).unref()
 }
@@ -59,9 +65,12 @@ function assertElectronViteCliExists() {
 async function stopProjectElectronProcesses() {
   const script = `
 $electronPath = ${toPowerShellString(electronBinary)}
-Get-CimInstance Win32_Process |
-  Where-Object { $_.Name -eq 'electron.exe' -and $_.ExecutablePath -eq $electronPath } |
-  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+$ErrorActionPreference = 'SilentlyContinue'
+$processes = @(Get-Process electron | Where-Object { $_.Path -eq $electronPath })
+if ($processes.Count -gt 0) {
+  $processes | ForEach-Object { Stop-Process -Id $_.Id -Force }
+}
+exit 0
 `
   await run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script])
 }
@@ -71,7 +80,7 @@ function run(command, args) {
     const childProcess = spawn(command, args, { stdio: 'ignore' })
     childProcess.on('error', rejectRun)
     childProcess.on('exit', (code) => {
-      if (code === 0) resolveRun()
+      if (code === 0 || code === 128 || code === 255) resolveRun()
       else rejectRun(new Error(`${command} exited with code ${code}`))
     })
   })

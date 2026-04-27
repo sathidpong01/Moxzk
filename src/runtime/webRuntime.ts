@@ -13,6 +13,7 @@ import type {
   RuntimeActionResult,
   RuntimeExportFile,
   RuntimeSaveExportOptions,
+  RuntimeWindowState,
 } from './types'
 
 export class WebRuntime implements AppRuntime {
@@ -23,6 +24,7 @@ export class WebRuntime implements AppRuntime {
     canPickNativeFolders: typeof window !== 'undefined' && 'showDirectoryPicker' in window,
     canSecureStoreSecrets: false,
     canUseCustomProtocolAuth: false,
+    canUseCustomWindowControls: false,
   }
 
   readonly ollama = {
@@ -82,6 +84,14 @@ export class WebRuntime implements AppRuntime {
 
   readonly customProtocolAuth = {
     getCallbackUrl: async () => null,
+  }
+
+  readonly windowControls = {
+    minimize: () => unsupportedRuntimeAction('Web runtime cannot control native windows.'),
+    toggleMaximize: async (): Promise<RuntimeWindowState> => ({ isMaximized: false }),
+    close: () => unsupportedRuntimeAction('Web runtime cannot control native windows.'),
+    getState: async (): Promise<RuntimeWindowState> => ({ isMaximized: false }),
+    onStateChange: (_callback: (state: RuntimeWindowState) => void) => () => {},
   }
 }
 

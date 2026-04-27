@@ -1,10 +1,10 @@
 # Service Overview
 
-MG_Translater is a desktop-first Electron application for manga image cleanup and Thai translation. Electron V1 is the primary acceptance target; the web runtime is a fallback and CI path.
+MG_Translater is a Windows-only Electron application for manga image cleanup and Thai translation. Electron V1 is the primary acceptance target; Linux/macOS are not planned targets. The web runtime remains a fallback and CI path.
 
 ## Desktop Shell
 
-- Electron shell wraps the React renderer via `AppRuntime`. Native IPC handles export, draft persistence, and local service start helpers.
+- The Windows Electron shell wraps the React renderer via `AppRuntime`. Native IPC handles export, draft persistence, local service start helpers, and custom frameless window controls.
 
 ## Frontend
 

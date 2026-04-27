@@ -181,6 +181,7 @@ test('runtime contract names native service and secure desktop capabilities', ()
   const contract = fs.readFileSync('src/runtime/types.ts', 'utf8')
   const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
 
+  assert.match(contract, /canUseCustomWindowControls/)
   assert.match(contract, /localServices/)
   assert.match(contract, /auth/)
   assert.match(contract, /signInWithGoogle/)
@@ -188,7 +189,10 @@ test('runtime contract names native service and secure desktop capabilities', ()
   assert.match(contract, /startPanelCleanerBridge/)
   assert.match(contract, /secureStore/)
   assert.match(contract, /customProtocolAuth/)
+  assert.match(contract, /windowControls/)
+  assert.match(contract, /toggleMaximize/)
   assert.match(webRuntime, /unsupportedRuntimeAction/)
+  assert.match(webRuntime, /Web runtime cannot control native windows/)
 })
 
 test('pre-Electron IPC contract and desktop smoke path are documented', () => {
@@ -200,17 +204,25 @@ test('pre-Electron IPC contract and desktop smoke path are documented', () => {
   assert.match(ipcContract, /sandbox:\s*true/)
   assert.match(ipcContract, /ห้าม expose raw ipcRenderer/)
   assert.match(ipcContract, /AppRuntime/)
+  assert.match(ipcContract, /Windows-only/)
+  assert.match(ipcContract, /windowControls/)
   assert.match(smokeTest, /เปิด album/)
   assert.match(smokeTest, /cleanup\/OCR\/translate/)
   assert.match(smokeTest, /autosave\/restore/)
   assert.match(smokeTest, /export/)
   assert.match(smokeTest, /auth callback/)
+  assert.match(smokeTest, /Windows-only/)
+  assert.match(smokeTest, /frameless/)
 })
 
-test('Electron shell keeps secure BrowserWindow defaults and external navigation handling', () => {
+test('Electron shell keeps secure Windows-only frameless BrowserWindow defaults and external navigation handling', () => {
   const mainProcess = fs.readFileSync('electron/main/index.ts', 'utf8')
   const electronVite = fs.readFileSync('electron.vite.config.ts', 'utf8')
 
+  assert.match(mainProcess, /title:\s*'MG_Translater'/)
+  assert.match(mainProcess, /frame:\s*false/)
+  assert.match(mainProcess, /thickFrame:\s*true/)
+  assert.match(mainProcess, /roundedCorners:\s*true/)
   assert.match(mainProcess, /contextIsolation:\s*true/)
   assert.match(mainProcess, /nodeIntegration:\s*false/)
   assert.match(mainProcess, /sandbox:\s*true/)
@@ -221,6 +233,10 @@ test('Electron shell keeps secure BrowserWindow defaults and external navigation
   assert.match(mainProcess, /ELECTRON_RENDERER_URL/)
   assert.match(mainProcess, /preload\/index\.cjs/)
   assert.match(mainProcess, /loadFile\(path\.join\(mainDir,\s*'..\/renderer\/index\.html'\)\)/)
+  assert.match(mainProcess, /window-all-closed/)
+  assert.match(mainProcess, /app\.quit\(\)/)
+  assert.doesNotMatch(mainProcess, /process\.platform\s*!==\s*'darwin'/)
+  assert.doesNotMatch(mainProcess, /app\.on\('activate'/)
   assert.match(electronVite, /VITE_CLOUDFLARE_API_URL/)
   assert.match(electronVite, /defaultElectronWorkerApiUrl/)
   assert.match(electronVite, /mg-translater-api\.sathidpong01\.workers\.dev/)
@@ -232,7 +248,7 @@ test('Electron shell keeps secure BrowserWindow defaults and external navigation
   assert.match(electronVite, /'\/api'/)
 })
 
-test('Electron IPC surface only exposes V1 runtime channels', () => {
+test('Electron IPC surface only exposes V1 runtime and window-control channels', () => {
   const channels = fs.readFileSync('electron/shared/ipcChannels.ts', 'utf8')
   const preload = fs.readFileSync('electron/preload/index.ts', 'utf8')
   const rendererRuntime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
@@ -251,6 +267,11 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
     'runtime:localServices.getManagedStatus',
     'runtime:localServices.stopOwnedServices',
     'runtime:auth.signInWithGoogle',
+    'runtime:windowControls.minimize',
+    'runtime:windowControls.toggleMaximize',
+    'runtime:windowControls.close',
+    'runtime:windowControls.getState',
+    'runtime:windowControls.stateChanged',
   ]) {
     assert.match(channels, new RegExp(channel.replace('.', '\\.')))
   }
@@ -264,6 +285,9 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
   assert.match(preload, /getManagedStatus/)
   assert.match(preload, /stopOwnedServices/)
   assert.match(preload, /auth/)
+  assert.match(preload, /windowControls/)
+  assert.match(preload, /onStateChange/)
+  assert.match(preload, /removeListener/)
   assert.match(preload, /ipcRenderer\.invoke/)
   assert.match(mainIpc, /startPanelCleanerBridge/)
   assert.match(mainIpc, /startOllama/)
@@ -272,18 +296,26 @@ test('Electron IPC surface only exposes V1 runtime channels', () => {
   assert.match(mainIpc, /getManagedStatus/)
   assert.match(mainIpc, /stopOwnedServices/)
   assert.match(mainIpc, /signInWithGoogleSystemBrowser/)
+  assert.match(mainIpc, /BrowserWindow\.fromWebContents/)
+  assert.match(mainIpc, /windowControlsToggleMaximize/)
   assert.doesNotMatch(rendererRuntime, /ipcRenderer/)
 })
 
 test('Electron runtime installs through window bridge and keeps unsupported desktop stubs explicit', () => {
   const main = fs.readFileSync('src/main.tsx', 'utf8')
+  const app = fs.readFileSync('src/App.tsx', 'utf8')
   const runtime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
+  const titleBar = fs.readFileSync('src/components/Layout/AppTitleBar.tsx', 'utf8')
+  const css = fs.readFileSync('src/index.css', 'utf8')
 
   assert.match(main, /installElectronRuntimeIfAvailable\(\)/)
+  assert.match(app, /AppTitleBar/)
+  assert.match(app, /mg-has-custom-titlebar/)
   assert.match(runtime, /class ElectronRuntime implements AppRuntime/)
   assert.match(runtime, /kind = 'electron'/)
   assert.match(runtime, /canPickNativeFolders:\s*true/)
   assert.match(runtime, /canStartLocalServices:\s*true/)
+  assert.match(runtime, /canUseCustomWindowControls:\s*true/)
   assert.match(runtime, /bridge\.localServices\.beginUsage/)
   assert.match(runtime, /bridge\.localServices\.endUsage/)
   assert.match(runtime, /bridge\.localServices\.getManagedStatus/)
@@ -291,7 +323,17 @@ test('Electron runtime installs through window bridge and keeps unsupported desk
   assert.match(runtime, /bridge\.localServices\.startOllama/)
   assert.match(runtime, /bridge\.localServices\.startPanelCleanerBridge/)
   assert.match(runtime, /bridge\.auth\.signInWithGoogle/)
+  assert.match(runtime, /bridge\.windowControls\.toggleMaximize/)
   assert.match(runtime, /Electron V1 does not provide secure secret storage yet/)
+  assert.match(titleBar, /getAppRuntime/)
+  assert.match(titleBar, /canUseCustomWindowControls/)
+  assert.match(titleBar, /windowControls\.minimize/)
+  assert.match(titleBar, /windowControls\.toggleMaximize/)
+  assert.match(titleBar, /windowControls\.close/)
+  assert.match(titleBar, /onStateChange/)
+  assert.match(css, /-webkit-app-region:\s*drag/)
+  assert.match(css, /-webkit-app-region:\s*no-drag/)
+  assert.match(css, /mg-floating-header/)
 })
 
 test('Electron Google login uses system browser and loopback ticket claim', () => {

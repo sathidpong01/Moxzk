@@ -1,18 +1,22 @@
 # Desktop Smoke Test
 
-Use this checklist as the acceptance path for Electron V1 and later desktop phases. Desktop behavior is the target; browser-only success is not enough for this phase.
+Use this Windows-only checklist as the acceptance path for Electron V1 and later desktop phases. Windows desktop behavior is the target; browser-only success is not enough for this phase. Linux/macOS are out of scope unless explicitly requested.
 
 ## V1 Acceptance
 
 1. Launch the Electron development app with `npm run electron:dev`.
-2. Open or create an editor project.
-3. Export as ZIP and confirm a native save dialog writes the archive.
-4. Export to folder and confirm individual images are written through the native folder picker.
-5. Close and relaunch the app; confirm desktop draft restore returns the page list, active page, regions, brush strokes, and local image assets.
-6. Confirm Electron dev/build uses the default remote Worker, or respects `VITE_CLOUDFLARE_API_URL` when overriding it.
-7. Confirm Google OAuth opens in the system browser, returns to the loopback callback, and Electron refreshes into a signed-in state.
-8. Open Settings > Cleanup, click `เริ่ม PanelCleaner`, then confirm PanelCleaner status becomes ready or returns a clear external dependency error.
-9. Open Settings > AI / Models with a localhost endpoint, click `เริ่ม Ollama`, then confirm Ollama status becomes ready or returns a clear install/PATH error.
+2. Confirm the Windows native title bar is absent and the React frameless title bar is visible.
+3. Drag the window from the title bar and confirm toolbar buttons do not start dragging.
+4. Resize from the window edges and confirm Windows shadow/resize behavior remains intact.
+5. Use minimize, maximize/restore, and close controls in the custom title bar.
+6. Open or create an editor project.
+7. Export as ZIP and confirm a native save dialog writes the archive.
+8. Export to folder and confirm individual images are written through the native folder picker.
+9. Close and relaunch the app; confirm desktop draft restore returns the page list, active page, regions, brush strokes, and local image assets.
+10. Confirm Electron dev/build uses the default remote Worker, or respects `VITE_CLOUDFLARE_API_URL` when overriding it.
+11. Confirm Google OAuth opens in the system browser, returns to the loopback callback, and Electron refreshes into a signed-in state.
+12. Open Settings > Cleanup, click `เริ่ม PanelCleaner`, then confirm PanelCleaner status becomes ready or returns a clear external dependency error.
+13. Open Settings > AI / Models with a localhost endpoint, click `เริ่ม Ollama`, then confirm Ollama status becomes ready or returns a clear install/PATH error.
 
 ## Core Workflow
 
@@ -30,6 +34,8 @@ Use this checklist as the acceptance path for Electron V1 and later desktop phas
 ## Native Capability Checks
 
 - Native folder export writes individual image files without a Chrome permission prompt.
+- The Windows frameless title bar can drag the app, and custom window controls work.
+- Toolbar, Settings, Export drawer, modals, and editor canvas do not overlap the title bar.
 - PanelCleaner bridge starts through Electron IPC or reports a clear external dependency error.
 - Ollama starts through Electron IPC or reports a clear install/PATH error.
 - Google OAuth never renders `accounts.google.com` inside the Electron window.

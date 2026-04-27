@@ -11,6 +11,7 @@ import type {
   RuntimeExportFile,
   RuntimeProjectDraft,
   RuntimeSaveExportOptions,
+  RuntimeWindowState,
 } from './types'
 import { setAppRuntime } from './index'
 
@@ -22,6 +23,7 @@ export class ElectronRuntime implements AppRuntime {
     canPickNativeFolders: true,
     canSecureStoreSecrets: false,
     canUseCustomProtocolAuth: false,
+    canUseCustomWindowControls: true,
   }
 
   readonly ollama = {
@@ -111,6 +113,26 @@ export class ElectronRuntime implements AppRuntime {
 
   readonly customProtocolAuth = {
     getCallbackUrl: async () => null,
+  }
+
+  readonly windowControls = {
+    minimize: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.windowControls.minimize()
+      return result.ok ? { ok: true } : { ok: false, error: result.error }
+    },
+    toggleMaximize: async (): Promise<RuntimeWindowState> => {
+      return unwrapNativeResult(await this.bridge.windowControls.toggleMaximize())
+    },
+    close: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.windowControls.close()
+      return result.ok ? { ok: true } : { ok: false, error: result.error }
+    },
+    getState: async (): Promise<RuntimeWindowState> => {
+      return unwrapNativeResult(await this.bridge.windowControls.getState())
+    },
+    onStateChange: (callback: (state: RuntimeWindowState) => void) => {
+      return this.bridge.windowControls.onStateChange(callback)
+    },
   }
 
   constructor(private readonly bridge: MgRuntimeBridge) {}

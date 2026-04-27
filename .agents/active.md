@@ -2,15 +2,16 @@
 
 Updated: 2026-04-26
 Branch: master
-Project type: node, react, vite, typescript, cloudflare-worker, drizzle-d1
+Project type: node, react, vite, typescript, electron-windows, cloudflare-worker, drizzle-d1
 
 ## Current Focus
 
-Implement Electron V1 follow-up phases behind the existing `AppRuntime` boundary.
+Implement Windows-only Electron V1 follow-up phases behind the existing `AppRuntime` boundary.
 
 ## Current State
 
-- The app is a desktop-first Electron application. React/Vite runs as the renderer inside the Electron shell. Electron V1 is the primary acceptance target.
+- The app is a Windows-only Electron application. React/Vite runs as the renderer inside the Windows Electron shell. Electron V1 is the primary acceptance target; Linux/macOS are not planned targets.
+- The Electron shell uses a Windows frameless window with React-rendered title bar/window controls.
 - Runtime seams now cover Ollama status/model listing, PanelCleaner status, export file saving, project draft storage, and Google auth.
 - Electron IPC covers native export, desktop draft persistence, local service start helpers for PanelCleaner/Ollama, and system-browser Google login.
 - Autosave now snapshots the full multi-page project draft instead of only active-page fragments.
@@ -20,7 +21,7 @@ Implement Electron V1 follow-up phases behind the existing `AppRuntime` boundary
 
 ## Next Action
 
-Next Electron phase should add secure secret storage and optional custom protocol auth behind the existing `AppRuntime` contract.
+Next Electron phase should add secure secret storage and optional custom protocol auth behind the existing Windows-only `AppRuntime` contract.
 
 ## Known Constraints
 

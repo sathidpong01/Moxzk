@@ -56,6 +56,11 @@
       "sourceType": "github",
       "computedHash": "d751b98cb2894feb833af869f397aaaadd9a3a679882331c1a5b254e8ed1399a"
     },
+    "electron": {
+      "source": "teachingai/full-stack-skills",
+      "sourceType": "github",
+      "computedHash": "ab90f92c4abdc6ff5f26cc387c13beca310986937ee51cecab02a89412181c79"
+    },
     "electron-best-practices": {
       "source": "jwynia/agent-skills",
       "sourceType": "github",
@@ -69,7 +74,7 @@
     "frontend-ui-engineering": {
       "source": "addyosmani/agent-skills",
       "sourceType": "github",
-      "computedHash": "da7a255c0e2bce0d25de79ed8c54e7d0cecf810b1da9435ceff03775727cb81e"
+      "computedHash": "195659873a8fe0bac6947e44731c3e23b97ec2caf2c124ce4c808658c555f98d"
     },
     "git-workflow-and-versioning": {
       "source": "addyosmani/agent-skills",
@@ -149,7 +154,7 @@
     "supabase-postgres-best-practices": {
       "source": "supabase/agent-skills",
       "sourceType": "github",
-      "computedHash": "20f6141a206fd4ced3c17e33a3852e7019a9c051a6e42973086750496f20d7e0"
+      "computedHash": "c1bbb1678d29fd89246886c27ebf02fc273521b29076174ef860233899bf6dec"
     },
     "tailwind-css-patterns": {
       "source": "giuseppe-trisciuoglio/developer-kit",
@@ -179,7 +184,7 @@
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "43ca6c197f8ec13055079da7053232d477068b03ca443f9ac1bc819b95cdd432"
+      "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
     },
     "vite": {
       "source": "antfu/skills",

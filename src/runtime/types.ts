@@ -31,6 +31,10 @@ export interface ManagedServiceStatus {
   idleDeadlineAt: number | null
 }
 
+export interface RuntimeWindowState {
+  isMaximized: boolean
+}
+
 export interface RuntimeProjectDraft {
   version: 1
   savedAt: number
@@ -51,6 +55,7 @@ export interface AppRuntime {
     canPickNativeFolders: boolean
     canSecureStoreSecrets: boolean
     canUseCustomProtocolAuth: boolean
+    canUseCustomWindowControls: boolean
   }
   ollama: {
     getServerStatus(options: OllamaOptions): Promise<OllamaStatus>
@@ -91,5 +96,12 @@ export interface AppRuntime {
   }
   customProtocolAuth: {
     getCallbackUrl(path: string): Promise<string | null>
+  }
+  windowControls: {
+    minimize(): Promise<RuntimeActionResult>
+    toggleMaximize(): Promise<RuntimeWindowState>
+    close(): Promise<RuntimeActionResult>
+    getState(): Promise<RuntimeWindowState>
+    onStateChange(callback: (state: RuntimeWindowState) => void): () => void
   }
 }

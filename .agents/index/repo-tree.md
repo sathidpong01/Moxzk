@@ -138,11 +138,11 @@ Root: `MG_Translater`
 |   |-- main/
 |   |   `-- index.js
 |   |-- preload/
-|   |   `-- index.js
+|   |   `-- index.cjs
 |   `-- renderer/
 |       |-- assets/
-|       |   |-- index-BBBjdJBx.js
-|       |   `-- index-BiyCKkVR.css
+|       |   |-- index-DLwypart.js
+|       |   `-- index-DRr_y3ee.css
 |       |-- index.html
 |       `-- vite.svg
 |-- public/
@@ -162,12 +162,15 @@ Root: `MG_Translater`
 |   |-- editor-history-service.test.mjs
 |   |-- editor-model.test.mjs
 |   |-- editor-processing-ui.test.mjs
+|   |-- electron-dev.mjs
 |   |-- export-drawer.test.mjs
 |   |-- export-preview-cache.test.mjs
 |   |-- export-preview-viewport.test.mjs
 |   |-- export-preview.test.mjs
 |   |-- exporter.test.mjs
 |   |-- inline-text-editor.test.mjs
+|   |-- local-service-autostart.test.mjs
+|   |-- local-services-manager.test.mjs
 |   |-- ollama-prompt.test.mjs
 |   |-- oop-boundaries.test.mjs
 |   |-- panelcleaner-bridge.mjs
@@ -211,6 +214,7 @@ Root: `MG_Translater`
 |   |   |   |-- PropertiesPanel.tsx
 |   |   |   `-- StrokeJoinPreview.tsx
 |   |   |-- Layout/
+|   |   |   |-- AppTitleBar.tsx
 |   |   |   |-- LogPanel.tsx
 |   |   |   |-- PanelToggleBar.tsx
 |   |   |   `-- WorkspaceBackdrop.tsx
@@ -264,6 +268,8 @@ Root: `MG_Translater`
 |   |   |-- inlineTextEditor.ts
 |   |   |-- keyboardShortcuts.ts
 |   |   |-- konvaInteraction.ts
+|   |   |-- localServiceAutoStart.ts
+|   |   |-- localServiceUsage.ts
 |   |   |-- ollama.ts
 |   |   |-- panelcleaner-api.ts
 |   |   |-- projectDraftStorage.ts
@@ -329,6 +335,7 @@ Root: `MG_Translater`
 |-- vite.config.ts
 |-- wrangler.jsonc
 |-- Wrong sauna 01.jpg
+|-- Wrong sauna 01.png
 |-- Wrong sauna 02.jpg
 `-- สรุปแนวคิด LLM Wiki สไตล์ Andrej Karpathy.md
 ```

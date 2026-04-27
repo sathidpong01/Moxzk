@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, type WebContents } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { signInWithGoogleSystemBrowser } from './desktopAuth'
@@ -86,6 +86,34 @@ export function registerRuntimeIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.authSignInWithGoogle, async () => {
     return nativeActionResult(signInWithGoogleSystemBrowser)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.windowControlsMinimize, async (event) => {
+    return nativeActionResult(async () => {
+      getSenderWindow(event.sender).minimize()
+    })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.windowControlsToggleMaximize, async (event) => {
+    return nativeActionResult(async () => {
+      const win = getSenderWindow(event.sender)
+      if (win.isMaximized()) {
+        win.unmaximize()
+      } else {
+        win.maximize()
+      }
+      return getWindowState(win)
+    })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.windowControlsClose, async (event) => {
+    return nativeActionResult(async () => {
+      getSenderWindow(event.sender).close()
+    })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.windowControlsGetState, async (event) => {
+    return nativeActionResult(async () => getWindowState(getSenderWindow(event.sender)))
   })
 }
 
@@ -214,4 +242,14 @@ function safeAssetId(value: string): string {
 
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer
+}
+
+function getSenderWindow(sender: WebContents): BrowserWindow {
+  const win = BrowserWindow.fromWebContents(sender)
+  if (!win) throw new Error('Window controls are not available for this renderer.')
+  return win
+}
+
+function getWindowState(win: BrowserWindow): { isMaximized: boolean } {
+  return { isMaximized: win.isMaximized() }
 }

@@ -11,4 +11,9 @@ export const IPC_CHANNELS = {
   localServicesGetManagedStatus: 'runtime:localServices.getManagedStatus',
   localServicesStopOwnedServices: 'runtime:localServices.stopOwnedServices',
   authSignInWithGoogle: 'runtime:auth.signInWithGoogle',
+  windowControlsMinimize: 'runtime:windowControls.minimize',
+  windowControlsToggleMaximize: 'runtime:windowControls.toggleMaximize',
+  windowControlsClose: 'runtime:windowControls.close',
+  windowControlsGetState: 'runtime:windowControls.getState',
+  windowControlsStateChanged: 'runtime:windowControls.stateChanged',
 } as const

@@ -15,8 +15,10 @@ import UploadStep from './components/Steps/UploadStep'
 import EditStep from './components/Steps/EditStep'
 import SettingsPanel from './components/Settings/SettingsPanel'
 import FontConfigPage from './components/Settings/FontConfigPage'
+import AppTitleBar from './components/Layout/AppTitleBar'
 import WorkspaceBackdrop from './components/Layout/WorkspaceBackdrop'
 import { Button, DropdownItem, DropdownMenu, IconButton, Modal, SelectField } from './components/ui/primitives'
+import { getAppRuntime } from './runtime'
 import { Toaster } from 'sonner'
 import { BookOpen, Download, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
 import type { ProcessingMode } from './types'
@@ -39,6 +41,8 @@ function App() {
   const [batchStopConfirmOpen, setBatchStopConfirmOpen] = useState(false)
   const [clearProjectConfirmOpen, setClearProjectConfirmOpen] = useState(false)
   const [exportDrawerOpen, setExportDrawerOpen] = useState(false)
+  const appRuntime = getAppRuntime()
+  const hasCustomTitleBar = appRuntime.kind === 'electron' && appRuntime.capabilities.canUseCustomWindowControls
   const albumTitle = albumStore.currentAlbum?.title?.trim() || 'โปรเจกต์ใหม่'
   const activePageIndex = Math.max(0, store.imageEntries.findIndex((entry) => entry.id === store.activeImageId))
   const headerStatus = getHeaderStatus({
@@ -126,9 +130,10 @@ function App() {
   }
 
   return (
-    <div className="studio-shell relative isolate h-screen overflow-hidden">
+    <div className={`studio-shell relative isolate h-screen overflow-hidden ${hasCustomTitleBar ? 'mg-has-custom-titlebar' : ''}`}>
       <WorkspaceBackdrop />
-      <header className="pointer-events-none fixed left-3 right-3 top-3 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
+      <AppTitleBar />
+      <header className="mg-floating-header pointer-events-none fixed left-3 right-3 z-50 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 sm:gap-3">
         <div className="floating-panel-sm mg-header-panel pointer-events-auto flex w-fit max-w-full min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
           <BookOpen size={16} className="hidden shrink-0 text-[var(--mg-muted)] sm:block" />
           <div className="min-w-0">
@@ -371,7 +376,20 @@ function App() {
           </div>
         </div>
       </Modal>
-      <Toaster position="top-right" theme="dark" richColors closeButton toastOptions={{ className: 'mt-12' }} />
+      <Toaster
+        position="top-right"
+        theme="dark"
+        closeButton
+        toastOptions={{
+          className: 'mt-12',
+          style: {
+            background: 'var(--mg-surface-2)',
+            borderColor: 'var(--mg-border)',
+            color: 'var(--mg-text)',
+            boxShadow: '0 12px 28px rgba(0, 0, 0, 0.3)',
+          },
+        }}
+      />
     </div>
   )
 }

@@ -1,8 +1,8 @@
 # MG_Translater
 
-> Electron desktop-first manga image editor. React 19 + Vite 8 + TypeScript renderer inside an Electron shell, with Konva canvas editing, PanelCleaner/Ollama local AI, and Cloudflare Worker/D1/R2 album storage.
+> Windows-only Electron manga image editor. React 19 + Vite 8 + TypeScript renderer inside a Windows Electron shell, with Konva canvas editing, PanelCleaner/Ollama local AI, and Cloudflare Worker/D1/R2 album storage.
 
-MG_Translater uses Konva/react-konva for the canvas editor, local PanelCleaner and Ollama integrations for image cleanup and OCR/translation, and a Cloudflare Worker with D1/R2 for album persistence. Electron V1 is the primary acceptance target; the web runtime is a fallback and CI path.
+MG_Translater uses Konva/react-konva for the canvas editor, local PanelCleaner and Ollama integrations for image cleanup and OCR/translation, and a Cloudflare Worker with D1/R2 for album persistence. Windows Electron V1 is the primary acceptance target; Linux/macOS are not planned targets. The web runtime is a fallback and CI path.
 
 ## Start Here
 
