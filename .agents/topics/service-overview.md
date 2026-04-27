@@ -1,10 +1,14 @@
 # Service Overview
 
-MG_Translater is a web-first manga image cleanup and Thai translation tool.
+MG_Translater is a desktop-first Electron application for manga image cleanup and Thai translation. Electron V1 is the primary acceptance target; the web runtime is a fallback and CI path.
+
+## Desktop Shell
+
+- Electron shell wraps the React renderer via `AppRuntime`. Native IPC handles export, draft persistence, and local service start helpers.
 
 ## Frontend
 
-- React 19, Vite 7, TypeScript, Tailwind CSS 4.
+- React 19, Vite 8, TypeScript, Tailwind CSS 4.
 - Konva/react-konva powers the multi-page artboard editor.
 - Zustand stores app, album, and auth state.
 - UI is organized under `src/components/` with editor, processing, settings, auth, album, and step-based workflow areas.

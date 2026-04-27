@@ -10,7 +10,7 @@ Implement Electron V1 follow-up phases behind the existing `AppRuntime` boundary
 
 ## Current State
 
-- The app is still React/Vite web-first, with Electron V1 added as a desktop dev shell.
+- The app is a desktop-first Electron application. React/Vite runs as the renderer inside the Electron shell. Electron V1 is the primary acceptance target.
 - Runtime seams now cover Ollama status/model listing, PanelCleaner status, export file saving, project draft storage, and Google auth.
 - Electron IPC covers native export, desktop draft persistence, local service start helpers for PanelCleaner/Ollama, and system-browser Google login.
 - Autosave now snapshots the full multi-page project draft instead of only active-page fragments.

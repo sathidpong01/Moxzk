@@ -33,9 +33,10 @@ MG_Translater คือเครื่องมือทำความสะอ
    - งานที่หนักและผูกกับเครื่องผู้ใช้ เช่น PanelCleaner และ Ollama อยู่ฝั่ง local runtime
    - งานที่ต้องการบัญชี, ownership, metadata, และ object storage อยู่ฝั่ง Cloudflare Worker + D1/R2
 
-4. `Prepare for Electron without rewriting domain logic`
-   - โค้ด business logic ไม่ควรถูกผูกกับ browser API แบบตรงเกินไป
-   - การแตะ native capability ต้องผ่าน runtime contract เพื่อให้สลับจาก web ไป Electron ได้ทีละส่วน
+4. `Desktop-native Electron shell is the primary target`
+   - Electron V1 is shipped. React/Vite runs as the renderer inside the Electron shell.
+   - native capability (export, draft, local service start, Google OAuth) ผ่าน `AppRuntime` ทั้งหมด
+   - business logic ไม่ถูกผูกกับ browser API แบบตรง ทำให้ยังคงเปลี่ยน runtime implementation ได้ทีละส่วน
 
 5. `Thai translation continuity matters`
    - ระบบต้องรักษาความต่อเนื่องของคำเรียก, ความสัมพันธ์, สำนวน, และ glossary ข้ามหน้า
@@ -251,9 +252,20 @@ interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที
 - `capabilities`
   - ประกาศว่า runtime นี้ทำ native action อะไรได้บ้าง
 
-### Web runtime today
+### Electron runtime (primary)
 
-`src/runtime/webRuntime.ts` คือ implementation ปัจจุบัน
+`src/runtime/electronRuntime.ts` คือ primary runtime ที่ใช้ใน production desktop build
+
+- native save dialog สำหรับ ZIP/single-file export
+- native folder export ผ่าน main process
+- desktop draft persistence ใต้ Electron `userData`
+- typed IPC สำหรับ export/draft โดยไม่ expose raw `ipcRenderer`
+- native start helper สำหรับ PanelCleaner bridge และ Ollama
+- Google OAuth ผ่าน system browser + loopback one-time ticket
+
+### Web runtime (fallback / CI)
+
+`src/runtime/webRuntime.ts` ใช้ในกรณี fallback และสำหรับ CI
 
 - `canStartLocalServices = false`
 - `canPickNativeFolders = true` เฉพาะ browser ที่รองรับ `showDirectoryPicker`
@@ -438,21 +450,20 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 
 ## Current Limitations
 
-- Electron V1 ยังเป็น dev shell และยังไม่มี installer/signing/auto-update
-- การ start/check local services ยังเป็น manual ใน web phase
-- secure secret storage ยังไม่พร้อมใน browser runtime
+- Electron V1 shipped พร้อม native IPC, draft persistence, local service start, และ Google OAuth ผ่าน system browser
+- ยังไม่มี installer/signing/auto-update สำหรับ production distribution
+- secure secret storage และ custom protocol auth (`mg-translater://auth/callback`) ยังเป็นเฟสถัดไป
 - verification สำคัญหลายอย่างยังต้องพึ่ง browser smoke test นอกเหนือจาก unit/script tests
 
 ## Next Design Step
 
-เฟสถัดไปที่สมเหตุสมผลที่สุดคือเพิ่ม Electron shell โดยคง shape ปัจจุบันไว้:
+MG_Translater ได้ขยับจาก web-first editor มาเป็น desktop-native Electron workstation แล้ว โดยไม่เสียโครงสร้างหลักของระบบ
 
-- รักษา editor/state/service layer เดิม
-- เพิ่ม Electron runtime implementation คู่กับ `webRuntime`
-- ใส่ typed IPC สำหรับ native capability เท่านั้น
-- ไม่รื้อ workflow หลัก upload -> edit -> save/export
+เฟสถัดไปที่สมเหตุสมผลที่สุดคือ:
 
-ถ้าทำถูก direction นี้ MG_Translater จะขยับจาก "web-first editor" ไปเป็น "desktop-native manga translation workstation" ได้โดยไม่เสียโครงสร้างหลักของระบบ
+- เพิ่ม secure secret storage ผ่าน Electron keychain/safeStorage
+- custom protocol auth callback (`mg-translater://auth/callback`)
+- installer, code signing, และ auto-update pipeline สำหรับ production distribution
 
 ## Key Reference Files
 

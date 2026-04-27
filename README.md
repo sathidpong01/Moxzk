@@ -2,11 +2,11 @@
 
 React/Vite image editor สำหรับคลีนภาพมังงะและแปลเป็นภาษาไทย โดยใช้ PanelCleaner, Ollama vision model และ Cloudflare Worker/D1/R2 เป็นแกนหลัก
 
-โปรเจคนี้ยังเป็น web-first editor แต่มี Electron V1 dev shell แล้ว. Electron V1 ใช้ native IPC สำหรับ export, desktop draft persistence และเริ่ม local service helper ของ PanelCleaner/Ollama ผ่าน `AppRuntime` ส่วน secure local storage และ custom protocol auth ยังเป็นเฟสถัดไป
+Electron desktop คือ primary target. React/Vite รันเป็น renderer ภายใน Electron shell และ Electron V1 shipped แล้ว — รองรับ native IPC สำหรับ export, desktop draft persistence, local service start helpers สำหรับ PanelCleaner/Ollama และ Google OAuth ผ่าน system browser ผ่าน `AppRuntime`. Web runtime ยังใช้เป็น fallback และสำหรับ CI. เฟสถัดไปคือ secure local storage และ custom protocol auth.
 
 ## Current Direction
 
-- Frontend: React 19 + Vite 7 + TypeScript
+- Frontend: React 19 + Vite 8 + TypeScript
 - Desktop shell: Electron + electron-vite ผ่าน `AppRuntime`
 - UI: Tailwind CSS 4 + Headless UI primitives + custom studio-dark design system
 - Editor: Konva/react-konva พร้อม multi-artboard workspace
@@ -61,7 +61,7 @@ Konva Multi-Artboard Editor
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 19, Vite 7, TypeScript |
+| Frontend | React 19, Vite 8, TypeScript |
 | Styling | Tailwind CSS 4, Headless UI, custom studio-dark tokens |
 | Canvas | Konva, react-konva |
 | State | Zustand |
@@ -441,8 +441,8 @@ Installed skills that are relevant to this project:
 - [ ] Translation review pass for pronoun/relationship consistency
 - [x] OCR confidence review summary in correction flow
 - [x] Remove legacy backend after PanelCleaner flow is verified
-- [ ] Electron shell with secure typed IPC
-- [ ] Native executable discovery/version/start service
+- [x] Electron shell with native typed IPC (V1)
+- [x] Native executable discovery, version check, and local service start helper
 
 ## License
 

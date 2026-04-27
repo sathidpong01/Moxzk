@@ -14,8 +14,8 @@ Use it to keep project state close to the codebase instead of burying it in chat
 
 ## Project Shape
 
-MG_Translater is a React 19 + Vite 7 + TypeScript image editor for manga cleanup and Thai translation.
-The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollama OCR/translation, and a Cloudflare Worker backed by D1/R2.
+MG_Translater is a desktop-first Electron application for manga cleanup and Thai translation. React 19 + Vite 8 + TypeScript runs as the renderer inside the Electron shell; Electron V1 is the primary acceptance target.
+The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollama OCR/translation, and a Cloudflare Worker backed by D1/R2. The web runtime remains available as a fallback and for CI.
 
 ## Working Rules
 
