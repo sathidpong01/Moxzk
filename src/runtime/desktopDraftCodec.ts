@@ -2,7 +2,8 @@ import type { ImageEntry } from '../types'
 import type { RuntimeProjectDraft } from './types'
 import type { NativeDraftAsset, NativeProjectDraftPayload } from './electronBridge'
 
-const ASSET_URL_PREFIX = 'mg-asset://'
+const ASSET_URL_PREFIX = 'moxzk-asset://'
+const LEGACY_ASSET_URL_PREFIX = 'mg-asset://'
 
 interface DraftAssetRef {
   id: string
@@ -135,8 +136,13 @@ async function addAssetFromBlob(
 }
 
 function decodeAssetUrl(value: string | null, assetMap: Map<string, NativeDraftAsset>): string | null {
-  if (!value?.startsWith(ASSET_URL_PREFIX)) return value
-  const asset = assetMap.get(value.slice(ASSET_URL_PREFIX.length))
+  const prefix = value?.startsWith(ASSET_URL_PREFIX)
+    ? ASSET_URL_PREFIX
+    : value?.startsWith(LEGACY_ASSET_URL_PREFIX)
+      ? LEGACY_ASSET_URL_PREFIX
+      : null
+  if (!value || !prefix) return value
+  const asset = assetMap.get(value.slice(prefix.length))
   if (!asset) return null
   return URL.createObjectURL(assetToBlob(asset))
 }

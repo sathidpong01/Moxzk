@@ -1,6 +1,6 @@
 # Agent Context Policy
 
-This directory is a durable context layer for humans and AI agents working on MG_Translater.
+This directory is a durable context layer for humans and AI agents working on Moxzk.
 Use it to keep project state close to the codebase instead of burying it in chat history.
 
 ## How To Use This Directory
@@ -14,7 +14,7 @@ Use it to keep project state close to the codebase instead of burying it in chat
 
 ## Project Shape
 
-MG_Translater is a Windows-only Electron desktop application for manga cleanup and Thai translation. React 19 + Vite 8 + TypeScript runs as the renderer inside the Windows Electron shell; Electron V1 is the primary acceptance target and Linux/macOS are not planned targets.
+Moxzk is a Windows-only Electron desktop application for manga cleanup and Thai translation. React 19 + Vite 8 + TypeScript runs as the renderer inside the Windows Electron shell; Electron V1 is the primary acceptance target and Linux/macOS are not planned targets.
 The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollama OCR/translation, and a Cloudflare Worker backed by D1/R2. The web runtime remains available as a fallback and for CI.
 
 ## Working Rules

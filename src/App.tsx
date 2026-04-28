@@ -131,20 +131,20 @@ function App() {
   }
 
   return (
-    <div className={`studio-shell relative isolate h-screen overflow-hidden ${hasCustomChrome ? 'mg-has-custom-chrome' : ''}`}>
+    <div className={`studio-shell relative isolate h-screen overflow-hidden ${hasCustomChrome ? 'moxzk-has-custom-chrome' : ''}`}>
       <WorkspaceBackdrop />
-      <header className="mg-app-chrome fixed left-3 right-3 top-3 z-50 flex min-w-0 items-center gap-3">
-        <div className="mg-project-chip mg-window-no-drag flex max-w-[min(22rem,45vw)] min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
-          <BookOpen size={16} className="hidden shrink-0 text-[var(--mg-muted)] sm:block" />
+      <header className="moxzk-app-chrome fixed left-3 right-3 top-3 z-50 flex min-w-0 items-center gap-3">
+        <div className="moxzk-project-chip moxzk-window-no-drag flex max-w-[min(22rem,45vw)] min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
+          <BookOpen size={16} className="hidden shrink-0 text-[var(--moxzk-muted)] sm:block" />
           <div className="min-w-0">
-            <div className="truncate text-sm font-bold text-[var(--mg-text)]" title={albumTitle}>{albumTitle}</div>
-            <div className="hidden truncate text-[11px] font-bold text-[var(--mg-muted)] min-[420px]:block">{headerStatus}</div>
+            <div className="truncate text-sm font-bold text-[var(--moxzk-text)]" title={albumTitle}>{albumTitle}</div>
+            <div className="hidden truncate text-[11px] font-bold text-[var(--moxzk-muted)] min-[420px]:block">{headerStatus}</div>
           </div>
         </div>
 
-        <div className="mg-chrome-drag flex min-w-6 flex-1 self-stretch" aria-hidden="true" />
+        <div className="moxzk-chrome-drag flex min-w-6 flex-1 self-stretch" aria-hidden="true" />
 
-        <div className="mg-command-dock mg-window-no-drag flex min-w-0 max-w-full shrink-0 items-center justify-self-end gap-1 px-2 py-2 sm:gap-2">
+        <div className="moxzk-command-dock moxzk-window-no-drag flex min-w-0 max-w-full shrink-0 items-center justify-self-end gap-1 px-2 py-2 sm:gap-2">
           {store.currentStep === 'edit' && (
             <>
               <input
@@ -156,19 +156,19 @@ function App() {
                 onChange={(event) => handleAddImages(event.currentTarget.files)}
               />
               <button
-                className="mg-button mg-button-soft mg-button-sm gap-1"
+                className="moxzk-button moxzk-button-soft moxzk-button-sm gap-1"
                 onClick={() => addImagesInputRef.current?.click()}
               >
                 <ImagePlus size={14} />
                 <span className="hidden sm:inline">เพิ่มรูป</span>
               </button>
-              <div className="mg-split-button mg-mobile-hidden">
-                <button className="mg-button mg-button-soft mg-button-sm gap-1 rounded-r-none border-r-0" onClick={handleSaveToAlbum}>
+              <div className="moxzk-split-button moxzk-mobile-hidden">
+                <button className="moxzk-button moxzk-button-soft moxzk-button-sm gap-1 rounded-r-none border-r-0" onClick={handleSaveToAlbum}>
                   <Save size={14} /> บันทึก
                 </button>
                 <DropdownMenu
                   trigger={(
-                    <button className="mg-button mg-button-soft mg-button-sm rounded-l-none px-2" aria-label="ตัวเลือกการบันทึก">
+                    <button className="moxzk-button moxzk-button-soft moxzk-button-sm rounded-l-none px-2" aria-label="ตัวเลือกการบันทึก">
                       <ChevronDown size={13} />
                     </button>
                   )}
@@ -187,7 +187,7 @@ function App() {
               />
               <DropdownMenu
                 trigger={(
-                  <button className="mg-button mg-button-ai mg-button-sm gap-1" disabled={store.isProcessing || isBatchProcessing}>
+                  <button className="moxzk-button moxzk-button-ai moxzk-button-sm gap-1" disabled={store.isProcessing || isBatchProcessing}>
                     <Wand2 size={14} /> <span className="hidden sm:inline">AI แปล</span>
                   </button>
                 )}
@@ -202,17 +202,17 @@ function App() {
                 )}
               </DropdownMenu>
               {isBatchProcessing && (
-                <button className="mg-button mg-button-danger mg-button-sm mg-mobile-hidden gap-1" onClick={() => setBatchStopConfirmOpen(true)}>
+                <button className="moxzk-button moxzk-button-danger moxzk-button-sm moxzk-mobile-hidden gap-1" onClick={() => setBatchStopConfirmOpen(true)}>
                   หยุดหลังหน้านี้
                 </button>
               )}
-              <button className="mg-button mg-button-primary mg-button-sm gap-1 px-2 sm:px-3" onClick={handleOpenExportDrawer}>
+              <button className="moxzk-button moxzk-button-primary moxzk-button-sm gap-1 px-2 sm:px-3" onClick={handleOpenExportDrawer}>
                 <Download size={14} />
                 <span className="hidden sm:inline">ส่งออก</span>
               </button>
               <DropdownMenu
                 trigger={(
-                  <button className="mg-button mg-button-ghost mg-button-sm px-2" aria-label="เพิ่มเติม">
+                  <button className="moxzk-button moxzk-button-ghost moxzk-button-sm px-2" aria-label="เพิ่มเติม">
                     <MoreHorizontal size={14} />
                   </button>
                 )}
@@ -325,7 +325,7 @@ function App() {
         title={aiConfirmTarget === 'batch' ? 'ยืนยันแปลทุกหน้า' : 'ยืนยันแปลหน้านี้'}
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-[var(--mg-muted)]">
+          <p className="text-sm leading-6 text-[var(--moxzk-muted)]">
             {aiConfirmTarget === 'batch'
               ? 'ระบบจะคลีนและแปลทุกหน้าที่ยังไม่เสร็จ ถ้าหยุดระหว่างทางจะหยุดหลังหน้าปัจจุบันเสร็จ'
               : 'ระบบจะคลีน OCR และแปลหน้าที่เลือกอยู่ตอนนี้ ระหว่างทำงานสามารถกดยกเลิกงานนี้ได้'}
@@ -346,7 +346,7 @@ function App() {
         title="ยืนยันหยุด Batch AI"
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-[var(--mg-muted)]">
+          <p className="text-sm leading-6 text-[var(--moxzk-muted)]">
             ระบบจะไม่เริ่มหน้าถัดไป แต่จะปล่อยให้หน้าที่กำลังทำอยู่ตอนนี้จบก่อนเพื่อป้องกันข้อมูลค้าง
           </p>
           <div className="flex justify-end gap-2">
@@ -371,7 +371,7 @@ function App() {
         title="ล้างโปรเจกต์นี้?"
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-[var(--mg-muted)]">
+          <p className="text-sm leading-6 text-[var(--moxzk-muted)]">
             รูปและการแก้ไขที่ยังไม่ได้บันทึกจะถูกนำออกจาก canvas แล้วกลับไปหน้าอัปโหลด
           </p>
           <div className="flex justify-end gap-2">
@@ -398,9 +398,9 @@ function App() {
         toastOptions={{
           className: 'mt-12',
           style: {
-            background: 'var(--mg-surface-2)',
-            borderColor: 'var(--mg-border)',
-            color: 'var(--mg-text)',
+            background: 'var(--moxzk-surface-2)',
+            borderColor: 'var(--moxzk-border)',
+            color: 'var(--moxzk-text)',
             boxShadow: '0 12px 28px rgba(0, 0, 0, 0.3)',
           },
         }}

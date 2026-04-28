@@ -1,6 +1,6 @@
 # Konva AI Documentation
 
-Use this file before changing MG_Translater canvas, editor interaction, selection, transform, drag, export, or Konva-related rendering behavior.
+Use this file before changing Moxzk canvas, editor interaction, selection, transform, drag, export, or Konva-related rendering behavior.
 
 ## Detected Stack
 
@@ -43,7 +43,7 @@ npx crawl-chat-mcp --id=67d221efb4b9de65095a2579 --name=konva_documentation
 - Mention `Konva` or `react-konva` explicitly when asking agents for canvas changes.
 - Prefer official Konva docs and MCP results over memory for API details.
 - Use `docs/llm/konva.md` as the local entrypoint, then fetch a specific official page or MCP answer for the exact API.
-- Keep MG_Translater canvas behavior consistent with existing editor stores, viewport services, and selection/transform flows.
+- Keep Moxzk canvas behavior consistent with existing editor stores, viewport services, and selection/transform flows.
 - Verify visible canvas interaction changes in a real browser when practical.
 
 ## Repo-Specific Pointers

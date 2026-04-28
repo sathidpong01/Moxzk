@@ -72,24 +72,24 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
       <div className="w-full" onPaste={handlePaste}>
         <div
           {...rootProps}
-          className={`mg-upload-dropzone w-full cursor-pointer px-6 py-14 transition ${
+          className={`moxzk-upload-dropzone w-full cursor-pointer px-6 py-14 transition ${
             isDragActive
-              ? 'scale-[1.01] border-[var(--mg-accent)] bg-blue-500/[0.08]'
+              ? 'scale-[1.01] border-[var(--moxzk-accent)] bg-blue-500/[0.08]'
               : 'hover:border-white/24 hover:bg-white/[0.04]'
           }`}
         >
           <input {...inputProps} />
           <div className="flex flex-col items-center justify-center gap-3">
             {isDragActive ? (
-              <Upload className="h-12 w-12 animate-bounce text-[var(--mg-accent)]" aria-hidden="true" />
+              <Upload className="h-12 w-12 animate-bounce text-[var(--moxzk-accent)]" aria-hidden="true" />
             ) : (
-              <ImageIcon className="h-12 w-12 text-[var(--mg-dim)]" aria-hidden="true" />
+              <ImageIcon className="h-12 w-12 text-[var(--moxzk-dim)]" aria-hidden="true" />
             )}
             <div className="text-center">
-              <p className="text-lg font-bold text-[var(--mg-text)]">
+              <p className="text-lg font-bold text-[var(--moxzk-text)]">
                 {isDragActive ? 'วางรูปที่นี่' : 'ลากรูปมาวาง, วาง (Ctrl+V), หรือคลิกเลือก'}
               </p>
-              <p className="mt-1 text-xs leading-5 text-[var(--mg-dim)]">
+              <p className="mt-1 text-xs leading-5 text-[var(--moxzk-dim)]">
                 รองรับ JPG, PNG, WebP และเลือกได้หลายรูป
               </p>
             </div>
@@ -103,18 +103,18 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
     <section className="w-full space-y-3" onPaste={handlePaste} aria-labelledby="selected-images-heading">
       <div className="flex flex-col gap-3 text-left sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h2 id="selected-images-heading" className="text-base font-bold text-[var(--mg-text)]">
+          <h2 id="selected-images-heading" className="text-base font-bold text-[var(--moxzk-text)]">
             {previews.length} หน้าที่เลือก
           </h2>
-          <p className="text-xs text-[var(--mg-muted)]">
+          <p className="text-xs text-[var(--moxzk-muted)]">
             ลำดับนี้จะถูกใช้เป็นเลขหน้าใน artboard
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <div
             {...rootProps}
-            className={`mg-button mg-button-soft mg-button-sm ${
-              isDragActive ? 'border-[var(--mg-accent)] bg-blue-500/10 text-blue-100' : ''
+            className={`moxzk-button moxzk-button-soft moxzk-button-sm ${
+              isDragActive ? 'border-[var(--moxzk-accent)] bg-blue-500/10 text-blue-100' : ''
             }`}
           >
             <input {...inputProps} />
@@ -122,7 +122,7 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
             {isDragActive ? 'วางเพื่อเพิ่ม' : 'เพิ่มรูป'}
           </div>
           <button
-            className="mg-button mg-button-danger mg-button-sm"
+            className="moxzk-button moxzk-button-danger moxzk-button-sm"
             onClick={handleClearAll}
           >
             <Trash2 size={12} aria-hidden="true" />
@@ -143,7 +143,7 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
               className="aspect-3/4 w-full object-cover"
             />
             <button
-              className="mg-icon-button absolute right-2 top-2 h-7 w-7 rounded-[10px] bg-red-500/82 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+              className="moxzk-icon-button absolute right-2 top-2 h-7 w-7 rounded-[10px] bg-red-500/82 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
               onClick={(e) => {
                 e.stopPropagation()
                 handleRemove(i)

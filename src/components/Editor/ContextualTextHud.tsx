@@ -333,20 +333,20 @@ export default function ContextualTextHud({
             <TooltipSurface label="รูปแบบกล่องข้อความ">
               <button
                 type="button"
-                className="flex h-9 min-w-[9.5rem] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 text-sm font-bold text-[var(--mg-text)] transition hover:bg-white/[0.08]"
+                className="flex h-9 min-w-[9.5rem] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 text-sm font-bold text-[var(--moxzk-text)] transition hover:bg-white/[0.08]"
                 onClick={() => setTextBoxMenuOpen((value) => !value)}
                 aria-expanded={textBoxMenuOpen}
                 aria-label="รูปแบบกล่องข้อความ"
               >
-                <CurrentShapeIcon size={14} className="shrink-0 text-[var(--mg-muted)]" />
+                <CurrentShapeIcon size={14} className="shrink-0 text-[var(--moxzk-muted)]" />
                 <span className="truncate">{layoutModeLabel}</span>
-                <span className="max-w-[4.5rem] truncate text-xs text-[var(--mg-muted)]">{currentShapeOption.label}</span>
-                <ChevronDown size={13} className="ml-auto shrink-0 text-[var(--mg-dim)]" />
+                <span className="max-w-[4.5rem] truncate text-xs text-[var(--moxzk-muted)]">{currentShapeOption.label}</span>
+                <ChevronDown size={13} className="ml-auto shrink-0 text-[var(--moxzk-dim)]" />
               </button>
             </TooltipSurface>
             {textBoxMenuOpen && (
               <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-[14px] bg-[rgba(11,11,12,0.98)] p-2 shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
-                <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--mg-dim)]">การวาง</div>
+                <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--moxzk-dim)]">การวาง</div>
                 <div className="grid grid-cols-2 gap-1">
                   <button
                     type="button"
@@ -378,7 +378,7 @@ export default function ContextualTextHud({
                   </button>
                 </div>
 
-                <div className="mt-2 px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--mg-dim)]">รูปทรง</div>
+                <div className="mt-2 px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--moxzk-dim)]">รูปทรง</div>
                 <div className="grid grid-cols-3 gap-1">
                   {BALLOON_SHAPE_OPTIONS.map((option) => {
                     const Icon = option.icon
@@ -401,7 +401,7 @@ export default function ContextualTextHud({
 
                 {layoutMode === 'artistic' && (
                   <>
-                    <div className="mt-2 px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--mg-dim)]">ขอบเขต</div>
+                    <div className="mt-2 px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--moxzk-dim)]">ขอบเขต</div>
                     <div className="grid grid-cols-2 gap-1">
                       {ARTISTIC_FIT_OPTIONS.map((option) => (
                         <button
@@ -445,12 +445,12 @@ export default function ContextualTextHud({
             <TooltipSurface label="ฟอนต์">
               <button
                 type="button"
-                className="flex h-9 min-w-[12rem] max-w-[12rem] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 text-left text-sm text-[var(--mg-text)] transition hover:bg-white/[0.08]"
+                className="flex h-9 min-w-[12rem] max-w-[12rem] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 text-left text-sm text-[var(--moxzk-text)] transition hover:bg-white/[0.08]"
                 onClick={() => setFontMenuOpen((value) => !value)}
                 aria-expanded={fontMenuOpen}
                 aria-label="ฟอนต์"
               >
-                <Type size={14} className="shrink-0 text-[var(--mg-muted)]" />
+                <Type size={14} className="shrink-0 text-[var(--moxzk-muted)]" />
                 <span
                   className="truncate"
                   style={{ fontFamily: `"${currentFont.family}", sans-serif` }}
@@ -466,7 +466,7 @@ export default function ContextualTextHud({
                   value={fontQuery}
                   onChange={(event) => setFontQuery(event.target.value)}
                   placeholder="ค้นหาฟอนต์"
-                  className="h-9 w-full rounded-[10px] border-0 bg-white/[0.04] px-3 text-sm text-[var(--mg-text)] outline-none placeholder:text-[var(--mg-dim)]"
+                  className="h-9 w-full rounded-[10px] border-0 bg-white/[0.04] px-3 text-sm text-[var(--moxzk-text)] outline-none placeholder:text-[var(--moxzk-dim)]"
                   aria-label="ค้นหาฟอนต์"
                 />
                 <div className="mt-2 max-h-64 overflow-y-auto pr-1">
@@ -485,11 +485,11 @@ export default function ContextualTextHud({
                       }}
                     >
                       <span style={{ fontFamily: `"${option.family}", sans-serif` }}>{option.name}</span>
-                      {currentFont.id === option.id && <span className="text-xs font-bold text-[var(--mg-accent)]">ใช้แล้ว</span>}
+                      {currentFont.id === option.id && <span className="text-xs font-bold text-[var(--moxzk-accent)]">ใช้แล้ว</span>}
                     </button>
                   ))}
                   {filteredFonts.length === 0 && (
-                    <div className="px-3 py-4 text-sm text-[var(--mg-muted)]">ไม่พบฟอนต์</div>
+                    <div className="px-3 py-4 text-sm text-[var(--moxzk-muted)]">ไม่พบฟอนต์</div>
                   )}
                 </div>
               </div>
@@ -703,7 +703,7 @@ function NumericHudInput({
 }) {
   return (
     <TooltipSurface label={tooltip}>
-      <label className={cn(HUD_SURFACE_CLASS, 'gap-2 px-2 text-[var(--mg-muted)]')}>
+      <label className={cn(HUD_SURFACE_CLASS, 'gap-2 px-2 text-[var(--moxzk-muted)]')}>
         <span className="shrink-0">{icon}</span>
         <input
           type="number"
@@ -713,7 +713,7 @@ function NumericHudInput({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onBlur={onBlur}
-          className="h-full w-14 bg-transparent text-right text-sm leading-none text-[var(--mg-text)] outline-none"
+          className="h-full w-14 bg-transparent text-right text-sm leading-none text-[var(--moxzk-text)] outline-none"
         />
       </label>
     </TooltipSurface>
@@ -757,22 +757,22 @@ function OutlineStrokeIcon() {
 
 function hudButtonClass(active: boolean): string {
   return cn(
-    'flex h-9 w-9 cursor-pointer items-center justify-center rounded-[12px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
-    active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
+    'flex h-9 w-9 cursor-pointer items-center justify-center rounded-[12px] bg-transparent text-[var(--moxzk-muted)] transition hover:bg-white/[0.08] hover:text-[var(--moxzk-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
+    active && 'bg-[var(--moxzk-accent)] text-white hover:bg-[var(--moxzk-accent)] hover:text-white',
   )
 }
 
 function hudSegmentButtonClass(active: boolean): string {
   return cn(
-    'flex h-8 w-8 cursor-pointer items-center justify-center rounded-[10px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
-    active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
+    'flex h-8 w-8 cursor-pointer items-center justify-center rounded-[10px] bg-transparent text-[var(--moxzk-muted)] transition hover:bg-white/[0.08] hover:text-[var(--moxzk-text)] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-white/25 disabled:opacity-100 disabled:hover:bg-white/[0.08] disabled:hover:text-white/25',
+    active && 'bg-[var(--moxzk-accent)] text-white hover:bg-[var(--moxzk-accent)] hover:text-white',
   )
 }
 
 function hudMenuItemClass(active: boolean): string {
   return cn(
-    'flex h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-2 text-xs font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
-    active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
+    'flex h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-2 text-xs font-bold text-[var(--moxzk-muted)] transition hover:bg-white/[0.08] hover:text-[var(--moxzk-text)]',
+    active && 'bg-[var(--moxzk-accent)] text-white hover:bg-[var(--moxzk-accent)] hover:text-white',
   )
 }
 
@@ -780,7 +780,7 @@ function hudMiniButtonClass(primary = false): string {
   return cn(
     'rounded-[8px] px-2 py-1 text-[11px] font-bold transition',
     primary
-      ? 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)]/90'
-      : 'bg-white/[0.06] text-[var(--mg-muted)] hover:bg-white/[0.1] hover:text-[var(--mg-text)]',
+      ? 'bg-[var(--moxzk-accent)] text-white hover:bg-[var(--moxzk-accent)]/90'
+      : 'bg-white/[0.06] text-[var(--moxzk-muted)] hover:bg-white/[0.1] hover:text-[var(--moxzk-text)]',
   )
 }

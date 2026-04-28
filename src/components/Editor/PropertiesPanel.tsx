@@ -62,7 +62,7 @@ export default function PropertiesPanel({
   if (!region) {
     return (
       <div className="py-8 text-center">
-        <p className="text-sm text-[var(--mg-muted)]">
+        <p className="text-sm text-[var(--moxzk-muted)]">
           คลิกข้อความบนหน้าเพื่อแก้ไข
         </p>
       </div>
@@ -152,7 +152,7 @@ export default function PropertiesPanel({
                 { value: 'artistic', label: 'อิสระ' },
               ]}
             />
-            <div className="grid grid-cols-3 gap-1 rounded-[8px] border border-[var(--mg-border)] bg-black/20 p-1">
+            <div className="grid grid-cols-3 gap-1 rounded-[8px] border border-[var(--moxzk-border)] bg-black/20 p-1">
               {TEXT_ALIGNS.map((option) => {
                 const Icon = option.icon
                 const active = textAlign === option.value
@@ -267,11 +267,11 @@ export default function PropertiesPanel({
         </Field>
 
         {showOriginalText && (
-          <div className="rounded-[8px] border border-[var(--mg-border)] bg-black/20 px-3 py-2">
-            <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">
+          <div className="rounded-[8px] border border-[var(--moxzk-border)] bg-black/20 px-3 py-2">
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--moxzk-muted)]">
               ข้อความต้นฉบับ
             </div>
-            <p className="font-mono text-xs leading-relaxed text-[var(--mg-muted)]">
+            <p className="font-mono text-xs leading-relaxed text-[var(--moxzk-muted)]">
               {region.originalText || 'ไม่มีข้อความต้นฉบับ'}
             </p>
           </div>
@@ -280,10 +280,10 @@ export default function PropertiesPanel({
 
       <DisclosureSection title="ตัวอักษรและขอบ">
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-[10px] border border-[var(--mg-border)] bg-black/20 p-2.5">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">ตัวอักษร</div>
+          <div className="rounded-[10px] border border-[var(--moxzk-border)] bg-black/20 p-2.5">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--moxzk-muted)]">ตัวอักษร</div>
             <div className="grid grid-cols-[minmax(0,1fr)_68px] items-center gap-2">
-              <label className="text-xs font-bold text-[var(--mg-muted)]">ขนาด</label>
+              <label className="text-xs font-bold text-[var(--moxzk-muted)]">ขนาด</label>
               <TextInput
                 {...editorHistoryShortcutProps}
                 type="number"
@@ -299,11 +299,11 @@ export default function PropertiesPanel({
                   }
                 }}
               />
-              <label className="text-xs font-bold text-[var(--mg-muted)]">สี</label>
+              <label className="text-xs font-bold text-[var(--moxzk-muted)]">สี</label>
               <input
                 {...editorHistoryShortcutProps}
                 type="color"
-                className="h-8 w-full cursor-pointer rounded-[8px] border border-[var(--mg-border)] bg-transparent"
+                className="h-8 w-full cursor-pointer rounded-[8px] border border-[var(--moxzk-border)] bg-transparent"
                 value={region.fontColor}
                 onChange={(e) => onUpdate(region.id, { fontColor: e.target.value })}
                 aria-label="สีตัวอักษร"
@@ -311,10 +311,10 @@ export default function PropertiesPanel({
             </div>
           </div>
 
-          <div className="rounded-[10px] border border-[var(--mg-border)] bg-black/20 p-2.5">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">ขอบ</div>
+          <div className="rounded-[10px] border border-[var(--moxzk-border)] bg-black/20 p-2.5">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--moxzk-muted)]">ขอบ</div>
             <div className="grid grid-cols-[minmax(0,1fr)_68px] items-center gap-2">
-              <label className="text-xs font-bold text-[var(--mg-muted)]">หนา</label>
+              <label className="text-xs font-bold text-[var(--moxzk-muted)]">หนา</label>
               <TextInput
                 {...editorHistoryShortcutProps}
                 type="number"
@@ -330,11 +330,11 @@ export default function PropertiesPanel({
                   }
                 }}
               />
-              <label className="text-xs font-bold text-[var(--mg-muted)]">สี</label>
+              <label className="text-xs font-bold text-[var(--moxzk-muted)]">สี</label>
               <input
                 {...editorHistoryShortcutProps}
                 type="color"
-                className="h-8 w-full cursor-pointer rounded-[8px] border border-[var(--mg-border)] bg-transparent"
+                className="h-8 w-full cursor-pointer rounded-[8px] border border-[var(--moxzk-border)] bg-transparent"
                 value={region.strokeColor}
                 onChange={(e) => onUpdate(region.id, { strokeColor: e.target.value })}
                 aria-label="สีขอบ"
@@ -345,7 +345,7 @@ export default function PropertiesPanel({
                 <StrokeJoinToggleGroup
                   value={region.strokeJoin ?? 'round'}
                   onChange={(strokeJoin: TextStrokeJoin) => onUpdate(region.id, { strokeJoin })}
-                  className="rounded-[8px] border border-[var(--mg-border)] bg-black/20 p-1"
+                  className="rounded-[8px] border border-[var(--moxzk-border)] bg-black/20 p-1"
                   iconClassName="h-[18px] w-[18px]"
                   tooltipSide="bottom"
                   size="sm"
@@ -354,10 +354,10 @@ export default function PropertiesPanel({
             )}
           </div>
 
-          <div className="col-span-2 rounded-[10px] border border-[var(--mg-border)] bg-black/20 p-2.5">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">องศา</div>
+          <div className="col-span-2 rounded-[10px] border border-[var(--moxzk-border)] bg-black/20 p-2.5">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--moxzk-muted)]">องศา</div>
             <div className="grid grid-cols-[minmax(0,1fr)_68px_auto] items-center gap-2">
-              <label className="text-xs font-bold text-[var(--mg-muted)]">เอียง</label>
+              <label className="text-xs font-bold text-[var(--moxzk-muted)]">เอียง</label>
               <TextInput
                 {...editorHistoryShortcutProps}
                 type="number"
@@ -390,7 +390,7 @@ export default function PropertiesPanel({
 
       {onDelete && (
         <>
-          <div className="mg-divider" />
+          <div className="moxzk-divider" />
           <Button
             variant="danger"
             size="sm"

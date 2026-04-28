@@ -1,4 +1,4 @@
-# MG_Translater Design
+# Moxzk Design
 
 ## Purpose
 
@@ -8,7 +8,7 @@
 
 ## Product Definition
 
-MG_Translater คือเครื่องมือทำความสะอาดภาพมังงะและแปลภาษาไทยแบบ human-in-the-loop
+Moxzk คือเครื่องมือทำความสะอาดภาพมังงะและแปลภาษาไทยแบบ human-in-the-loop
 
 แกนของโปรดักต์ไม่ใช่ "โยนรูปให้ AI แล้วจบ" แต่คือ:
 
@@ -302,7 +302,7 @@ Electron V1 เพิ่ม Windows shell แบบ "เปลี่ยน runti
 สิ่งที่ยังเป็นเฟสถัดไป:
 
 - secure local storage สำหรับ secret
-- custom protocol auth callback เช่น `mg-translater://auth/callback`
+- custom protocol auth callback เช่น `moxzk://auth/callback`
 
 ข้อกำหนดเชิงสถาปัตยกรรม:
 
@@ -459,17 +459,17 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 
 - Electron V1 shipped พร้อม native IPC, draft persistence, local service start, Google OAuth ผ่าน system browser, และ Windows frameless window controls
 - ยังไม่มี installer/signing/auto-update สำหรับ production distribution
-- secure secret storage และ custom protocol auth (`mg-translater://auth/callback`) ยังเป็นเฟสถัดไป
+- secure secret storage และ custom protocol auth (`moxzk://auth/callback`) ยังเป็นเฟสถัดไป
 - verification สำคัญหลายอย่างยังต้องพึ่ง browser smoke test นอกเหนือจาก unit/script tests
 
 ## Next Design Step
 
-MG_Translater ได้ขยับจาก web-first editor มาเป็น Windows-native Electron workstation แล้ว โดยไม่เสียโครงสร้างหลักของระบบ
+Moxzk ได้ขยับจาก web-first editor มาเป็น Windows-native Electron workstation แล้ว โดยไม่เสียโครงสร้างหลักของระบบ
 
 เฟสถัดไปที่สมเหตุสมผลที่สุดคือ:
 
 - เพิ่ม secure secret storage ผ่าน Electron keychain/safeStorage
-- custom protocol auth callback (`mg-translater://auth/callback`)
+- custom protocol auth callback (`moxzk://auth/callback`)
 - Windows installer, code signing, และ auto-update pipeline สำหรับ production distribution
 
 ## Key Reference Files

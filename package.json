@@ -1,5 +1,5 @@
 {
-  "name": "mg-translater",
+  "name": "moxzk",
   "private": true,
   "version": "0.2.0",
   "type": "module",
@@ -12,8 +12,8 @@
     "backend:panelcleaner": "node scripts/panelcleaner-bridge.mjs",
     "build": "tsc -b && vite build",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply mg-translater-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply mg-translater-db --remote",
+    "db:migrate:local": "wrangler d1 migrations apply moxzk-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply moxzk-db --remote",
     "worker:check": "wrangler deploy --dry-run",
     "worker:deploy:dry": "wrangler deploy --dry-run",
     "worker:deploy": "wrangler deploy",

@@ -148,8 +148,9 @@ async function unsupportedRuntimeAction(error: string): Promise<RuntimeActionRes
 }
 
 async function signInWithGoogleInBrowser(): Promise<RuntimeActionResult> {
-  if (window.mgRuntime?.auth) {
-    const result = await window.mgRuntime.auth.signInWithGoogle()
+  const bridge = window.moxzkRuntime ?? window.mgRuntime
+  if (bridge?.auth) {
+    const result = await bridge.auth.signInWithGoogle()
     if (!result.ok) return { ok: false, error: result.error }
     return result.data ?? { ok: true }
   }

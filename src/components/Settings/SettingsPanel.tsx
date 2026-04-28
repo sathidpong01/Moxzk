@@ -401,12 +401,12 @@ export default function SettingsPanel({
         <aside className="SettingsSidebar flex w-64 shrink-0 flex-col overflow-hidden border-r border-[var(--settings-divider)]">
           <div className="border-b border-[var(--settings-divider)] p-4">
             <div className="flex items-center gap-3">
-              <div className="grid size-10 shrink-0 place-items-center rounded-[8px] border border-white/10 bg-white/[0.055] text-[var(--mg-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <div className="grid size-10 shrink-0 place-items-center rounded-[8px] border border-white/10 bg-white/[0.055] text-[var(--moxzk-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                 <Cpu size={18} />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--mg-dim)]">MG Translater</p>
-                <p className="mt-1 truncate text-xs font-bold text-[var(--mg-muted)]">Local manga studio</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--moxzk-dim)]">Moxzk</p>
+                <p className="mt-1 truncate text-xs font-bold text-[var(--moxzk-muted)]">Local manga studio</p>
               </div>
             </div>
           </div>
@@ -421,7 +421,7 @@ export default function SettingsPanel({
               >
                 <Icon
                   size={15}
-                  className={`shrink-0 ${tab === id ? 'text-[var(--mg-text)]' : 'text-[var(--mg-dim)] group-hover:text-[var(--mg-muted)]'}`}
+                  className={`shrink-0 ${tab === id ? 'text-[var(--moxzk-text)]' : 'text-[var(--moxzk-dim)] group-hover:text-[var(--moxzk-muted)]'}`}
                 />
                 <span className="min-w-0">
                   <span className="block text-[13px] font-bold leading-5">{label}</span>
@@ -430,7 +430,7 @@ export default function SettingsPanel({
             ))}
           </nav>
           <div className="border-t border-[var(--settings-divider)] p-4">
-            <div className="flex items-center gap-2 text-xs text-[var(--mg-muted)]">
+            <div className="flex items-center gap-2 text-xs text-[var(--moxzk-muted)]">
               <Workflow size={14} />
               <span>{appRuntime.kind === 'web' ? 'Web phase' : 'Electron'}</span>
             </div>
@@ -440,8 +440,8 @@ export default function SettingsPanel({
         <main className="SettingsMain flex min-w-0 flex-1 flex-col">
           <header className="SettingsHeader flex shrink-0 items-center justify-between gap-4 border-b border-[var(--settings-divider)] px-8 py-6">
             <div className="min-w-0">
-              <h2 className="text-2xl font-bold text-[var(--mg-text)]">{currentTab.label}</h2>
-              <p className="mt-1 text-sm text-[var(--mg-muted)]">{currentTab.description}</p>
+              <h2 className="text-2xl font-bold text-[var(--moxzk-text)]">{currentTab.label}</h2>
+              <p className="mt-1 text-sm text-[var(--moxzk-muted)]">{currentTab.description}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Button variant="ghost" size="sm" onClick={onClose}>
@@ -495,7 +495,7 @@ export default function SettingsPanel({
                 </SettingsRow>
                 <SettingsRow title="บริการ local ที่แอปควบคุม" description="แอปจะหยุดเฉพาะ service ที่ตัวเองเป็นคนเปิดไว้ และจะไม่แตะ process ที่เปิดจากภายนอก">
                   <div className="space-y-3">
-                    <div className="mg-notice">
+                    <div className="moxzk-notice">
                       <Workflow size={14} />
                       <span>
                         Ollama: {describeManagedStatus(localServiceStatus.ollama)} | PanelCleaner: {describeManagedStatus(localServiceStatus.panelcleaner)}
@@ -560,8 +560,8 @@ export default function SettingsPanel({
                       </Button>
                     </div>
                     {ollamaStatus && (
-                      <div className="mg-notice">
-                        {ollamaStatus.ok ? <CheckCircle2 size={14} className="text-[var(--mg-success)]" /> : <AlertCircle size={14} className="text-[var(--mg-warning)]" />}
+                      <div className="moxzk-notice">
+                        {ollamaStatus.ok ? <CheckCircle2 size={14} className="text-[var(--moxzk-success)]" /> : <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />}
                         <span>
                           {ollamaStatus.ok
                             ? `เชื่อมต่อ ${ollamaStatus.url} สำเร็จ${ollamaStatus.version ? ` (${ollamaStatus.version})` : ''}`
@@ -569,7 +569,7 @@ export default function SettingsPanel({
                         </span>
                       </div>
                     )}
-                    <div className="mg-notice">
+                    <div className="moxzk-notice">
                       <Workflow size={14} />
                       <span>สถานะที่แอปจัดการ: {describeManagedStatus(localServiceStatus.ollama)}</span>
                     </div>
@@ -608,7 +608,7 @@ export default function SettingsPanel({
 
                 <SettingsRow title="คู่มือเริ่มต้น" description="สำหรับคนที่ยังไม่เคยติดตั้ง Ollama หรือโมเดลมาก่อน">
                   <div className="space-y-4">
-                    <div className="mg-notice">
+                    <div className="moxzk-notice">
                       <Globe size={14} />
                       <span>{canStartLocalServices ? 'Electron เริ่ม local Ollama ได้เมื่อ endpoint เป็น localhost; installer และ cloud key ยังต้องจัดการเอง' : 'Web runtime เปิด installer, start service หรือสั่ง CLI แทนผู้ใช้ไม่ได้'}</span>
                     </div>
@@ -666,11 +666,11 @@ export default function SettingsPanel({
                           <div key={preset.name} className="settings-model-preset">
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                <h4 className="text-sm font-bold text-[var(--mg-text)]">{preset.title}</h4>
+                                <h4 className="text-sm font-bold text-[var(--moxzk-text)]">{preset.title}</h4>
                                 <span className="settings-pill">{preset.badge}</span>
                                 {isInstalled && <span className="settings-pill-success">ติดตั้งแล้ว</span>}
                               </div>
-                              <p className="mt-2 text-xs leading-relaxed text-[var(--mg-muted)]">{preset.description}</p>
+                              <p className="mt-2 text-xs leading-relaxed text-[var(--moxzk-muted)]">{preset.description}</p>
                               <code className="settings-command">{modelCommand(preset.name)}</code>
                             </div>
                             <div className="mt-4 flex flex-wrap gap-2">
@@ -694,11 +694,11 @@ export default function SettingsPanel({
                               <div className="mt-4 space-y-2">
                                 <div className="h-2 overflow-hidden rounded-full bg-white/8">
                                   <div
-                                    className="h-full rounded-full bg-[var(--mg-accent)] transition-all"
+                                    className="h-full rounded-full bg-[var(--moxzk-accent)] transition-all"
                                     style={{ width: `${pullPercent ?? 8}%` }}
                                   />
                                 </div>
-                                <p className="text-xs text-[var(--mg-muted)]">
+                                <p className="text-xs text-[var(--moxzk-muted)]">
                                   {pullProgress?.status ?? 'กำลังดาวน์โหลด'}{pullPercent != null ? ` - ${pullPercent}% (${formatBytes(pullProgress?.completed)} / ${formatBytes(pullProgress?.total)})` : ''}
                                 </p>
                               </div>
@@ -708,8 +708,8 @@ export default function SettingsPanel({
                       })}
                     </div>
                     {pullError && (
-                      <div className="mg-notice">
-                        <AlertCircle size={14} className="text-[var(--mg-warning)]" />
+                      <div className="moxzk-notice">
+                        <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
                         <span>ติดตั้งผ่านแอปไม่สำเร็จ: {pullError} ให้คัดลอกคำสั่งแล้ววางใน PowerShell หรือเปิด Ollama ให้พร้อมก่อนลองใหม่</span>
                       </div>
                     )}
@@ -728,8 +728,8 @@ export default function SettingsPanel({
                       onChange={(e) => setDraft({ ...draft, translationContextEnabled: e.target.checked })}
                     />
                     <span>
-                      <span className="block font-bold text-[var(--mg-text)]">ใช้บริบทข้ามหน้า</span>
-                      <span className="mt-1 block text-xs leading-relaxed text-[var(--mg-muted)]">
+                      <span className="block font-bold text-[var(--moxzk-text)]">ใช้บริบทข้ามหน้า</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-[var(--moxzk-muted)]">
                         ส่งบทพูดหน้าก่อน ๆ เข้า Ollama ตอนแปลหลายหน้า
                       </span>
                     </span>
@@ -751,7 +751,7 @@ export default function SettingsPanel({
                             <span>{mode.label}</span>
                             {active && <CheckCircle2 size={15} className="settings-choice-check" aria-hidden="true" />}
                           </span>
-                          <span className="mt-1 block text-xs font-medium leading-relaxed text-[var(--mg-muted)]">
+                          <span className="mt-1 block text-xs font-medium leading-relaxed text-[var(--moxzk-muted)]">
                             {mode.description}
                           </span>
                         </button>
@@ -774,7 +774,7 @@ export default function SettingsPanel({
               <SettingsSheet>
                 <SettingsRow title="PanelCleaner bridge" description={canStartLocalServices ? 'Electron เริ่ม bridge บนเครื่องนี้ได้ โดยยังใช้ PanelCleaner เป็น external CLI' : 'Web phase ต้องใช้ local bridge เพราะ browser เรียก Python/CLI โดยตรงไม่ได้'}>
                   <div className="space-y-4">
-                    <div className="mg-notice">
+                    <div className="moxzk-notice">
                       <Server size={14} />
                       <span>{canStartPanelCleaner ? 'กดเริ่ม bridge ได้จาก Electron หรือรัน npm run backend:panelcleaner เองก็ได้' : 'ให้รัน npm run backend:panelcleaner ก่อนเริ่มประมวลผล'}</span>
                     </div>
@@ -812,8 +812,8 @@ export default function SettingsPanel({
                       </Button>
                     </div>
                     {panelCleanerStatus && (
-                      <div className="mg-notice">
-                        {panelCleanerStatus.ok ? <CheckCircle2 size={14} className="text-[var(--mg-success)]" /> : <AlertCircle size={14} className="text-[var(--mg-warning)]" />}
+                      <div className="moxzk-notice">
+                        {panelCleanerStatus.ok ? <CheckCircle2 size={14} className="text-[var(--moxzk-success)]" /> : <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />}
                         <span>
                           {panelCleanerStatus.ok
                             ? `PanelCleaner พร้อมใช้งาน${panelCleanerStatus.version ? ` (${panelCleanerStatus.version})` : ''}${panelCleanerStatus.command ? ` - ${panelCleanerStatus.command}` : ''}`
@@ -821,7 +821,7 @@ export default function SettingsPanel({
                         </span>
                       </div>
                     )}
-                    <div className="mg-notice">
+                    <div className="moxzk-notice">
                       <Workflow size={14} />
                       <span>สถานะที่แอปจัดการ: {describeManagedStatus(localServiceStatus.panelcleaner)}</span>
                     </div>
@@ -874,9 +874,9 @@ function StatusTile({
 }) {
   return (
     <div className="settings-status-tile">
-      <div className={tone === 'good' ? 'text-[var(--mg-success)]' : 'text-[var(--mg-muted)]'}>{icon}</div>
-      <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-[var(--mg-dim)]">{label}</p>
-      <p className="mt-1 text-sm font-bold text-[var(--mg-text)]">{value}</p>
+      <div className={tone === 'good' ? 'text-[var(--moxzk-success)]' : 'text-[var(--moxzk-muted)]'}>{icon}</div>
+      <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-[var(--moxzk-dim)]">{label}</p>
+      <p className="mt-1 text-sm font-bold text-[var(--moxzk-text)]">{value}</p>
     </div>
   )
 }
@@ -897,11 +897,11 @@ function StepCard({
   return (
     <div className="settings-step">
       <div className="flex items-center justify-between gap-3">
-        <span className="grid size-7 place-items-center rounded-full bg-white/10 text-xs font-bold text-[var(--mg-text)]">{step}</span>
-        <span className="text-[var(--mg-muted)]">{icon}</span>
+        <span className="grid size-7 place-items-center rounded-full bg-white/10 text-xs font-bold text-[var(--moxzk-text)]">{step}</span>
+        <span className="text-[var(--moxzk-muted)]">{icon}</span>
       </div>
-      <h4 className="mt-4 text-sm font-bold text-[var(--mg-text)]">{title}</h4>
-      <p className="mt-2 flex-1 text-xs leading-relaxed text-[var(--mg-muted)]">{description}</p>
+      <h4 className="mt-4 text-sm font-bold text-[var(--moxzk-text)]">{title}</h4>
+      <p className="mt-2 flex-1 text-xs leading-relaxed text-[var(--moxzk-muted)]">{description}</p>
       <div className="mt-4">{action}</div>
     </div>
   )

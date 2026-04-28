@@ -26,7 +26,7 @@ Use `_wiki/` for source-heavy knowledge that should compound over time.
 
 ## Why This Exists
 
-This adapts the Karpathy-style LLM wiki pattern to MG_Translater without replacing the repo's existing agent context structure.
+This adapts the Karpathy-style LLM wiki pattern to Moxzk without replacing the repo's existing agent context structure.
 
 The repo already had:
 

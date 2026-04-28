@@ -1,7 +1,8 @@
 import type { AppSettings, FontMoodMap, TranslationMode } from '../types'
 import { LEGACY_FATHER_SON_STYLE_GUIDE } from './story-context'
 
-const SETTINGS_KEY = 'mg-translater-settings'
+const SETTINGS_KEY = 'moxzk-settings'
+const LEGACY_SETTINGS_KEY = 'mg-translater-settings'
 
 interface SerializedSettings {
   panelCleanerBridgeUrl?: string
@@ -40,7 +41,7 @@ export function saveSettings(settings: AppSettings): void {
 
 export function loadSettings(defaults: AppSettings): AppSettings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY)
+    const raw = localStorage.getItem(SETTINGS_KEY) ?? localStorage.getItem(LEGACY_SETTINGS_KEY)
     if (!raw) return defaults
 
     const parsed: SerializedSettings = JSON.parse(raw)
@@ -78,4 +79,5 @@ function normalizeTranslationMode(value: string | undefined, fallback: Translati
 
 export function clearSettings(): void {
   localStorage.removeItem(SETTINGS_KEY)
+  localStorage.removeItem(LEGACY_SETTINGS_KEY)
 }

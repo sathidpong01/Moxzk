@@ -111,11 +111,11 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
     >
       <div className="flex max-h-[72vh] min-h-0 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="border-b border-[var(--mg-border)] px-4 py-3 text-xs text-[var(--mg-muted)]">
+          <div className="border-b border-[var(--moxzk-border)] px-4 py-3 text-xs text-[var(--moxzk-muted)]">
             ความมั่นใจต่ำ {summary.lowConfidence} · ไม่มี OCR {summary.emptyOriginalText} · ยังไม่แปล {summary.emptyTranslatedText} · ไม่ทราบคะแนน {summary.unknownConfidence}
           </div>
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-[var(--mg-surface-2)] text-[var(--mg-muted)]">
+            <thead className="sticky top-0 z-10 bg-[var(--moxzk-surface-2)] text-[var(--moxzk-muted)]">
               <tr>
                 <th className="w-8 px-2 py-2">
                   <input
@@ -131,7 +131,7 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
                 <th className="w-24 px-2 py-2">แปลแล้ว</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--mg-border)]">
+            <tbody className="divide-y divide-[var(--moxzk-border)]">
               {reviewRegions.map((region, index) => {
                 const confidence = getRegionConfidence(region) ?? undefined
                 const isLow = confidence != null && confidence < 0.7
@@ -145,7 +145,7 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
                         aria-label={`เลือก OCR กล่อง ${index + 1}`}
                       />
                     </td>
-                    <td className="px-2 py-2 text-[var(--mg-dim)]">{index + 1}</td>
+                    <td className="px-2 py-2 text-[var(--moxzk-dim)]">{index + 1}</td>
                     <td className="px-2 py-2">
                       <TextInput
                         type="text"
@@ -161,7 +161,7 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
                           <CheckCircle2 size={10} /> แล้ว
                         </span>
                       ) : (
-                        <span className="text-[var(--mg-dim)]">-</span>
+                        <span className="text-[var(--moxzk-dim)]">-</span>
                       )}
                     </td>
                   </tr>
@@ -171,8 +171,8 @@ export default function OcrCorrectionModal({ isOpen, onClose }: OcrCorrectionMod
           </table>
         </div>
 
-        <div className="flex items-center justify-between border-t border-[var(--mg-border)] px-4 py-3">
-          <span className="text-xs text-[var(--mg-muted)]">
+        <div className="flex items-center justify-between border-t border-[var(--moxzk-border)] px-4 py-3">
+          <span className="text-xs text-[var(--moxzk-muted)]">
             เลือก {selected.size}/{regions.length}
           </span>
           <div className="flex items-center gap-2">

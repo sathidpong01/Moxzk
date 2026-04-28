@@ -1,6 +1,6 @@
 # Electron IPC Contract
 
-MG_Translater is a Windows-only Electron app behind the existing `AppRuntime` boundary. The renderer stays a browser-style React app and must not gain direct Node access. Linux/macOS are not planned targets for this project.
+Moxzk is a Windows-only Electron app behind the existing `AppRuntime` boundary. The renderer stays a browser-style React app and must not gain direct Node access. Linux/macOS are not planned targets for this project.
 
 ## Security Defaults
 

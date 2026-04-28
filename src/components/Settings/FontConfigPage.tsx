@@ -77,7 +77,7 @@ export default function FontConfigPage({
     <Modal isOpen={isOpen} onClose={onClose} title={<span className="flex items-center gap-2"><Type size={18} /> ตั้งค่าฟอนต์</span>} className="max-w-3xl">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="text-xs uppercase text-[var(--mg-muted)]">
+          <thead className="text-xs uppercase text-[var(--moxzk-muted)]">
             <tr>
               <th className="px-2 py-2">อารมณ์</th>
               <th className="px-2 py-2">คำอธิบาย</th>
@@ -85,11 +85,11 @@ export default function FontConfigPage({
               <th className="px-2 py-2">ตัวอย่าง</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--mg-border)]">
+          <tbody className="divide-y divide-[var(--moxzk-border)]">
             {MOODS.map((mood) => (
               <tr key={mood}>
                 <td className="px-2 py-2"><Badge>{mood}</Badge></td>
-                <td className="px-2 py-2 text-xs text-[var(--mg-muted)]">{MOOD_LABELS[mood]}</td>
+                <td className="px-2 py-2 text-xs text-[var(--moxzk-muted)]">{MOOD_LABELS[mood]}</td>
                 <td className="px-2 py-2">
                   <SelectField
                     value={draft[mood].name}
@@ -108,27 +108,27 @@ export default function FontConfigPage({
         </table>
       </div>
 
-      <div className="my-4 h-px bg-[var(--mg-border)]" />
+      <div className="my-4 h-px bg-[var(--moxzk-border)]" />
       <Field label="อัปโหลดฟอนต์เอง (.ttf / .otf / .woff2)">
         <input
           type="file"
-          className="mg-control"
+          className="moxzk-control"
           accept=".ttf,.otf,.woff,.woff2"
           onChange={handleUploadFont}
           disabled={uploading}
         />
-        {uploading && <span className="mt-2 text-xs text-[var(--mg-muted)]">กำลังอัปโหลด...</span>}
+        {uploading && <span className="mt-2 text-xs text-[var(--moxzk-muted)]">กำลังอัปโหลด...</span>}
       </Field>
 
       {customFonts.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1 text-xs text-[var(--mg-muted)]">ฟอนต์ที่โหลดไว้:</p>
+          <p className="mb-1 text-xs text-[var(--moxzk-muted)]">ฟอนต์ที่โหลดไว้:</p>
           <div className="flex flex-wrap gap-1">
             {customFonts.map((font) => (
               <Badge key={font.name}>
                 {font.name}
                 <button
-                  className="ml-1 text-[var(--mg-danger)]"
+                  className="ml-1 text-[var(--moxzk-danger)]"
                   onClick={async () => {
                     await deleteFontFromDB(font.name)
                     setCustomFonts((prev) => prev.filter((current) => current.name !== font.name))

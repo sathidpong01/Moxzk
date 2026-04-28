@@ -83,9 +83,9 @@ export function StrokeJoinToggleGroup({
             <button
               type="button"
               className={cn(
-                'flex items-center justify-center bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+                'flex items-center justify-center bg-transparent text-[var(--moxzk-muted)] transition hover:bg-white/[0.08] hover:text-[var(--moxzk-text)]',
                 buttonSizeClass,
-                active && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
+                active && 'bg-[var(--moxzk-accent)] text-white hover:bg-[var(--moxzk-accent)] hover:text-white',
               )}
               onClick={() => onChange(join)}
               aria-label={getStrokeJoinLabel(join)}

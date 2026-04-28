@@ -2,7 +2,7 @@
 
 ## Summary
 
-This concept adapts Karpathy's LLM wiki pattern to the existing MG_Translater workspace without replacing the repo's current agent context system.
+This concept adapts Karpathy's LLM wiki pattern to the existing Moxzk workspace without replacing the repo's current agent context system.
 
 The important design choice is to add a knowledge layer, not to collapse everything into one folder.
 
@@ -41,5 +41,5 @@ The important design choice is to add a knowledge layer, not to collapse everyth
 
 ## Sources
 
-- `D:\MG_Translater\สรุปแนวคิด LLM Wiki สไตล์ Andrej Karpathy.md`
+- `D:\Moxzk\สรุปแนวคิด LLM Wiki สไตล์ Andrej Karpathy.md`
 - <https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f>

@@ -25,7 +25,7 @@ export default function ConfirmModal({
   return (
     <Modal isOpen={open} onClose={onCancel} title={title} className="max-w-xs text-center">
         <AlertTriangle size={32} className={`mx-auto mb-3 ${variant === 'error' ? 'text-red-300' : variant === 'warning' ? 'text-yellow-300' : 'text-blue-300'}`} />
-        <p className="mb-4 text-xs text-[var(--mg-muted)]">{message}</p>
+        <p className="mb-4 text-xs text-[var(--moxzk-muted)]">{message}</p>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" className="flex-1" onClick={onCancel}>
             {cancelLabel}

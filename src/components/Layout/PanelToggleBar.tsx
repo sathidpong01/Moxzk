@@ -63,7 +63,7 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
                 className="h-6 w-6 rounded-[7px]"
                 style={{ backgroundColor: store.brushColor }}
               />
-              <span className="text-sm font-bold text-[var(--mg-text)]">{store.brushColor}</span>
+              <span className="text-sm font-bold text-[var(--moxzk-text)]">{store.brushColor}</span>
             </div>
           ) : (
             <>
@@ -136,12 +136,12 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
             {undoEntries.length > 0 ? (
               undoEntries.slice().reverse().map((entry, index) => (
                 <DropdownItem key={`undo-${index}`} onClick={() => store.undoEditorEdit(index + 1)}>
-                  <span className="min-w-6 text-[10px] font-bold text-[var(--mg-dim)]">{index + 1}</span>
+                  <span className="min-w-6 text-[10px] font-bold text-[var(--moxzk-dim)]">{index + 1}</span>
                   <span className="truncate">{describeEditorHistory(entry, 'undo')}</span>
                 </DropdownItem>
               ))
             ) : (
-              <div className="px-3 py-2 text-xs text-[var(--mg-dim)]">ไม่มีประวัติ</div>
+              <div className="px-3 py-2 text-xs text-[var(--moxzk-dim)]">ไม่มีประวัติ</div>
             )}
           </DropdownMenu>
           <TooltipSurface label="ทำซ้ำ" shortcut="Ctrl+Shift+Z">
@@ -168,12 +168,12 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
             {redoEntries.length > 0 ? (
               redoEntries.slice().reverse().map((entry, index) => (
                 <DropdownItem key={`redo-${index}`} onClick={() => store.redoEditorEdit(index + 1)}>
-                  <span className="min-w-6 text-[10px] font-bold text-[var(--mg-dim)]">{index + 1}</span>
+                  <span className="min-w-6 text-[10px] font-bold text-[var(--moxzk-dim)]">{index + 1}</span>
                   <span className="truncate">{describeEditorHistory(entry, 'redo')}</span>
                 </DropdownItem>
               ))
             ) : (
-              <div className="px-3 py-2 text-xs text-[var(--mg-dim)]">ไม่มีประวัติทำซ้ำ</div>
+              <div className="px-3 py-2 text-xs text-[var(--moxzk-dim)]">ไม่มีประวัติทำซ้ำ</div>
             )}
           </DropdownMenu>
         </div>
@@ -183,8 +183,8 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
             <TooltipSurface key={id} label={label} shortcut={shortcut}>
               <button
                 className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-[9px] text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
-                  activeTool === id && 'bg-[var(--mg-accent)] text-white hover:bg-[var(--mg-accent)] hover:text-white',
+                  'flex h-8 w-8 items-center justify-center rounded-[9px] text-[var(--moxzk-muted)] transition hover:bg-white/[0.08] hover:text-[var(--moxzk-text)]',
+                  activeTool === id && 'bg-[var(--moxzk-accent)] text-white hover:bg-[var(--moxzk-accent)] hover:text-white',
                 )}
                 onClick={() => setTool(id)}
                 aria-label={label}
@@ -202,9 +202,9 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
             </button>
           </TooltipSurface>
           <TooltipSurface label="เปอร์เซ็นต์ซูม">
-            <label className="flex h-8 w-[3.7rem] items-center justify-center rounded-[9px] px-1.5 text-[11px] font-bold text-[var(--mg-text)] transition hover:bg-white/[0.06]">
+            <label className="flex h-8 w-[3.7rem] items-center justify-center rounded-[9px] px-1.5 text-[11px] font-bold text-[var(--moxzk-text)] transition hover:bg-white/[0.06]">
               <span className="grid w-full grid-cols-[0.6rem_minmax(0,1fr)_0.6rem] items-center">
-                <span className="invisible text-center text-[var(--mg-dim)]">%</span>
+                <span className="invisible text-center text-[var(--moxzk-dim)]">%</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -218,7 +218,7 @@ export default function PanelToggleBar({ editorRef, viewportZoomPercent }: Panel
                   }}
                   className="w-full bg-transparent px-0 text-center font-mono tabular-nums outline-none"
                 />
-                <span className="text-center text-[var(--mg-dim)]">%</span>
+                <span className="text-center text-[var(--moxzk-dim)]">%</span>
               </span>
             </label>
           </TooltipSurface>
@@ -258,8 +258,8 @@ function DockNumericField({
 }) {
   return (
     <TooltipSurface label={label}>
-      <label className="flex h-8 items-center gap-1.5 rounded-[9px] bg-white/[0.055] px-2.5 text-xs text-[var(--mg-text)]">
-        <span className="text-xs font-bold text-[var(--mg-muted)]">{label}</span>
+      <label className="flex h-8 items-center gap-1.5 rounded-[9px] bg-white/[0.055] px-2.5 text-xs text-[var(--moxzk-text)]">
+        <span className="text-xs font-bold text-[var(--moxzk-muted)]">{label}</span>
         <input
           type="number"
           min={min}
@@ -274,7 +274,7 @@ function DockNumericField({
           }}
           className="w-10 bg-transparent text-right outline-none"
         />
-        {suffix ? <span className="text-xs text-[var(--mg-muted)]">{suffix}</span> : null}
+        {suffix ? <span className="text-xs text-[var(--moxzk-muted)]">{suffix}</span> : null}
       </label>
     </TooltipSurface>
   )
@@ -282,7 +282,7 @@ function DockNumericField({
 
 function dockButtonClass(enabled: boolean): string {
   return cn(
-    'flex h-8 w-8 items-center justify-center rounded-[9px] text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+    'flex h-8 w-8 items-center justify-center rounded-[9px] text-[var(--moxzk-muted)] transition hover:bg-white/[0.08] hover:text-[var(--moxzk-text)]',
     enabled && 'cursor-pointer',
     !enabled && 'cursor-not-allowed opacity-40',
   )
@@ -290,14 +290,14 @@ function dockButtonClass(enabled: boolean): string {
 
 function dockCountButtonClass(enabled: boolean): string {
   return cn(
-    'flex h-8 items-center gap-1 rounded-[9px] px-1.5 text-[11px] font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]',
+    'flex h-8 items-center gap-1 rounded-[9px] px-1.5 text-[11px] font-bold text-[var(--moxzk-muted)] transition hover:bg-white/[0.08] hover:text-[var(--moxzk-text)]',
     enabled && 'cursor-pointer',
     !enabled && 'cursor-not-allowed opacity-40',
   )
 }
 
 function dockFitButtonClass(): string {
-  return 'flex h-8 cursor-pointer items-center gap-1 rounded-[9px] px-2.5 text-[11px] font-bold text-[var(--mg-muted)] transition hover:bg-white/[0.08] hover:text-[var(--mg-text)]'
+  return 'flex h-8 cursor-pointer items-center gap-1 rounded-[9px] px-2.5 text-[11px] font-bold text-[var(--moxzk-muted)] transition hover:bg-white/[0.08] hover:text-[var(--moxzk-text)]'
 }
 
 function describeEditorHistory(entry: EditorHistoryEntry, direction: 'undo' | 'redo'): string {

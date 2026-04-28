@@ -89,7 +89,7 @@ server.listen(PORT, '127.0.0.1', () => {
 async function processImage(payload) {
   validatePayload(payload)
 
-  const tempRoot = await mkdtemp(join(tmpdir(), 'mg-panelcleaner-'))
+  const tempRoot = await mkdtemp(join(tmpdir(), 'moxzk-panelcleaner-'))
   const inputDir = join(tempRoot, 'input')
   const outputDir = join(tempRoot, 'output')
   await mkdir(inputDir)
@@ -146,7 +146,7 @@ async function processImage(payload) {
 async function processImageBatch(payload) {
   validateBatchPayload(payload)
 
-  const tempRoot = await mkdtemp(join(tmpdir(), 'mg-panelcleaner-batch-'))
+  const tempRoot = await mkdtemp(join(tmpdir(), 'moxzk-panelcleaner-batch-'))
   const inputDir = join(tempRoot, 'input')
   const outputDir = join(tempRoot, 'output')
   await mkdir(inputDir)

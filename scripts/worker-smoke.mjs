@@ -28,7 +28,7 @@ export async function runWorkerSmoke({
   checks.push({ name: 'auth.session_me', mode: auth.mode })
 
   try {
-    const albumTitle = `MG Smoke ${new Date().toISOString()}`
+    const albumTitle = `Moxzk Smoke ${new Date().toISOString()}`
     const album = await expectData(await requestJson(fetchImpl, baseUrl, '/api/albums', {
       method: 'POST',
       cookieHeader,

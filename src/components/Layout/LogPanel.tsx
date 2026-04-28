@@ -10,7 +10,7 @@ function getLogStyle(log: string): string {
     return 'bg-yellow-900/40 text-yellow-200 border-l-2 border-yellow-500'
   if (lower.includes('[progress]') || lower.includes('กำลัง') || lower.includes('ocr') || lower.includes('ollama'))
     return 'bg-blue-900/40 text-blue-200 border-l-2 border-blue-500'
-  return 'text-[var(--mg-muted)]'
+  return 'text-[var(--moxzk-muted)]'
 }
 
 export default function LogPanel({ logs }: { logs: string[] }) {
@@ -18,11 +18,11 @@ export default function LogPanel({ logs }: { logs: string[] }) {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs])
   return (
     <div className="floating-panel-sm flex h-full min-h-0 flex-col p-2">
-      <h3 className="mb-1 shrink-0 text-xs font-bold uppercase tracking-wider text-[var(--mg-muted)]">
+      <h3 className="mb-1 shrink-0 text-xs font-bold uppercase tracking-wider text-[var(--moxzk-muted)]">
         บันทึกระบบ ({logs.length})
       </h3>
       {logs.length === 0 && (
-        <p className="py-4 text-center text-xs text-[var(--mg-dim)]">ยังไม่มีบันทึกระบบ กด AI แปลเพื่อเริ่ม</p>
+        <p className="py-4 text-center text-xs text-[var(--moxzk-dim)]">ยังไม่มีบันทึกระบบ กด AI แปลเพื่อเริ่ม</p>
       )}
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto font-mono text-xs">
         {logs.map((log, i) => (

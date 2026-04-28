@@ -66,7 +66,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   signInWithGoogle: async () => {
     const runtime = getAppRuntime()
-    const hasElectronBridge = typeof window !== 'undefined' && Boolean(window.mgRuntime)
+    const hasElectronBridge = typeof window !== 'undefined' && Boolean(window.moxzkRuntime ?? window.mgRuntime)
     set({ loading: true })
     try {
       const result = await runtime.auth.signInWithGoogle()

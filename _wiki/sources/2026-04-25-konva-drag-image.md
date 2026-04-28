@@ -4,7 +4,7 @@
 
 Konva images can be made draggable by setting `draggable: true` when creating a `Konva.Image`, or by calling the `draggable()` method later.
 
-This is a small source, but it is directly relevant to MG_Translater because the editor uses Konva for image and artboard interaction.
+This is a small source, but it is directly relevant to Moxzk because the editor uses Konva for image and artboard interaction.
 
 ## Key Points
 
@@ -14,7 +14,7 @@ This is a small source, but it is directly relevant to MG_Translater because the
 - image loading should happen before creating the `Konva.Image`
 - source image dimensions can be passed through `width` and `height`
 
-## MG_Translater Notes
+## Moxzk Notes
 
 For this repo, this pattern should be treated as a baseline reference, not copied directly everywhere.
 
@@ -29,5 +29,5 @@ For this repo, this pattern should be treated as a baseline reference, not copie
 
 ## Sources
 
-- Clipping: `D:\MG_Translater\Clippings\HTML5 Canvas Drag and Drop an Image  Konva - JavaScript Canvas 2d Library.md`
+- Clipping: `D:\Moxzk\Clippings\HTML5 Canvas Drag and Drop an Image  Konva - JavaScript Canvas 2d Library.md`
 - Original: <https://konvajs.org/docs/drag_and_drop/Drag_an_Image.html>

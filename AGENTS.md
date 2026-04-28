@@ -1,4 +1,4 @@
-# MG_Translater Agent Guide
+# Moxzk Agent Guide
 
 This file is the entry point for AI coding agents working in this repository.
 For the fuller project context layer, read `.agents/AGENTS.md` first, then load only the topic or session notes relevant to the task.

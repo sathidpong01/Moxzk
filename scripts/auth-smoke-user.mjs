@@ -1,26 +1,28 @@
 import { fileURLToPath } from 'node:url'
 import { loadSmokeEnv } from './smoke-env.mjs'
 
-const DEFAULT_USERNAME = 'MG Smoke Test'
+const DEFAULT_USERNAME = 'Moxzk Smoke Test'
 
 export function buildSmokeConfig(env = process.env) {
-  const configuredBaseUrl = env.MG_AUTH_SMOKE_BASE_URL || env.VITE_CLOUDFLARE_API_URL
+  const configuredBaseUrl = env.MOXZK_AUTH_SMOKE_BASE_URL || env.MG_AUTH_SMOKE_BASE_URL || env.VITE_CLOUDFLARE_API_URL
   if (!configuredBaseUrl) {
-    throw new Error('Set MG_AUTH_SMOKE_BASE_URL or VITE_CLOUDFLARE_API_URL to your online Worker API URL.')
+    throw new Error('Set MOXZK_AUTH_SMOKE_BASE_URL or VITE_CLOUDFLARE_API_URL to your online Worker API URL.')
   }
   const baseUrl = normalizeBaseUrl(configuredBaseUrl)
-  if (!env.MG_AUTH_SMOKE_EMAIL || !env.MG_AUTH_SMOKE_PASSWORD) {
-    throw new Error('Set MG_AUTH_SMOKE_EMAIL and MG_AUTH_SMOKE_PASSWORD in the environment. Do not commit smoke credentials.')
+  const emailValue = env.MOXZK_AUTH_SMOKE_EMAIL || env.MG_AUTH_SMOKE_EMAIL
+  const passwordValue = env.MOXZK_AUTH_SMOKE_PASSWORD || env.MG_AUTH_SMOKE_PASSWORD
+  if (!emailValue || !passwordValue) {
+    throw new Error('Set MOXZK_AUTH_SMOKE_EMAIL and MOXZK_AUTH_SMOKE_PASSWORD in the environment. Do not commit smoke credentials.')
   }
-  const email = env.MG_AUTH_SMOKE_EMAIL.trim()
-  const password = env.MG_AUTH_SMOKE_PASSWORD
-  const username = (env.MG_AUTH_SMOKE_USERNAME || DEFAULT_USERNAME).trim()
+  const email = emailValue.trim()
+  const password = passwordValue
+  const username = (env.MOXZK_AUTH_SMOKE_USERNAME || env.MG_AUTH_SMOKE_USERNAME || DEFAULT_USERNAME).trim()
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error('MG_AUTH_SMOKE_EMAIL must be a valid email address.')
+    throw new Error('MOXZK_AUTH_SMOKE_EMAIL must be a valid email address.')
   }
   if (password.length < 10) {
-    throw new Error('MG_AUTH_SMOKE_PASSWORD must be at least 10 characters.')
+    throw new Error('MOXZK_AUTH_SMOKE_PASSWORD must be at least 10 characters.')
   }
 
   return { baseUrl, email, password, username }
@@ -121,10 +123,10 @@ function getSetCookieHeaders(response) {
 
 function normalizeBaseUrl(value) {
   const trimmed = value.trim().replace(/\/+$/, '')
-  if (!trimmed) throw new Error('MG_AUTH_SMOKE_BASE_URL must not be empty.')
+  if (!trimmed) throw new Error('MOXZK_AUTH_SMOKE_BASE_URL must not be empty.')
   const url = new URL(trimmed)
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('MG_AUTH_SMOKE_BASE_URL must use http or https.')
+    throw new Error('MOXZK_AUTH_SMOKE_BASE_URL must use http or https.')
   }
   return url.toString().replace(/\/+$/, '')
 }

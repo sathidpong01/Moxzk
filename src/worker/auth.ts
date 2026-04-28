@@ -3,8 +3,8 @@ import * as schema from './db/schema'
 import { base64UrlDecodeToString, hashPassword, hashToken, optionalHash, passwordParamsJson, randomToken, verifyPassword } from './crypto'
 import { ApiError, json, jsonError, normalizeEmail, parseCsv, parseEmail, parsePassword, readJson, requiredEnv } from './http'
 import type { AuthUser, RequestContext } from './types'
+import { APP_DISPLAY_NAME, LEGACY_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from '../config/appIdentity'
 
-const SESSION_COOKIE_FALLBACK = 'mg_session'
 const DESKTOP_AUTH_TICKET_TTL_MS = 5 * 60 * 1000
 
 export async function register(ctx: RequestContext): Promise<Response> {
@@ -90,7 +90,9 @@ export async function logout(ctx: RequestContext): Promise<Response> {
       .run()
   }
   const response = json({ ok: true })
-  response.headers.append('Set-Cookie', expireSessionCookie(ctx))
+  for (const cookie of expireSessionCookies(ctx)) {
+    response.headers.append('Set-Cookie', cookie)
+  }
   return response
 }
 
@@ -376,9 +378,12 @@ async function findOrCreateGoogleUser(
 function readSessionToken(ctx: RequestContext): string | null {
   const cookie = ctx.request.headers.get('Cookie')
   if (!cookie) return null
-  const name = sessionCookieName(ctx)
-  const match = cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))
-  return match ? decodeURIComponent(match.slice(name.length + 1)) : null
+  const parts = cookie.split(';').map((part) => part.trim())
+  for (const name of sessionCookieNames(ctx)) {
+    const match = parts.find((part) => part.startsWith(`${name}=`))
+    if (match) return decodeURIComponent(match.slice(name.length + 1))
+  }
+  return null
 }
 
 function buildSessionCookie(ctx: RequestContext, token: string, expiresAt: number): string {
@@ -386,12 +391,16 @@ function buildSessionCookie(ctx: RequestContext, token: string, expiresAt: numbe
   return `${sessionCookieName(ctx)}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; HttpOnly; Secure; SameSite=Lax`
 }
 
-function expireSessionCookie(ctx: RequestContext): string {
-  return `${sessionCookieName(ctx)}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`
+function expireSessionCookies(ctx: RequestContext): string[] {
+  return sessionCookieNames(ctx).map((name) => `${name}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`)
 }
 
 function sessionCookieName(ctx: RequestContext): string {
-  return ctx.env.SESSION_COOKIE_NAME || SESSION_COOKIE_FALLBACK
+  return ctx.env.SESSION_COOKIE_NAME || SESSION_COOKIE_NAME
+}
+
+function sessionCookieNames(ctx: RequestContext): string[] {
+  return Array.from(new Set([sessionCookieName(ctx), SESSION_COOKIE_NAME, LEGACY_SESSION_COOKIE_NAME]))
 }
 
 function isAllowedRedirect(ctx: RequestContext, redirectTarget: string): boolean {
@@ -427,7 +436,8 @@ export function isDesktopRedirectTarget(redirectTarget: string): boolean {
 }
 
 function desktopGoogleCallbackOrigin(ctx: RequestContext): string {
-  const configuredOrigin = ctx.request.headers.get('X-MG-Desktop-Auth-Origin')
+  const configuredOrigin = ctx.request.headers.get('X-Moxzk-Desktop-Auth-Origin')
+    || ctx.request.headers.get('X-MG-Desktop-Auth-Origin')
   if (configuredOrigin) {
     try {
       const origin = new URL(configuredOrigin).origin
@@ -447,8 +457,8 @@ function defaultWebRedirect(ctx: RequestContext): string {
 function desktopCallbackResponse(redirectUrl: URL): Response {
   const body = `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>MG Translater Login</title></head>
-<body><p>Google login finished. You can return to MG Translater.</p></body>
+<head><meta charset="utf-8"><title>${APP_DISPLAY_NAME} Login</title></head>
+<body><p>Google login finished. You can return to ${APP_DISPLAY_NAME}.</p></body>
 </html>`
   return new Response(body, {
     status: 302,

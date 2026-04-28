@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { registerRuntimeIpcHandlers } from './ipc'
 import { shutdownOwnedServices } from './localServices'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
+import { APP_DISPLAY_NAME } from '../../src/config/appIdentity'
 
 const mainFilePath = fileURLToPath(import.meta.url)
 const mainDir = path.dirname(mainFilePath)
@@ -14,7 +15,7 @@ let isShuttingDownOwnedServices = false
 
 function createWindow(): void {
   const win = new BrowserWindow({
-    title: 'MG_Translater',
+    title: APP_DISPLAY_NAME,
     width: 1440,
     height: 960,
     minWidth: 1024,

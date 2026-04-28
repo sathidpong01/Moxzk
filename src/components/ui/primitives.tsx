@@ -31,17 +31,17 @@ type ButtonVariant = 'primary' | 'ai' | 'ghost' | 'soft' | 'danger'
 type ButtonSize = 'sm' | 'md' | 'lg'
 
 const variantClass: Record<ButtonVariant, string> = {
-  primary: 'mg-button-primary',
-  ai: 'mg-button-ai',
-  ghost: 'mg-button-ghost',
-  soft: 'mg-button-soft',
-  danger: 'mg-button-danger',
+  primary: 'moxzk-button-primary',
+  ai: 'moxzk-button-ai',
+  ghost: 'moxzk-button-ghost',
+  soft: 'moxzk-button-soft',
+  danger: 'moxzk-button-danger',
 }
 
 const sizeClass: Record<ButtonSize, string> = {
-  sm: 'mg-button-sm',
+  sm: 'moxzk-button-sm',
   md: '',
-  lg: 'mg-button-lg',
+  lg: 'moxzk-button-lg',
 }
 
 export function Button({
@@ -53,7 +53,7 @@ export function Button({
   return (
     <button
       {...props}
-      className={cn('mg-button', variantClass[variant], sizeClass[size], className)}
+      className={cn('moxzk-button', variantClass[variant], sizeClass[size], className)}
     />
   )
 }
@@ -69,7 +69,7 @@ export function IconButton({
       {...props}
       aria-label={label}
       title={props.title ?? label}
-      className={cn('mg-icon-button', active && 'mg-tool-active', className)}
+      className={cn('moxzk-icon-button', active && 'moxzk-tool-active', className)}
     />
   )
 }
@@ -93,7 +93,7 @@ export function ToolButton({
       {...props}
       aria-label={shortcut ? `${label} (${shortcut})` : label}
       title={shortcut ? `${label} (${shortcut})` : label}
-      className={cn('mg-tool relative', active && 'mg-tool-active', className)}
+      className={cn('moxzk-tool relative', active && 'moxzk-tool-active', className)}
     >
       {children}
       {shortcut && showShortcutBadge && (
@@ -150,7 +150,7 @@ export function TooltipSurface({
       {children}
       <div
         className={cn(
-          'pointer-events-none absolute left-1/2 z-[360] min-w-max -translate-x-1/2 rounded-[10px] bg-[rgba(10,10,10,0.98)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--mg-text)] shadow-[0_14px_28px_rgba(0,0,0,0.38)] transition duration-150',
+          'pointer-events-none absolute left-1/2 z-[360] min-w-max -translate-x-1/2 rounded-[10px] bg-[rgba(10,10,10,0.98)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--moxzk-text)] shadow-[0_14px_28px_rgba(0,0,0,0.38)] transition duration-150',
           open ? 'opacity-100' : 'opacity-0',
           side === 'top' ? '-top-2 -translate-y-full' : '-bottom-2 translate-y-full',
         )}
@@ -159,7 +159,7 @@ export function TooltipSurface({
         <span className="flex items-center gap-1.5 whitespace-nowrap">
           <span>{label}</span>
           {shortcut && (
-            <span className="rounded bg-white/8 px-1 py-0.5 text-[10px] font-bold text-[var(--mg-muted)]">
+            <span className="rounded bg-white/8 px-1 py-0.5 text-[10px] font-bold text-[var(--moxzk-muted)]">
               {shortcut}
             </span>
           )}
@@ -176,7 +176,7 @@ export function Panel({
   className?: string
   children: ReactNode
 }) {
-  return <div className={cn('mg-panel', className)}>{children}</div>
+  return <div className={cn('moxzk-panel', className)}>{children}</div>
 }
 
 export function DisclosureSection({
@@ -195,10 +195,10 @@ export function DisclosureSection({
       {({ open }) => (
         <section className={cn('rounded-[8px] bg-white/[0.025]', className)}>
           <DisclosureButton className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left">
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">{title}</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--moxzk-muted)]">{title}</span>
             <ChevronDown
               size={14}
-              className={cn('shrink-0 text-[var(--mg-dim)] transition-transform', open && 'rotate-180')}
+              className={cn('shrink-0 text-[var(--moxzk-dim)] transition-transform', open && 'rotate-180')}
               aria-hidden="true"
             />
           </DisclosureButton>
@@ -212,7 +212,7 @@ export function DisclosureSection({
 }
 
 export function Badge({ className, children }: { className?: string; children: ReactNode }) {
-  return <span className={cn('mg-pill', className)}>{children}</span>
+  return <span className={cn('moxzk-pill', className)}>{children}</span>
 }
 
 export function Field({
@@ -229,20 +229,20 @@ export function Field({
   as?: 'label' | 'div' | 'fieldset'
 }) {
   return (
-    <Component className={cn('mg-field', className)}>
-      {label && (Component === 'fieldset' ? <legend className="mg-label px-0">{label}</legend> : <span className="mg-label">{label}</span>)}
+    <Component className={cn('moxzk-field', className)}>
+      {label && (Component === 'fieldset' ? <legend className="moxzk-label px-0">{label}</legend> : <span className="moxzk-label">{label}</span>)}
       {children}
-      {hint && <span className="text-xs text-[var(--mg-dim)]">{hint}</span>}
+      {hint && <span className="text-xs text-[var(--moxzk-dim)]">{hint}</span>}
     </Component>
   )
 }
 
 export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={cn('mg-control', className)} />
+  return <input {...props} className={cn('moxzk-control', className)} />
 }
 
 export function TextareaField({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={cn('mg-control min-h-20 resize-y', className)} />
+  return <textarea {...props} className={cn('moxzk-control min-h-20 resize-y', className)} />
 }
 
 export interface OptionItem<T extends string = string> {
@@ -268,19 +268,19 @@ export function SelectField<T extends string>({
   return (
     <Listbox value={value} onChange={onChange}>
       <div className={cn('relative isolate', className)}>
-        <ListboxButton className={cn('mg-control flex cursor-pointer items-center justify-between gap-2 text-left', buttonClassName)}>
+        <ListboxButton className={cn('moxzk-control flex cursor-pointer items-center justify-between gap-2 text-left', buttonClassName)}>
           <span className="truncate">{selected?.label}</span>
-          <ChevronDown size={14} className="shrink-0 text-[var(--mg-muted)]" aria-hidden="true" />
+          <ChevronDown size={14} className="shrink-0 text-[var(--moxzk-muted)]" aria-hidden="true" />
         </ListboxButton>
         <ListboxOptions
           anchor="bottom start"
-          className="mg-popover-list z-[260] max-h-72 w-[var(--button-width)] overflow-y-auto"
+          className="moxzk-popover-list z-[260] max-h-72 w-[var(--button-width)] overflow-y-auto"
         >
           {options.map((option) => (
             <ListboxOption
               key={option.value}
               value={option.value}
-              className="mg-popover-item"
+              className="moxzk-popover-item"
             >
               {({ selected }) => (
                 <>
@@ -316,7 +316,7 @@ export function Modal({
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" aria-hidden="true" />
       <div className="fixed inset-0 overflow-y-auto p-4">
         <div className="flex min-h-full items-center justify-center">
-          <DialogPanel className={cn('mg-panel w-full max-w-lg p-5', className)}>
+          <DialogPanel className={cn('moxzk-panel w-full max-w-lg p-5', className)}>
             {hideHeader ? (
               <DialogTitle className="sr-only">{title}</DialogTitle>
             ) : (
@@ -347,7 +347,7 @@ export function DropdownMenu({
   return (
     <Menu>
       <MenuButton as="div" className="inline-flex cursor-pointer">{trigger}</MenuButton>
-      <MenuItems anchor="bottom end" className={cn('mg-popover-list', className)}>
+      <MenuItems anchor="bottom end" className={cn('moxzk-popover-list', className)}>
         {children}
       </MenuItems>
     </Menu>
@@ -365,7 +365,7 @@ export function DropdownItem({
 }) {
   return (
     <MenuItem>
-      <button className={cn('mg-popover-item', className)} onClick={onClick}>
+      <button className={cn('moxzk-popover-item', className)} onClick={onClick}>
         {children}
       </button>
     </MenuItem>
@@ -390,7 +390,7 @@ export function Tabs<T extends string>({
         {options.map((option) => (
           <Tab
             key={option.value}
-            className="cursor-pointer rounded-[6px] px-3 py-1 text-xs font-bold text-[var(--mg-muted)] data-[selected]:bg-white/10 data-[selected]:text-[var(--mg-text)]"
+            className="cursor-pointer rounded-[6px] px-3 py-1 text-xs font-bold text-[var(--moxzk-muted)] data-[selected]:bg-white/10 data-[selected]:text-[var(--moxzk-text)]"
           >
             {option.label}
           </Tab>

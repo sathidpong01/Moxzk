@@ -535,9 +535,9 @@ function getLayoutPaddingY(bbox: BoxLike, shape: NormalizedTextBalloonShape): nu
 function getFitComfortScale(shape: NormalizedTextBalloonShape): number {
   if (shape === 'box') return 0.97
   if (shape === 'cloud') return 0.92
-  // round: raised from 0.92→0.96 — the binary search is already tight;
-  // over-scaling down causes re-wraps that can accidentally overflow.
-  return 0.96
+  // round: keep extra breathing room so Thai text can split into balanced
+  // lines instead of crowding the narrow top/bottom edges.
+  return 0.92
 }
 
 function getPreferredShapeLineCount(

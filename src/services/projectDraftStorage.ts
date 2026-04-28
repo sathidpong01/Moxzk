@@ -1,7 +1,8 @@
 import type { AppSettings, AppStep, BrushStroke, ImageEntry, TextRegion } from '../types'
 import type { RuntimeProjectDraft } from '../runtime/types'
 
-const DB_NAME = 'mg-project-drafts'
+const DB_NAME = 'moxzk-project-drafts'
+const LEGACY_DB_NAME = 'mg-project-drafts'
 const STORE_NAME = 'drafts'
 const DRAFT_KEY = 'current-project'
 const DB_VERSION = 1
@@ -47,7 +48,7 @@ export function createProjectDraftSnapshot(state: ProjectDraftSourceState): Runt
 
 export async function saveProjectDraft(draft: RuntimeProjectDraft): Promise<void> {
   try {
-    const db = await openDB()
+    const db = await openDB(DB_NAME)
     const tx = db.transaction(STORE_NAME, 'readwrite')
     tx.objectStore(STORE_NAME).put(draft, DRAFT_KEY)
   } catch (err) {
@@ -57,23 +58,29 @@ export async function saveProjectDraft(draft: RuntimeProjectDraft): Promise<void
 
 export async function loadProjectDraft(): Promise<RuntimeProjectDraft | null> {
   try {
-    const db = await openDB()
-    return new Promise((resolve) => {
-      const tx = db.transaction(STORE_NAME, 'readonly')
-      const req = tx.objectStore(STORE_NAME).get(DRAFT_KEY)
-      req.onsuccess = () => resolve(normalizeProjectDraft(req.result))
-      req.onerror = () => resolve(null)
-    })
+    return await loadProjectDraftFromDb(DB_NAME) ?? await loadProjectDraftFromDb(LEGACY_DB_NAME)
   } catch {
     return null
   }
 }
 
+async function loadProjectDraftFromDb(dbName: string): Promise<RuntimeProjectDraft | null> {
+  const db = await openDB(dbName)
+  return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readonly')
+      const req = tx.objectStore(STORE_NAME).get(DRAFT_KEY)
+      req.onsuccess = () => resolve(normalizeProjectDraft(req.result))
+      req.onerror = () => resolve(null)
+  })
+}
+
 export async function clearProjectDraft(): Promise<void> {
   try {
-    const db = await openDB()
-    const tx = db.transaction(STORE_NAME, 'readwrite')
-    tx.objectStore(STORE_NAME).delete(DRAFT_KEY)
+    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
+      const db = await openDB(dbName)
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      tx.objectStore(STORE_NAME).delete(DRAFT_KEY)
+    }))
   } catch {
     // ignore unavailable storage
   }
@@ -97,9 +104,9 @@ function normalizeDraftStep(value: unknown): AppStep | null {
   return null
 }
 
-function openDB(): Promise<IDBDatabase> {
+function openDB(dbName = DB_NAME): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    const req = indexedDB.open(dbName, DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(STORE_NAME)) {

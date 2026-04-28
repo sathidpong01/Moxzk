@@ -5,7 +5,8 @@
  * TTL: 30 days, max 10,000 entries with LRU eviction.
  */
 
-const DB_NAME = 'mg-translation-memory'
+const DB_NAME = 'moxzk-translation-memory'
+const LEGACY_DB_NAME = 'mg-translation-memory'
 const STORE_NAME = 'translations'
 const DB_VERSION = 1
 const MAX_ENTRIES = 10_000
@@ -39,7 +40,12 @@ export interface TranslationMemoryServiceOptions {
 
 class IndexedDbTranslationMemoryStore implements TranslationMemoryStore {
   async get(key: string): Promise<TranslationMemoryEntry | null> {
-    const db = await this.openDB()
+    const entry = await this.getFromDb(DB_NAME, key)
+    return entry ?? this.getFromDb(LEGACY_DB_NAME, key)
+  }
+
+  private async getFromDb(dbName: string, key: string): Promise<TranslationMemoryEntry | null> {
+    const db = await this.openDB(dbName)
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly')
       const req = tx.objectStore(STORE_NAME).get(key)
@@ -49,7 +55,7 @@ class IndexedDbTranslationMemoryStore implements TranslationMemoryStore {
   }
 
   async put(entry: TranslationMemoryEntry): Promise<void> {
-    const db = await this.openDB()
+    const db = await this.openDB(DB_NAME)
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       const req = tx.objectStore(STORE_NAME).put(entry)
@@ -59,27 +65,36 @@ class IndexedDbTranslationMemoryStore implements TranslationMemoryStore {
   }
 
   async delete(key: string): Promise<void> {
-    const db = await this.openDB()
-    return new Promise((resolve) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite')
-      const req = tx.objectStore(STORE_NAME).delete(key)
-      req.onsuccess = () => resolve()
-      req.onerror = () => resolve()
-    })
+    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
+      const db = await this.openDB(dbName)
+      return new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite')
+        const req = tx.objectStore(STORE_NAME).delete(key)
+        req.onsuccess = () => resolve()
+        req.onerror = () => resolve()
+      })
+    }))
   }
 
   async clear(): Promise<void> {
-    const db = await this.openDB()
-    return new Promise((resolve) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite')
-      const req = tx.objectStore(STORE_NAME).clear()
-      req.onsuccess = () => resolve()
-      req.onerror = () => resolve()
-    })
+    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
+      const db = await this.openDB(dbName)
+      return new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite')
+        const req = tx.objectStore(STORE_NAME).clear()
+        req.onsuccess = () => resolve()
+        req.onerror = () => resolve()
+      })
+    }))
   }
 
   async count(): Promise<number> {
-    const db = await this.openDB()
+    const counts = await Promise.all([DB_NAME, LEGACY_DB_NAME].map((dbName) => this.countFromDb(dbName)))
+    return counts.reduce((sum, count) => sum + count, 0)
+  }
+
+  private async countFromDb(dbName: string): Promise<number> {
+    const db = await this.openDB(dbName)
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly')
       const req = tx.objectStore(STORE_NAME).count()
@@ -89,7 +104,12 @@ class IndexedDbTranslationMemoryStore implements TranslationMemoryStore {
   }
 
   async listByAccessed(): Promise<TranslationMemoryEntry[]> {
-    const db = await this.openDB()
+    const lists = await Promise.all([DB_NAME, LEGACY_DB_NAME].map((dbName) => this.listByAccessedFromDb(dbName)))
+    return Array.from(new Map(lists.flat().map((entry) => [entry.key, entry])).values())
+  }
+
+  private async listByAccessedFromDb(dbName: string): Promise<TranslationMemoryEntry[]> {
+    const db = await this.openDB(dbName)
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly')
       const idx = tx.objectStore(STORE_NAME).index('accessedAt')
@@ -108,9 +128,9 @@ class IndexedDbTranslationMemoryStore implements TranslationMemoryStore {
     })
   }
 
-  private openDB(): Promise<IDBDatabase> {
+  private openDB(dbName = DB_NAME): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      const req = indexedDB.open(dbName, DB_VERSION)
       req.onupgradeneeded = () => {
         const db = req.result
         if (!db.objectStoreNames.contains(STORE_NAME)) {

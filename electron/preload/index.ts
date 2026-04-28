@@ -1,13 +1,13 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import type {
-  MgRuntimeBridge,
+  MoxzkRuntimeBridge,
   NativeFilePayload,
   NativeProjectDraftPayload,
   NativeSaveExportOptions,
 } from '../../src/runtime/electronBridge'
 
-const bridge: MgRuntimeBridge = {
+const bridge: MoxzkRuntimeBridge = {
   files: {
     saveFile: (file: NativeFilePayload) => ipcRenderer.invoke(IPC_CHANNELS.filesSaveFile, file),
     saveExportFiles: (
@@ -49,4 +49,5 @@ const bridge: MgRuntimeBridge = {
   },
 }
 
+contextBridge.exposeInMainWorld('moxzkRuntime', bridge)
 contextBridge.exposeInMainWorld('mgRuntime', bridge)

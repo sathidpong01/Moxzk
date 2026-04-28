@@ -57,13 +57,13 @@ export default function AppChromeBar() {
 
   return (
     <>
-      <div className="mg-chrome-divider" aria-hidden="true" />
-      <div className="mg-window-controls">
-        <button className="mg-window-control" type="button" aria-label="Minimize" title="Minimize" onClick={handleMinimize}>
+      <div className="moxzk-chrome-divider" aria-hidden="true" />
+      <div className="moxzk-window-controls">
+        <button className="moxzk-window-control" type="button" aria-label="Minimize" title="Minimize" onClick={handleMinimize}>
           <Minus size={13} />
         </button>
         <button
-          className="mg-window-control"
+          className="moxzk-window-control"
           type="button"
           aria-label={windowState.isMaximized ? 'Restore' : 'Maximize'}
           title={windowState.isMaximized ? 'Restore' : 'Maximize'}
@@ -71,7 +71,7 @@ export default function AppChromeBar() {
         >
           {windowState.isMaximized ? <Copy size={12} /> : <Square size={11} />}
         </button>
-        <button className="mg-window-control mg-window-control-close" type="button" aria-label="Close" title="Close" onClick={handleClose}>
+        <button className="moxzk-window-control moxzk-window-control-close" type="button" aria-label="Close" title="Close" onClick={handleClose}>
           <X size={14} />
         </button>
       </div>

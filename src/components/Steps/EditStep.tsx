@@ -104,7 +104,7 @@ export default function EditStep({
           />
         ) : (
           <div className="studio-canvas flex h-full items-center justify-center">
-            <p className="text-lg text-[var(--mg-muted)]">ไม่มีรูปภาพ</p>
+            <p className="text-lg text-[var(--moxzk-muted)]">ไม่มีรูปภาพ</p>
           </div>
         )}
       </div>
@@ -140,8 +140,8 @@ export default function EditStep({
         <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-[14px] bg-[rgba(10,10,11,0.78)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
           <TooltipSurface label="หน้าปัจจุบัน">
             <div className="flex h-9 min-w-14 flex-col items-center justify-center rounded-[10px] bg-black/[0.34] px-2 text-center">
-              <span className="text-[10px] font-bold leading-none text-[var(--mg-muted)]">หน้า</span>
-              <span className="mt-0.5 text-[13px] font-black leading-none text-[var(--mg-text)]">
+              <span className="text-[10px] font-bold leading-none text-[var(--moxzk-muted)]">หน้า</span>
+              <span className="mt-0.5 text-[13px] font-black leading-none text-[var(--moxzk-text)]">
                 {Math.max(1, activePageIndex + 1)}/{Math.max(store.imageEntries.length, 1)}
               </span>
             </div>
@@ -199,21 +199,21 @@ export default function EditStep({
         {showStatusCluster && (
           <div className="pointer-events-auto flex min-w-52 items-center gap-2 rounded-[12px] bg-[rgba(10,10,11,0.78)] px-3 py-2 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl">
             {isLoadingImage && (
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--mg-text)]">
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--moxzk-text)]">
                 <Loader2 size={14} className="animate-spin" /> กำลังโหลดหน้า...
               </span>
             )}
             {isBatchProcessing && batchStatus && (
               <div className="min-w-44 flex-1">
-                <div className="flex items-center justify-between gap-3 text-[11px] font-bold text-[var(--mg-text)]">
+                <div className="flex items-center justify-between gap-3 text-[11px] font-bold text-[var(--moxzk-text)]">
                   <span className="truncate">{batchStatus.message}</span>
-                  <span className="shrink-0 text-[var(--mg-muted)]">
+                  <span className="shrink-0 text-[var(--moxzk-muted)]">
                     {batchStatus.currentIndex}/{batchStatus.total}
                   </span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-[var(--mg-accent)] transition-all"
+                    className="h-full rounded-full bg-[var(--moxzk-accent)] transition-all"
                     style={{ width: `${Math.max(0, Math.min(100, batchStatus.progress))}%` }}
                   />
                 </div>
@@ -244,7 +244,7 @@ function clusterButtonClass(active = false): string {
   return [
     'inline-flex h-9 shrink-0 items-center gap-2 rounded-[10px] px-3 text-sm font-bold transition',
     active
-      ? 'bg-[var(--mg-accent)] text-white shadow-[0_6px_18px_rgba(37,99,235,0.28)] hover:bg-[var(--mg-accent)]'
-      : 'bg-white/[0.055] text-[var(--mg-text)] hover:bg-white/[0.1]',
+      ? 'bg-[var(--moxzk-accent)] text-white shadow-[0_6px_18px_rgba(37,99,235,0.28)] hover:bg-[var(--moxzk-accent)]'
+      : 'bg-white/[0.055] text-[var(--moxzk-text)] hover:bg-white/[0.1]',
   ].join(' ')
 }

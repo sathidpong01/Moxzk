@@ -1,6 +1,7 @@
 import { shell, session } from 'electron'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { APP_DISPLAY_NAME } from '../../src/config/appIdentity'
 
 export interface NativeAuthActionResult {
   ok: boolean
@@ -31,7 +32,7 @@ interface LoopbackCallbackServer {
   close(): Promise<void>
 }
 
-declare const __MG_WORKER_API_BASE__: string
+declare const __MOXZK_WORKER_API_BASE__: string
 
 const DESKTOP_LOGIN_TIMEOUT_MS = 5 * 60 * 1000
 
@@ -75,7 +76,7 @@ async function startDesktopGoogleFlow(apiBase: string, redirectTarget: string): 
     headers: {
       Accept: 'application/json',
       Origin: new URL(apiBase).origin,
-      ...(workerCallbackOrigin ? { 'X-MG-Desktop-Auth-Origin': workerCallbackOrigin } : {}),
+      ...(workerCallbackOrigin ? { 'X-Moxzk-Desktop-Auth-Origin': workerCallbackOrigin } : {}),
     },
   })
   const payload = await readJsonResponse<DesktopStartResponse>(response)
@@ -221,8 +222,8 @@ async function createLoopbackCallbackServer(): Promise<LoopbackCallbackServer> {
     response.writeHead(ticket ? 200 : 400, { 'Content-Type': 'text/html; charset=utf-8' })
     response.end(`<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>MG Translater Login</title></head>
-<body><p>${ticket ? 'Google login finished. You can return to MG Translater.' : 'Google login failed. Return to MG Translater and try again.'}</p></body>
+<head><meta charset="utf-8"><title>${APP_DISPLAY_NAME} Login</title></head>
+<body><p>${ticket ? `Google login finished. You can return to ${APP_DISPLAY_NAME}.` : `Google login failed. Return to ${APP_DISPLAY_NAME} and try again.`}</p></body>
 </html>`)
   })
 
@@ -290,14 +291,14 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 }
 
 function getApiBaseUrl(): string {
-  const configured = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MG_WORKER_API_BASE__)
+  const configured = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MOXZK_WORKER_API_BASE__)
   if (configured) return configured
 
   throw new Error('Set VITE_CLOUDFLARE_API_URL for Electron Google login.')
 }
 
 function getWorkerCallbackOrigin(): string | null {
-  const configured = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MG_WORKER_API_BASE__)
+  const configured = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MOXZK_WORKER_API_BASE__)
   return configured || null
 }
 

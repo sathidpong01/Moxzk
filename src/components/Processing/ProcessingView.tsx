@@ -301,19 +301,19 @@ export default function ProcessingView({
       <div className="flex min-h-24 w-full flex-col items-center justify-center gap-3">
         {state.status !== 'done' && state.status !== 'error' && (
           <>
-            <Loader2 className="h-9 w-9 animate-spin text-[var(--mg-accent)]" />
+            <Loader2 className="h-9 w-9 animate-spin text-[var(--moxzk-accent)]" />
             <div className="max-w-xs text-center">
-              <p className="text-sm font-bold text-[var(--mg-text)]">
+              <p className="text-sm font-bold text-[var(--moxzk-text)]">
                 {currentLabel}
               </p>
-              <p className="mt-0.5 text-[11px] text-[var(--mg-muted)]">{state.message}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--moxzk-muted)]">{state.message}</p>
             </div>
           </>
         )}
 
         {state.status === 'error' && (
           <div className="flex flex-col items-center justify-center gap-3">
-            <AlertCircle className="h-12 w-12 text-[var(--mg-danger)]" />
+            <AlertCircle className="h-12 w-12 text-[var(--moxzk-danger)]" />
             <div className="max-w-sm rounded-[8px] border border-red-400/30 bg-red-500/10 px-4 py-2 text-center">
               <p className="text-sm font-medium text-red-300">เกิดข้อผิดพลาด</p>
               <p className="mt-1 text-xs text-red-200/80">{state.message}</p>
@@ -324,20 +324,20 @@ export default function ProcessingView({
         {state.status === 'done' && (
           <div className="flex items-center justify-center pointer-events-none">
             <div className="animate-bounce rounded-full bg-green-500/20 p-4 backdrop-blur">
-              <CheckCircle2 className="h-10 w-10 text-[var(--mg-success)]" />
+              <CheckCircle2 className="h-10 w-10 text-[var(--moxzk-success)]" />
             </div>
           </div>
         )}
       </div>
 
       <div className="w-full max-w-sm space-y-1">
-        <div className="flex justify-between text-xs text-[var(--mg-muted)]">
+        <div className="flex justify-between text-xs text-[var(--moxzk-muted)]">
           <span>{visibleSteps[stepIndex]?.label ?? 'กำลังทำงาน'}</span>
           <span>{state.progress}%</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
           <div
-            className={`h-full ${state.status === 'error' ? 'bg-[var(--mg-danger)]' : 'bg-[var(--mg-accent)]'}`}
+            className={`h-full ${state.status === 'error' ? 'bg-[var(--moxzk-danger)]' : 'bg-[var(--moxzk-accent)]'}`}
             style={{ width: `${state.progress}%` }}
           />
         </div>
@@ -345,7 +345,7 @@ export default function ProcessingView({
 
       {state.queuePosition !== undefined && (
         <div className="text-center">
-          <div className="mg-pill text-yellow-300">คิว: #{state.queuePosition}</div>
+          <div className="moxzk-pill text-yellow-300">คิว: #{state.queuePosition}</div>
         </div>
       )}
     </div>

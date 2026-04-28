@@ -2,7 +2,7 @@
 
 ## Summary
 
-Konva now has AI-readable documentation endpoints and an MCP server. MG_Translater should use them as the official source layer for canvas/editor changes.
+Konva now has AI-readable documentation endpoints and an MCP server. Moxzk should use them as the official source layer for canvas/editor changes.
 
 ## Local Entry Points
 
@@ -28,5 +28,5 @@ Before non-trivial Konva changes:
 
 1. Read `docs/llm/konva.md`
 2. Use Konva MCP or official docs for the specific API
-3. Match existing MG_Translater editor state and viewport patterns
+3. Match existing Moxzk editor state and viewport patterns
 4. Verify browser behavior when visible canvas interaction changes

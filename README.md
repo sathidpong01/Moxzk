@@ -1,4 +1,4 @@
-# MG_Translater
+# Moxzk
 
 React/Vite image editor สำหรับคลีนภาพมังงะและแปลเป็นภาษาไทย โดยใช้ PanelCleaner, Ollama vision model และ Cloudflare Worker/D1/R2 เป็นแกนหลัก
 
@@ -149,7 +149,7 @@ PanelCleaner อาจดาวน์โหลด model data ครั้งแ�
 สร้าง `.env.local` สำหรับ frontend override ถ้าต้องการ:
 
 ```env
-VITE_CLOUDFLARE_API_URL=https://mg-translater-api.<your-subdomain>.workers.dev
+VITE_CLOUDFLARE_API_URL=https://moxzk-api.<your-subdomain>.workers.dev
 VITE_PANELCLEANER_BRIDGE_URL=http://localhost:5055
 VITE_TRANSLATOR_API_URL=http://localhost:5003
 VITE_OLLAMA_URL=http://localhost:11434
@@ -220,7 +220,7 @@ Build Electron shell:
 npm run electron:build
 ```
 
-Electron dev/build ใช้ remote Worker หลัก `https://mg-translater-api.sathidpong01.workers.dev` เป็นค่า default ถ้าไม่ได้ตั้ง `VITE_CLOUDFLARE_API_URL`. ตั้ง env เฉพาะเมื่อต้องการชี้ไป Worker อื่น.
+Electron dev/build ใช้ remote Worker หลัก `https://moxzk-api.sathidpong01.workers.dev` เป็นค่า default ถ้าไม่ได้ตั้ง `VITE_CLOUDFLARE_API_URL`. ตั้ง env เฉพาะเมื่อต้องการชี้ไป Worker อื่น.
 
 Electron local service start เป็นตัวช่วยสำหรับเครื่อง dev: PanelCleaner ยังเป็น external CLI ที่ต้องติดตั้งแยก และ Ollama ยังเป็น external app/CLI ไม่ได้ถูก bundle เข้า release.
 
@@ -228,9 +228,9 @@ Electron local service start เป็นตัวช่วยสำหรับ
 
 ค่าใน `wrangler.jsonc`:
 
-- Worker: `mg-translater-api`
-- D1: `mg-translater-db`
-- R2: `mg-translater-images`
+- Worker: `moxzk-api`
+- D1: `moxzk-db`
+- R2: `moxzk-images`
 - D1 binding: `DB`
 - R2 binding: `IMAGES`
 
@@ -276,7 +276,7 @@ Google OAuth authorized redirect URIs:
 ```text
 http://localhost:5173/api/auth/google/callback
 http://localhost:5174/api/auth/google/callback
-https://mg-translater-api.<your-subdomain>.workers.dev/api/auth/google/callback
+https://moxzk-api.<your-subdomain>.workers.dev/api/auth/google/callback
 ```
 
 Local web dev uses the localhost callback through Vite proxy so the session cookie belongs to the local app. The workers.dev callback remains useful for direct Worker/API smoke tests and future hosted frontend flows.
@@ -390,14 +390,14 @@ Auth smoke user:
 The command uses the real public auth API: register the smoke user if missing, log in if it already exists, then call `GET /api/auth/me` with the returned session cookie. Set the online Worker API URL and credential before running it:
 
 ```powershell
-$env:MG_AUTH_SMOKE_BASE_URL = "https://mg-translater-api.<your-subdomain>.workers.dev"
-$env:MG_AUTH_SMOKE_EMAIL = "<your-smoke-user-email>"
-$env:MG_AUTH_SMOKE_PASSWORD = "<your-smoke-user-password>"
-$env:MG_AUTH_SMOKE_USERNAME = "MG Smoke Test"
+$env:MOXZK_AUTH_SMOKE_BASE_URL = "https://moxzk-api.<your-subdomain>.workers.dev"
+$env:MOXZK_AUTH_SMOKE_EMAIL = "<your-smoke-user-email>"
+$env:MOXZK_AUTH_SMOKE_PASSWORD = "<your-smoke-user-password>"
+$env:MOXZK_AUTH_SMOKE_USERNAME = "Moxzk Smoke Test"
 npm run auth:smoke-user
 ```
 
-If `MG_AUTH_SMOKE_BASE_URL` is not set, the script falls back to `VITE_CLOUDFLARE_API_URL`. It intentionally does not default to localhost because this check is meant for the deployed Worker path. The smoke email and password must come from environment variables; do not commit real smoke credentials to the repo.
+If `MOXZK_AUTH_SMOKE_BASE_URL` is not set, the script falls back to `VITE_CLOUDFLARE_API_URL`. Legacy `MG_AUTH_SMOKE_*` names are accepted during the rename transition. It intentionally does not default to localhost because this check is meant for the deployed Worker path. The smoke email and password must come from environment variables; do not commit real smoke credentials to the repo.
 
 Production smoke tests:
 

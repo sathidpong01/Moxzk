@@ -19,49 +19,60 @@ function jsonResponse(status, payload, headers = {}) {
 test('buildSmokeConfig requires smoke credentials from environment', () => {
   assert.throws(
     () => buildSmokeConfig({
-      MG_AUTH_SMOKE_BASE_URL: 'https://example.workers.dev',
+      MOXZK_AUTH_SMOKE_BASE_URL: 'https://example.workers.dev',
     }),
-    /MG_AUTH_SMOKE_EMAIL and MG_AUTH_SMOKE_PASSWORD/,
+    /MOXZK_AUTH_SMOKE_EMAIL and MOXZK_AUTH_SMOKE_PASSWORD/,
   )
 })
 
 test('buildSmokeConfig prefers the explicit smoke base url and normalizes it', () => {
   const config = buildSmokeConfig({
-    MG_AUTH_SMOKE_BASE_URL: 'https://example.workers.dev///',
-    MG_AUTH_SMOKE_EMAIL: 'smoke@example.com',
-    MG_AUTH_SMOKE_PASSWORD: 'secret-password-12345',
+    MOXZK_AUTH_SMOKE_BASE_URL: 'https://example.workers.dev///',
+    MOXZK_AUTH_SMOKE_EMAIL: 'smoke@example.com',
+    MOXZK_AUTH_SMOKE_PASSWORD: 'secret-password-12345',
   })
 
   assert.equal(config.baseUrl, 'https://example.workers.dev')
   assert.equal(config.email, 'smoke@example.com')
   assert.equal(config.password, 'secret-password-12345')
-  assert.equal(config.username, 'MG Smoke Test')
+  assert.equal(config.username, 'Moxzk Smoke Test')
+})
+
+test('buildSmokeConfig keeps legacy MG smoke env names as fallback', () => {
+  const config = buildSmokeConfig({
+    MG_AUTH_SMOKE_BASE_URL: 'https://legacy.example.workers.dev',
+    MG_AUTH_SMOKE_EMAIL: 'legacy@example.com',
+    MG_AUTH_SMOKE_PASSWORD: 'secret-password-12345',
+  })
+
+  assert.equal(config.baseUrl, 'https://legacy.example.workers.dev')
+  assert.equal(config.email, 'legacy@example.com')
 })
 
 test('buildSmokeConfig falls back to the deployed Worker API url', () => {
   const config = buildSmokeConfig({
-    VITE_CLOUDFLARE_API_URL: 'https://mg-translater-api.example.workers.dev/',
-    MG_AUTH_SMOKE_EMAIL: 'smoke@example.com',
-    MG_AUTH_SMOKE_PASSWORD: 'secret-password-12345',
+    VITE_CLOUDFLARE_API_URL: 'https://moxzk-api.example.workers.dev/',
+    MOXZK_AUTH_SMOKE_EMAIL: 'smoke@example.com',
+    MOXZK_AUTH_SMOKE_PASSWORD: 'secret-password-12345',
   })
 
-  assert.equal(config.baseUrl, 'https://mg-translater-api.example.workers.dev')
+  assert.equal(config.baseUrl, 'https://moxzk-api.example.workers.dev')
 })
 
 test('buildSmokeConfig fails clearly when no online Worker URL is configured', () => {
   assert.throws(
     () => buildSmokeConfig({}),
-    /MG_AUTH_SMOKE_BASE_URL or VITE_CLOUDFLARE_API_URL/,
+    /MOXZK_AUTH_SMOKE_BASE_URL or VITE_CLOUDFLARE_API_URL/,
   )
 })
 
 test('extractCookieHeader keeps only name value pairs from Set-Cookie headers', () => {
   assert.equal(
     extractCookieHeader([
-      'mg_session=abc; Max-Age=3600; Path=/; HttpOnly; Secure; SameSite=Lax',
+      'moxzk_session=abc; Max-Age=3600; Path=/; HttpOnly; Secure; SameSite=Lax',
       'other=xyz; Path=/',
     ]),
-    'mg_session=abc; other=xyz',
+    'moxzk_session=abc; other=xyz',
   )
 })
 
@@ -77,10 +88,10 @@ test('runAuthSmoke registers a missing user and verifies auth/me with the sessio
       if (String(url).endsWith('/api/auth/register')) {
         return jsonResponse(201, {
           user: { id: 'u1', email: 'test@example.com', emailNormalized: 'test@example.com', username: 'Smoke Test', avatarUrl: null, plan: 'free' },
-        }, { 'Set-Cookie': 'mg_session=registered; Path=/; HttpOnly; Secure; SameSite=Lax' })
+        }, { 'Set-Cookie': 'moxzk_session=registered; Path=/; HttpOnly; Secure; SameSite=Lax' })
       }
       if (String(url).endsWith('/api/auth/me')) {
-        assert.equal(init.headers.Cookie, 'mg_session=registered')
+        assert.equal(init.headers.Cookie, 'moxzk_session=registered')
         return jsonResponse(200, {
           user: { id: 'u1', email: 'test@example.com', emailNormalized: 'test@example.com', username: 'Smoke Test', avatarUrl: null, plan: 'free' },
         })
@@ -109,10 +120,10 @@ test('runAuthSmoke logs in when the smoke user already exists', async () => {
       if (String(url).endsWith('/api/auth/login')) {
         return jsonResponse(200, {
           user: { id: 'u1', email: 'test@example.com', emailNormalized: 'test@example.com', username: 'Smoke Test', avatarUrl: null, plan: 'free' },
-        }, { 'Set-Cookie': 'mg_session=logged-in; Path=/; HttpOnly; Secure; SameSite=Lax' })
+        }, { 'Set-Cookie': 'moxzk_session=logged-in; Path=/; HttpOnly; Secure; SameSite=Lax' })
       }
       if (String(url).endsWith('/api/auth/me')) {
-        assert.equal(init.headers.Cookie, 'mg_session=logged-in')
+        assert.equal(init.headers.Cookie, 'moxzk_session=logged-in')
         return jsonResponse(200, {
           user: { id: 'u1', email: 'test@example.com', emailNormalized: 'test@example.com', username: 'Smoke Test', avatarUrl: null, plan: 'free' },
         })

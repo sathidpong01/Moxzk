@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const projectRoot = dirname(fileURLToPath(import.meta.url))
-const defaultElectronWorkerApiUrl = 'https://mg-translater-api.sathidpong01.workers.dev'
+const defaultElectronWorkerApiUrl = 'https://moxzk-api.sathidpong01.workers.dev'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, projectRoot, '')
@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
     main: {
       plugins: [externalizeDepsPlugin()],
       define: {
-        __MG_WORKER_API_BASE__: JSON.stringify(workerApiTarget),
+        __MOXZK_WORKER_API_BASE__: JSON.stringify(workerApiTarget),
       },
       build: {
         outDir: 'out/main',

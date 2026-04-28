@@ -86,7 +86,7 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
         aria-hidden={!isOpen}
       >
         <div
-          className="mg-scrollbar-hidden flex w-full flex-col items-center gap-3 overflow-y-auto overflow-x-hidden"
+          className="moxzk-scrollbar-hidden flex w-full flex-col items-center gap-3 overflow-y-auto overflow-x-hidden"
           style={getStripMaskStyle()}
         >
           {imageEntries.map((entry, i) => {
@@ -124,10 +124,10 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-white/5">
-                    <CloudOff size={18} className="text-[var(--mg-dim)]" />
+                    <CloudOff size={18} className="text-[var(--moxzk-dim)]" />
                   </div>
                 )}
-                <span className="absolute bottom-0 left-0 rounded-tr bg-black/75 px-2 py-1 text-[11px] font-bold text-[var(--mg-text)]">
+                <span className="absolute bottom-0 left-0 rounded-tr bg-black/75 px-2 py-1 text-[11px] font-bold text-[var(--moxzk-text)]">
                   {pageNumber}
                 </span>
                 {meta.label && (
@@ -155,13 +155,13 @@ export default function ImageStrip({ isOpen = true, showToggle = true, onToggle 
       {showToggle && (
         <button
           type="button"
-          className="ml-1.5 flex h-12 w-6 items-center justify-center rounded-[8px] bg-black/65 text-[var(--mg-text)] backdrop-blur transition hover:bg-white/10"
+          className="ml-1.5 flex h-12 w-6 items-center justify-center rounded-[8px] bg-black/65 text-[var(--moxzk-text)] backdrop-blur transition hover:bg-white/10"
           onClick={onToggle}
           aria-label={isOpen ? 'ซ่อนแถบหน้า' : 'แสดงแถบหน้า'}
           title={isOpen ? 'ซ่อนแถบหน้า' : 'แสดงแถบหน้า'}
         >
           <span
-            className="block h-0 w-0 border-y-[7px] border-l-[10px] border-y-transparent border-l-[var(--mg-text)] transition-transform duration-200 ease-out"
+            className="block h-0 w-0 border-y-[7px] border-l-[10px] border-y-transparent border-l-[var(--moxzk-text)] transition-transform duration-200 ease-out"
             style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
           />
         </button>

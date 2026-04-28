@@ -610,7 +610,7 @@ export default function CanvasEditor({
       <div className="absolute left-3 top-16 z-20 flex items-center gap-1.5 rounded-[8px] bg-black/45 p-1 backdrop-blur">
         <div className="flex items-center rounded-[7px] bg-black/20">
           <button
-            className="mg-icon-button h-7 w-7"
+            className="moxzk-icon-button h-7 w-7"
             onClick={() => applyZoom(zoom - 0.1)}
             aria-label="ซูมออก"
           >
@@ -618,17 +618,17 @@ export default function CanvasEditor({
           </button>
           <div className="flex items-center">
             <input
-              className="w-10 bg-transparent text-center font-mono text-xs text-[var(--mg-text)]"
+              className="w-10 bg-transparent text-center font-mono text-xs text-[var(--moxzk-text)]"
               value={zoomInput}
               aria-label="เปอร์เซ็นต์ซูม"
               onChange={(e) => setZoomInput(e.target.value)}
               onBlur={handleZoomInputCommit}
               onKeyDown={(e) => e.key === 'Enter' && handleZoomInputCommit()}
             />
-            <span className="pr-1 text-xs text-[var(--mg-dim)]">%</span>
+            <span className="pr-1 text-xs text-[var(--moxzk-dim)]">%</span>
           </div>
           <button
-            className="mg-icon-button h-7 w-7"
+            className="moxzk-icon-button h-7 w-7"
             onClick={() => applyZoom(zoom + 0.1)}
             aria-label="ซูมเข้า"
           >
@@ -637,7 +637,7 @@ export default function CanvasEditor({
         </div>
 
         <button
-          className={`mg-icon-button h-7 w-7 ${isPanning ? 'mg-tool-active' : ''}`}
+          className={`moxzk-icon-button h-7 w-7 ${isPanning ? 'moxzk-tool-active' : ''}`}
           onClick={() => {
             useAppStore.getState().setActiveTool(isPanning ? 'select' : 'pan')
             if (!isPanning) handleSelect(null)
@@ -648,14 +648,14 @@ export default function CanvasEditor({
         </button>
 
         <button
-          className="mg-icon-button h-7 w-7"
+          className="moxzk-icon-button h-7 w-7"
           onClick={handleResetView}
           aria-label="รีเซ็ตมุมมอง"
         >
           <RotateCcw size={14} />
         </button>
 
-        <span className="px-1 text-[10px] text-[var(--mg-muted)]">
+        <span className="px-1 text-[10px] text-[var(--moxzk-muted)]">
           {Math.round(zoom * 100)}% · {getToolLabel(activeTool)}
         </span>
       </div>
@@ -912,7 +912,7 @@ export default function CanvasEditor({
               className="h-6 w-6 rounded"
               style={{ backgroundColor: eyedropPreview.color }}
             />
-            <span className="font-mono text-xs text-[var(--mg-text)]">{eyedropPreview.color}</span>
+            <span className="font-mono text-xs text-[var(--moxzk-text)]">{eyedropPreview.color}</span>
           </div>
         )}
       </div>

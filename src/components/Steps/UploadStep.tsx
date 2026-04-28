@@ -14,13 +14,13 @@ export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpe
 
   return (
     <div className="upload-canvas flex h-full items-start justify-center overflow-y-auto px-4 pb-10 pt-24 sm:px-6 sm:pb-14 lg:pb-20">
-      <section className="mg-upload-stage mx-auto w-full max-w-xl p-5 sm:p-6">
+      <section className="moxzk-upload-stage mx-auto w-full max-w-xl p-5 sm:p-6">
         <div className={`space-y-5 text-center ${hasImages ? '' : 'sm:space-y-6'}`}>
           <div className="space-y-1.5">
             <h1 className="text-2xl font-bold text-balance sm:text-3xl">
               {hasImages ? 'ตรวจรูปก่อนเข้าแก้ไข' : 'เลือกรูปมังงะ'}
             </h1>
-            <p className="text-sm text-[var(--mg-muted)]">
+            <p className="text-sm text-[var(--moxzk-muted)]">
               {hasImages
                 ? `${images.length} หน้า พร้อมเปิดเป็นพื้นที่จัดหน้า`
                 : 'ลากรูปมาวาง วางจากคลิปบอร์ด หรือเลือกไฟล์เพื่อเริ่มแปล'}

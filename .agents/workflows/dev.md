@@ -1,5 +1,5 @@
 ---
-description: วิธีเริ่มต้น development environment สำหรับ MG_Translater
+description: วิธีเริ่มต้น development environment สำหรับ Moxzk
 ---
 
 # Development Workflow

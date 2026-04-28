@@ -73,10 +73,10 @@ export default function FloatingInspector({
 
   return (
     <div style={panelStyle} className="floating-panel panel-enter flex max-h-[84vh] w-[21.25rem] flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between border-b border-[var(--mg-border)] px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--moxzk-border)] px-3 py-2">
         <div {...dragHandleProps} className="flex min-w-0 items-center gap-2 drag-handle">
-          <GripVertical size={14} className="text-[var(--mg-dim)]" />
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--mg-muted)]">
+          <GripVertical size={14} className="text-[var(--moxzk-dim)]" />
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--moxzk-muted)]">
             แผงแก้ไข
           </span>
           <Badge className="truncate">หน้า {Math.max(1, activePageIndex + 1)}/{Math.max(pageCount, 1)}</Badge>
@@ -118,14 +118,14 @@ export default function FloatingInspector({
             </div>
 
             {store.activeTool === 'eyedropper' && (
-              <div className="flex items-center gap-2 rounded-[8px] border border-[var(--mg-border)] bg-black/20 px-3 py-2">
+              <div className="flex items-center gap-2 rounded-[8px] border border-[var(--moxzk-border)] bg-black/20 px-3 py-2">
                 <div
-                  className="h-8 w-8 rounded-[6px] border border-[var(--mg-border-strong)]"
+                  className="h-8 w-8 rounded-[6px] border border-[var(--moxzk-border-strong)]"
                   style={{ backgroundColor: store.brushColor }}
                 />
                 <div>
-                  <div className="text-xs font-bold text-[var(--mg-text)]">สีที่เลือกอยู่</div>
-                  <div className="font-mono text-xs text-[var(--mg-muted)]">{store.brushColor}</div>
+                  <div className="text-xs font-bold text-[var(--moxzk-text)]">สีที่เลือกอยู่</div>
+                  <div className="font-mono text-xs text-[var(--moxzk-muted)]">{store.brushColor}</div>
                 </div>
               </div>
             )}
@@ -133,7 +133,7 @@ export default function FloatingInspector({
             {store.activeTool !== 'eyedropper' && (
               <DisclosureSection title="สีและหัวแปรง">
                 <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--moxzk-muted)]">
                     สี
                   </label>
                   <div className="flex items-center gap-2">
@@ -149,7 +149,7 @@ export default function FloatingInspector({
                           key={color}
                           className={`h-5 w-5 rounded-full border-2 transition-all ${
                             store.brushColor === color
-                              ? 'scale-110 border-[var(--mg-accent)]'
+                              ? 'scale-110 border-[var(--moxzk-accent)]'
                               : 'border-white/20 hover:border-white/40'
                           }`}
                           style={{ backgroundColor: color }}
@@ -163,12 +163,12 @@ export default function FloatingInspector({
 
                 <label className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[var(--mg-muted)]">ขนาด</span>
-                    <span className="font-mono text-[var(--mg-dim)]">{store.brushSize}px</span>
+                    <span className="font-bold text-[var(--moxzk-muted)]">ขนาด</span>
+                    <span className="font-mono text-[var(--moxzk-dim)]">{store.brushSize}px</span>
                   </div>
                   <input
                     type="range"
-                    className="mg-slider"
+                    className="moxzk-slider"
                     min={1}
                     max={50}
                     value={store.brushSize}
@@ -178,12 +178,12 @@ export default function FloatingInspector({
 
                 <label className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[var(--mg-muted)]">ความทึบ</span>
-                    <span className="font-mono text-[var(--mg-dim)]">{Math.round(store.brushOpacity * 100)}%</span>
+                    <span className="font-bold text-[var(--moxzk-muted)]">ความทึบ</span>
+                    <span className="font-mono text-[var(--moxzk-dim)]">{Math.round(store.brushOpacity * 100)}%</span>
                   </div>
                   <input
                     type="range"
-                    className="mg-slider"
+                    className="moxzk-slider"
                     min={5}
                     max={100}
                     value={Math.round(store.brushOpacity * 100)}
@@ -194,12 +194,12 @@ export default function FloatingInspector({
                 {store.activeTool === 'brush' && (
                   <label className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[var(--mg-muted)]">ขอบฟุ้ง</span>
-                      <span className="font-mono text-[var(--mg-dim)]">{store.brushShadowBlur}px</span>
+                      <span className="font-bold text-[var(--moxzk-muted)]">ขอบฟุ้ง</span>
+                      <span className="font-mono text-[var(--moxzk-dim)]">{store.brushShadowBlur}px</span>
                     </div>
                     <input
                       type="range"
-                      className="mg-slider"
+                      className="moxzk-slider"
                       min={0}
                       max={32}
                       value={Math.min(store.brushShadowBlur, 32)}
@@ -232,17 +232,17 @@ export default function FloatingInspector({
                 </Button>
               )}
 
-              <div className="grid grid-cols-3 gap-2 text-xs text-[var(--mg-muted)]">
-                <div className="rounded-[8px] border border-[var(--mg-border)] bg-black/20 px-3 py-2">
-                  <div className="font-bold text-[var(--mg-text)]">{viewport.imageWidth || 0} × {viewport.imageHeight || 0}</div>
+              <div className="grid grid-cols-3 gap-2 text-xs text-[var(--moxzk-muted)]">
+                <div className="rounded-[8px] border border-[var(--moxzk-border)] bg-black/20 px-3 py-2">
+                  <div className="font-bold text-[var(--moxzk-text)]">{viewport.imageWidth || 0} × {viewport.imageHeight || 0}</div>
                   <div>ขนาดหน้า</div>
                 </div>
-                <div className="rounded-[8px] border border-[var(--mg-border)] bg-black/20 px-3 py-2">
-                  <div className="font-bold text-[var(--mg-text)]">{store.regions.length}</div>
+                <div className="rounded-[8px] border border-[var(--moxzk-border)] bg-black/20 px-3 py-2">
+                  <div className="font-bold text-[var(--moxzk-text)]">{store.regions.length}</div>
                   <div>ข้อความ</div>
                 </div>
-                <div className="rounded-[8px] border border-[var(--mg-border)] bg-black/20 px-3 py-2">
-                  <div className="font-bold text-[var(--mg-text)]">{store.brushStrokes.length}</div>
+                <div className="rounded-[8px] border border-[var(--moxzk-border)] bg-black/20 px-3 py-2">
+                  <div className="font-bold text-[var(--moxzk-text)]">{store.brushStrokes.length}</div>
                   <div>รอยแปรง</div>
                 </div>
               </div>

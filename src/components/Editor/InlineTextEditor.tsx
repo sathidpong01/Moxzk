@@ -125,7 +125,7 @@ export default function InlineTextEditor({
     >
       <textarea
         ref={textareaRef}
-        className="mg-inline-text-editor block"
+        className="moxzk-inline-text-editor block"
         wrap={constrainToFrame ? 'soft' : 'off'}
         style={{
           boxSizing: 'border-box',

@@ -49,7 +49,7 @@ export default function AuthModal() {
       className="max-w-sm"
     >
         <div className="text-center mb-6">
-          <p className="mt-1 text-sm text-[var(--mg-muted)]">
+          <p className="mt-1 text-sm text-[var(--moxzk-muted)]">
             {mode === 'login'
               ? 'เข้าสู่ระบบเพื่อบันทึกและจัดการอัลบั้ม'
               : 'สร้างบัญชีและเริ่มใช้งานได้ทันที'}
@@ -74,17 +74,17 @@ export default function AuthModal() {
           </Button>
         </div>
 
-        <div className="my-4 flex items-center gap-3 text-xs text-[var(--mg-dim)]">
-          <span className="h-px flex-1 bg-[var(--mg-border)]" />
+        <div className="my-4 flex items-center gap-3 text-xs text-[var(--moxzk-dim)]">
+          <span className="h-px flex-1 bg-[var(--moxzk-border)]" />
           หรือใช้อีเมล
-          <span className="h-px flex-1 bg-[var(--mg-border)]" />
+          <span className="h-px flex-1 bg-[var(--moxzk-border)]" />
         </div>
 
         {/* Email form */}
         <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'signup' && (
-            <label className="flex items-center gap-2 rounded-[7px] border border-[var(--mg-border)] bg-white/[0.045] px-3">
-              <User size={14} className="text-[var(--mg-muted)]" />
+            <label className="flex items-center gap-2 rounded-[7px] border border-[var(--moxzk-border)] bg-white/[0.045] px-3">
+              <User size={14} className="text-[var(--moxzk-muted)]" />
               <TextInput
                 type="text"
                 className="grow border-0 bg-transparent px-0"
@@ -94,8 +94,8 @@ export default function AuthModal() {
               />
             </label>
           )}
-          <label className="flex items-center gap-2 rounded-[7px] border border-[var(--mg-border)] bg-white/[0.045] px-3">
-            <Mail size={14} className="text-[var(--mg-muted)]" />
+          <label className="flex items-center gap-2 rounded-[7px] border border-[var(--moxzk-border)] bg-white/[0.045] px-3">
+            <Mail size={14} className="text-[var(--moxzk-muted)]" />
             <TextInput
               type="email"
               className="grow border-0 bg-transparent px-0"
@@ -106,8 +106,8 @@ export default function AuthModal() {
               autoComplete="email"
             />
           </label>
-          <label className="flex items-center gap-2 rounded-[7px] border border-[var(--mg-border)] bg-white/[0.045] px-3">
-            <Lock size={14} className="text-[var(--mg-muted)]" />
+          <label className="flex items-center gap-2 rounded-[7px] border border-[var(--moxzk-border)] bg-white/[0.045] px-3">
+            <Lock size={14} className="text-[var(--moxzk-muted)]" />
             <TextInput
               type="password"
               className="grow border-0 bg-transparent px-0"
@@ -136,7 +136,7 @@ export default function AuthModal() {
         </form>
 
         {/* Switch mode */}
-        <p className="mt-4 text-center text-sm text-[var(--mg-muted)]">
+        <p className="mt-4 text-center text-sm text-[var(--moxzk-muted)]">
           {mode === 'login' ? (
             <>
               ยังไม่มีบัญชี?{' '}

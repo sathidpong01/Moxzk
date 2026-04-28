@@ -45,7 +45,7 @@ export interface NativeWindowState {
   isMaximized: boolean
 }
 
-export interface MgRuntimeBridge {
+export interface MoxzkRuntimeBridge {
   files: {
     saveFile(file: NativeFilePayload): Promise<NativeResult<string>>
     saveExportFiles(
@@ -81,6 +81,7 @@ export interface MgRuntimeBridge {
 
 declare global {
   interface Window {
-    mgRuntime?: MgRuntimeBridge
+    moxzkRuntime?: MoxzkRuntimeBridge
+    mgRuntime?: MoxzkRuntimeBridge
   }
 }

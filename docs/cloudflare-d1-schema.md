@@ -9,11 +9,11 @@ This project uses Drizzle as the source of truth for the Cloudflare D1 schema.
 
 ## Resources
 
-- Worker: `mg-translater-worker`
-- D1 database: `mg-translater-db`
-- R2 bucket: `mg-translater-images`
+- Worker: `moxzk-api`
+- D1 database: `moxzk-db`
+- R2 bucket: `moxzk-images`
 
-The active D1 `database_id` is committed in `wrangler.jsonc` after selecting the remote `mg-translater-db`.
+The active D1 `database_id` is committed in `wrangler.jsonc` after selecting the remote `moxzk-db`.
 
 ## Auth Model
 

@@ -1,5 +1,5 @@
 ---
-description: วิธีใช้ skills ที่มีในโปรเจค MG_Translater — เรียก skill ที่เหมาะสมกับงานที่กำลังทำ
+description: วิธีใช้ skills ที่มีในโปรเจค Moxzk — เรียก skill ที่เหมาะสมกับงานที่กำลังทำ
 ---
 
 # Skills Workflow
@@ -31,7 +31,7 @@ cat .agents/skills/manga-translator/SKILL.md
 ### ออกแบบ UI
 
 ```bash
-python .agents/skills/ui-ux-pro-max/scripts/search.py "manga reader dark mode" --design-system -p "MG_Translater"
+python .agents/skills/ui-ux-pro-max/scripts/search.py "manga reader dark mode" --design-system -p "Moxzk"
 ```
 
 ### ปรับ Prompt สำหรับ Gemini

@@ -4,7 +4,8 @@
  * Stale-while-revalidate: use cache first, refresh if > 7 days
  */
 
-const DB_NAME = 'mg-translater-cache'
+const DB_NAME = 'moxzk-cache'
+const LEGACY_DB_NAME = 'mg-translater-cache'
 const DB_VERSION = 1
 const STORE_NAME = 'images'
 const MAX_CACHE_BYTES = 500 * 1024 * 1024 // 500MB
@@ -36,7 +37,12 @@ export interface ImageCacheServiceOptions {
 
 class IndexedDbImageCacheStore implements ImageCacheStore {
   async get(key: string): Promise<ImageCacheEntry | null> {
-    const db = await this.openDB()
+    const entry = await this.getFromDb(DB_NAME, key)
+    return entry ?? this.getFromDb(LEGACY_DB_NAME, key)
+  }
+
+  private async getFromDb(dbName: string, key: string): Promise<ImageCacheEntry | null> {
+    const db = await this.openDB(dbName)
     return new Promise((resolve) => {
       const req = this.txStore(db, 'readonly').get(key)
       req.onsuccess = () => resolve((req.result as ImageCacheEntry | undefined) ?? null)
@@ -45,7 +51,7 @@ class IndexedDbImageCacheStore implements ImageCacheStore {
   }
 
   async put(entry: ImageCacheEntry): Promise<void> {
-    const db = await this.openDB()
+    const db = await this.openDB(DB_NAME)
     return new Promise((resolve, reject) => {
       const req = this.txStore(db, 'readwrite').put(entry)
       req.onsuccess = () => resolve()
@@ -54,25 +60,34 @@ class IndexedDbImageCacheStore implements ImageCacheStore {
   }
 
   async delete(key: string): Promise<void> {
-    const db = await this.openDB()
-    return new Promise((resolve) => {
-      const req = this.txStore(db, 'readwrite').delete(key)
-      req.onsuccess = () => resolve()
-      req.onerror = () => resolve()
-    })
+    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
+      const db = await this.openDB(dbName)
+      return new Promise<void>((resolve) => {
+        const req = this.txStore(db, 'readwrite').delete(key)
+        req.onsuccess = () => resolve()
+        req.onerror = () => resolve()
+      })
+    }))
   }
 
   async clear(): Promise<void> {
-    const db = await this.openDB()
-    return new Promise((resolve) => {
-      const req = this.txStore(db, 'readwrite').clear()
-      req.onsuccess = () => resolve()
-      req.onerror = () => resolve()
-    })
+    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
+      const db = await this.openDB(dbName)
+      return new Promise<void>((resolve) => {
+        const req = this.txStore(db, 'readwrite').clear()
+        req.onsuccess = () => resolve()
+        req.onerror = () => resolve()
+      })
+    }))
   }
 
   async list(): Promise<ImageCacheEntry[]> {
-    const db = await this.openDB()
+    const lists = await Promise.all([DB_NAME, LEGACY_DB_NAME].map((dbName) => this.listFromDb(dbName)))
+    return Array.from(new Map(lists.flat().map((entry) => [entry.key, entry])).values())
+  }
+
+  private async listFromDb(dbName: string): Promise<ImageCacheEntry[]> {
+    const db = await this.openDB(dbName)
     return new Promise((resolve) => {
       const store = this.txStore(db, 'readonly')
       const items: ImageCacheEntry[] = []
@@ -90,9 +105,9 @@ class IndexedDbImageCacheStore implements ImageCacheStore {
     })
   }
 
-  private openDB(): Promise<IDBDatabase> {
+  private openDB(dbName = DB_NAME): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      const req = indexedDB.open(dbName, DB_VERSION)
       req.onupgradeneeded = () => {
         const db = req.result
         if (!db.objectStoreNames.contains(STORE_NAME)) {

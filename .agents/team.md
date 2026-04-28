@@ -1,10 +1,10 @@
 # Agent Team
 
-This file defines the default specialist team for MG_Translater. Use it to route work quickly without loading unrelated project context.
+This file defines the default specialist team for Moxzk. Use it to route work quickly without loading unrelated project context.
 
 ## Why This Team
 
-MG_Translater has several high-risk seams: Konva canvas editing, Ollama OCR/translation, PanelCleaner cleanup, Cloudflare D1/R2 album storage, and the Windows-only Electron runtime boundary. The team is split around those seams so future sessions can load only the context and tests that matter for the requested work.
+Moxzk has several high-risk seams: Konva canvas editing, Ollama OCR/translation, PanelCleaner cleanup, Cloudflare D1/R2 album storage, and the Windows-only Electron runtime boundary. The team is split around those seams so future sessions can load only the context and tests that matter for the requested work.
 
 ## Operating Model
 
@@ -45,7 +45,7 @@ MG_Translater has several high-risk seams: Konva canvas editing, Ollama OCR/tran
 Use this template when assigning a specialist:
 
 ```text
-You are the [Role] for MG_Translater.
+You are the [Role] for Moxzk.
 Goal: [one concrete outcome]
 Ownership: [files/directories this agent may edit]
 Read first: AGENTS.md, .agents/AGENTS.md, .agents/active.md, .agents/team.md, then [role-specific files]

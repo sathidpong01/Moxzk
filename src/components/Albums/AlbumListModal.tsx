@@ -331,11 +331,11 @@ export default function AlbumListModal() {
         {/* Modal */}
         <div className="relative floating-panel mx-4 flex max-h-[88vh] w-full max-w-6xl flex-col overflow-visible panel-enter">
           {/* Header */}
-          <div className="flex shrink-0 items-center justify-between border-b border-[var(--mg-border)] bg-[#151515]/95 px-5 py-3">
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--moxzk-border)] bg-[#151515]/95 px-5 py-3">
             <div className="flex items-center gap-2">
               {view !== 'list' && (
                 <button
-                  className="mg-icon-button h-7 w-7"
+                  className="moxzk-icon-button h-7 w-7"
                   onClick={() => {
                     setView('list')
                     setCurrentAlbum(null)
@@ -350,23 +350,23 @@ export default function AlbumListModal() {
               {saveMode ? (
                 <Save size={16} className="text-green-300" />
               ) : (
-                <FolderOpen size={16} className="text-[var(--mg-accent)]" />
+                <FolderOpen size={16} className="text-[var(--moxzk-accent)]" />
               )}
               <h2 className="font-bold text-base">{modalTitle}</h2>
               {saveMode && view === 'list' && (
-                <span className="mg-pill text-green-300">โหมดบันทึก</span>
+                <span className="moxzk-pill text-green-300">โหมดบันทึก</span>
               )}
               {view === 'list' && albums.length > 0 && (
-                <span className="mg-pill">{albums.length} อัลบั้ม</span>
+                <span className="moxzk-pill">{albums.length} อัลบั้ม</span>
               )}
               {view === 'detail' && currentPages.length > 0 && (
-                <span className="mg-pill">{currentPages.length} หน้า</span>
+                <span className="moxzk-pill">{currentPages.length} หน้า</span>
               )}
             </div>
             <div className="flex items-center gap-1">
               {view === 'detail' && currentPages.length > 0 && (
                 <button
-                  className="mg-button mg-button-ghost mg-button-sm"
+                  className="moxzk-button moxzk-button-ghost moxzk-button-sm"
                   onClick={async () => {
                     if (!currentAlbum) return
                     toast.info('กำลังส่งออก...')
@@ -384,7 +384,7 @@ export default function AlbumListModal() {
               )}
               {view === 'detail' && (
                 <button
-                  className={`mg-button mg-button-sm ${editMode ? 'mg-button-soft text-yellow-200' : 'mg-button-ghost'}`}
+                  className={`moxzk-button moxzk-button-sm ${editMode ? 'moxzk-button-soft text-yellow-200' : 'moxzk-button-ghost'}`}
                   onClick={() => setEditMode(!editMode)}
                 >
                   {editMode ? (
@@ -396,7 +396,7 @@ export default function AlbumListModal() {
               )}
               {view === 'list' && (
                 <button
-                  className="mg-button mg-button-primary mg-button-sm"
+                  className="moxzk-button moxzk-button-primary moxzk-button-sm"
                   onClick={() => setView('create')}
                 >
                   <Plus size={12} /> สร้างอัลบั้ม
@@ -419,7 +419,7 @@ export default function AlbumListModal() {
                 </div>
               )}
               <button
-                className="mg-icon-button h-7 w-7"
+                className="moxzk-icon-button h-7 w-7"
                 onClick={closeModal}
               >
                 <X size={14} />
@@ -430,7 +430,7 @@ export default function AlbumListModal() {
           {/* Saving / Loading overlay */}
           {(saving || loadingPage) && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-[16px] bg-black/70 backdrop-blur">
-              <Loader2 size={28} className="animate-spin text-[var(--mg-accent)]" />
+              <Loader2 size={28} className="animate-spin text-[var(--moxzk-accent)]" />
               <p className="text-sm font-medium">{loadingPage ? 'กำลังโหลดอัลบั้ม...' : 'กำลังบันทึก...'}</p>
             </div>
           )}
@@ -438,11 +438,11 @@ export default function AlbumListModal() {
           {/* Body */}
           <div className="min-h-0 flex-1 overflow-y-auto bg-[#101010] p-5">
             {!user && (
-              <div className="flex flex-col items-center justify-center py-12 text-[var(--mg-muted)]">
+              <div className="flex flex-col items-center justify-center py-12 text-[var(--moxzk-muted)]">
                 <LogIn size={40} className="mb-3" />
                 <p className="text-sm">กรุณาเข้าสู่ระบบเพื่อใช้ระบบอัลบั้ม</p>
                 <button
-                  className="mg-button mg-button-primary mt-3"
+                  className="moxzk-button moxzk-button-primary mt-3"
                   onClick={() => {
                     closeModal()
                     useAuthStore.getState().setShowAuthModal(true)
@@ -455,7 +455,7 @@ export default function AlbumListModal() {
 
             {user && loading && (
               <div className="flex items-center justify-center py-12">
-                <Loader2 size={24} className="animate-spin text-[var(--mg-accent)]" />
+                <Loader2 size={24} className="animate-spin text-[var(--moxzk-accent)]" />
               </div>
             )}
 
@@ -463,32 +463,32 @@ export default function AlbumListModal() {
             {user && !loading && view === 'list' && (
               <>
                 {albums.length === 0 ? (
-                  <div className="flex min-h-80 flex-col items-center justify-center rounded-[10px] border border-dashed border-[var(--mg-border-strong)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))] px-6 text-center text-[var(--mg-dim)]">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--mg-border)] bg-white/[0.035]">
+                  <div className="flex min-h-80 flex-col items-center justify-center rounded-[10px] border border-dashed border-[var(--moxzk-border-strong)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))] px-6 text-center text-[var(--moxzk-dim)]">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--moxzk-border)] bg-white/[0.035]">
                       <FolderOpen size={22} />
                     </div>
-                    <p className="text-base font-semibold text-[var(--mg-text)]">ยังไม่มีอัลบั้ม</p>
-                    <p className="mt-1 text-sm leading-6 text-[var(--mg-muted)]">สร้างอัลบั้มแรกเพื่อเก็บหน้าคลีนและงานแปลไว้ในชุดเดียวกัน</p>
-                    <p className="mt-3 text-xs text-[var(--mg-dim)]">ใช้ปุ่มสร้างอัลบั้มด้านบนเพื่อเริ่มต้น</p>
+                    <p className="text-base font-semibold text-[var(--moxzk-text)]">ยังไม่มีอัลบั้ม</p>
+                    <p className="mt-1 text-sm leading-6 text-[var(--moxzk-muted)]">สร้างอัลบั้มแรกเพื่อเก็บหน้าคลีนและงานแปลไว้ในชุดเดียวกัน</p>
+                    <p className="mt-3 text-xs text-[var(--moxzk-dim)]">ใช้ปุ่มสร้างอัลบั้มด้านบนเพื่อเริ่มต้น</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <section className="rounded-[16px] border border-white/10 bg-[#171717] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
                       <div className="relative flex flex-wrap items-end justify-between gap-3">
                         <div>
-                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--mg-dim)]">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">
                             {saveMode ? 'โหมดบันทึกงาน' : 'คลังอัลบั้ม'}
                           </p>
-                          <h3 className="mt-1 text-lg font-bold text-[var(--mg-text)]">
+                          <h3 className="mt-1 text-lg font-bold text-[var(--moxzk-text)]">
                             {saveMode ? 'เลือกอัลบั้มปลายทาง' : 'อัลบั้มทั้งหมด'}
                           </h3>
-                          <p className="mt-1 text-sm text-[var(--mg-muted)]">
+                          <p className="mt-1 text-sm text-[var(--moxzk-muted)]">
                             {saveMode ? 'คลิกการ์ดเพื่อบันทึกลงอัลบั้ม หรือเข้าไปดูรายละเอียดก่อนก็ได้' : 'ใช้รายการนี้เป็นคลังงานหลักและเข้าไปจัดการแต่ละอัลบั้มได้จากการ์ด'}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="mg-pill">{albums.length} อัลบั้ม</span>
-                          <span className="mg-pill">{saveMode ? 'พร้อมบันทึกงาน' : 'พร้อมเปิดต่อ'}</span>
+                          <span className="moxzk-pill">{albums.length} อัลบั้ม</span>
+                          <span className="moxzk-pill">{saveMode ? 'พร้อมบันทึกงาน' : 'พร้อมเปิดต่อ'}</span>
                         </div>
                       </div>
                     </section>
@@ -496,10 +496,10 @@ export default function AlbumListModal() {
                     <section className="space-y-4">
                       <div className="flex items-end justify-between gap-3 border-b border-white/10 pb-3">
                         <div>
-                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--mg-dim)]">รายการอัลบั้ม</p>
-                          <h3 className="mt-1 text-lg font-bold text-[var(--mg-text)]">อัลบั้มทั้งหมด</h3>
+                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">รายการอัลบั้ม</p>
+                          <h3 className="mt-1 text-lg font-bold text-[var(--moxzk-text)]">อัลบั้มทั้งหมด</h3>
                         </div>
-                        <span className="mg-pill">{albums.length} รายการ</span>
+                        <span className="moxzk-pill">{albums.length} รายการ</span>
                       </div>
 
                       <div className="grid justify-start gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,240px))] 2xl:[grid-template-columns:repeat(auto-fill,minmax(220px,250px))]">
@@ -529,7 +529,7 @@ export default function AlbumListModal() {
                       <p className="mt-1 text-xs text-red-100/80">{detailLoadError}</p>
                     </div>
                     <button
-                      className="mg-button mg-button-soft mg-button-sm"
+                      className="moxzk-button moxzk-button-soft moxzk-button-sm"
                       onClick={async () => {
                         if (!currentAlbum) return
                         setLoadingPage(true)
@@ -556,7 +556,7 @@ export default function AlbumListModal() {
                           {currentAlbum.cover_key && (currentAlbum.cover_key as string).startsWith('data:') ? (
                             <img src={currentAlbum.cover_key as string} alt="cover" className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--mg-dim)]">
+                            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--moxzk-dim)]">
                               <FolderOpen size={28} />
                               <span className="text-[10px] font-bold uppercase tracking-[0.18em]">No cover</span>
                             </div>
@@ -567,18 +567,18 @@ export default function AlbumListModal() {
 
                     <div className="min-w-0 space-y-4">
                       <div className="space-y-2">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--mg-dim)]">Album Overview</p>
-                        <h3 className="text-2xl font-bold leading-tight text-[var(--mg-text)]">{currentAlbum.title}</h3>
-                        <p className="max-w-3xl text-sm leading-7 text-[var(--mg-muted)]">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--moxzk-dim)]">Album Overview</p>
+                        <h3 className="text-2xl font-bold leading-tight text-[var(--moxzk-text)]">{currentAlbum.title}</h3>
+                        <p className="max-w-3xl text-sm leading-7 text-[var(--moxzk-muted)]">
                           {currentAlbum.description?.trim() || 'ยังไม่มีคำอธิบายอัลบั้มนี้ แต่คุณสามารถใช้ส่วนจัดการด้านขวาเพื่อกำหนดภาษาต้นฉบับ เลือกปกใหม่ หรือจัดการหน้าทั้งหมดได้ทันที'}
                         </p>
                       </div>
 
                       <div className="flex flex-wrap gap-2 text-xs">
-                        <span className="mg-pill px-3 py-1.5">{currentPages.length} หน้า</span>
-                        <span className="mg-pill px-3 py-1.5">{describeAlbumSourceLanguage(currentAlbum.source_lang)}</span>
-                        <span className="mg-pill px-3 py-1.5">{formatAlbumTimeAgo(currentAlbum.updated_at)}</span>
-                        <span className="mg-pill px-3 py-1.5">
+                        <span className="moxzk-pill px-3 py-1.5">{currentPages.length} หน้า</span>
+                        <span className="moxzk-pill px-3 py-1.5">{describeAlbumSourceLanguage(currentAlbum.source_lang)}</span>
+                        <span className="moxzk-pill px-3 py-1.5">{formatAlbumTimeAgo(currentAlbum.updated_at)}</span>
+                        <span className="moxzk-pill px-3 py-1.5">
                           {currentAlbum.source_lang === 'auto' ? 'ตรวจภาษาก่อนแปล' : 'ใช้ค่าที่กำหนดเอง'}
                         </span>
                       </div>
@@ -587,11 +587,11 @@ export default function AlbumListModal() {
                         <div className="rounded-[16px] border border-white/10 bg-white/[0.04] p-3">
                           <div className="mb-3 flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--mg-dim)]">Choose Cover</p>
-                              <p className="mt-1 text-sm text-[var(--mg-muted)]">เลือกจาก thumbnail ของหน้าในอัลบั้ม</p>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">Choose Cover</p>
+                              <p className="mt-1 text-sm text-[var(--moxzk-muted)]">เลือกจาก thumbnail ของหน้าในอัลบั้ม</p>
                             </div>
                             <button
-                              className="mg-button mg-button-ghost mg-button-sm"
+                              className="moxzk-button moxzk-button-ghost moxzk-button-sm"
                               onClick={() => setShowCoverPicker(false)}
                             >
                               ปิด
@@ -601,7 +601,7 @@ export default function AlbumListModal() {
                             {currentPages.map((page) => (
                               <button
                                 key={page.id}
-                                className="overflow-hidden rounded-[12px] border border-[var(--mg-border)] bg-black/20 transition hover:border-[var(--mg-border-strong)]"
+                                className="overflow-hidden rounded-[12px] border border-[var(--moxzk-border)] bg-black/20 transition hover:border-[var(--moxzk-border-strong)]"
                                 onClick={async () => {
                                   if (page.thumbnail_key && (page.thumbnail_key as string).startsWith('data:')) {
                                     await useAlbumStore.getState().updateAlbum(currentAlbum.id, { cover_key: page.thumbnail_key })
@@ -615,7 +615,7 @@ export default function AlbumListModal() {
                                   {page.thumbnail_key && (page.thumbnail_key as string).startsWith('data:') ? (
                                     <img src={page.thumbnail_key as string} alt={`#${page.page_number}`} className="h-full w-full object-cover" />
                                   ) : (
-                                    <div className="flex h-full w-full items-center justify-center text-[10px] text-[var(--mg-dim)]">
+                                    <div className="flex h-full w-full items-center justify-center text-[10px] text-[var(--moxzk-dim)]">
                                       #{page.page_number}
                                     </div>
                                   )}
@@ -629,8 +629,8 @@ export default function AlbumListModal() {
 
                     <div className="rounded-[20px] border border-white/10 bg-[#202020] p-4">
                       <div className="space-y-4">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--mg-dim)]">Source Language</p>
-                        <p className="mt-2 text-sm leading-6 text-[var(--mg-muted)]">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">Source Language</p>
+                        <p className="mt-2 text-sm leading-6 text-[var(--moxzk-muted)]">
                           ตั้งค่าให้ตรวจอัตโนมัติ หรือบังคับภาษาต้นฉบับเองสำหรับงานในอัลบั้มนี้
                         </p>
                         <SelectField<SourceLanguageSelectValue>
@@ -657,7 +657,7 @@ export default function AlbumListModal() {
                               }}
                             />
                             <button
-                              className="mg-button mg-button-soft min-h-10 justify-center rounded-[12px]"
+                              className="moxzk-button moxzk-button-soft min-h-10 justify-center rounded-[12px]"
                               onClick={() => {
                                 void handleCustomSourceLanguageSave()
                               }}
@@ -668,9 +668,9 @@ export default function AlbumListModal() {
                           </div>
                         )}
                         <div className="pt-1">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--mg-dim)]">Quick Actions</p>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">Quick Actions</p>
                           <div className="mt-3 grid gap-2">
-                          <label className="mg-button mg-button-ghost min-h-11 cursor-pointer justify-center rounded-[12px]">
+                          <label className="moxzk-button moxzk-button-ghost min-h-11 cursor-pointer justify-center rounded-[12px]">
                             <ImagePlus size={12} />
                             อัปโหลดปกใหม่
                             <input
@@ -695,7 +695,7 @@ export default function AlbumListModal() {
                           </label>
                           {currentPages.length > 0 && (
                             <button
-                              className="mg-button mg-button-soft min-h-11 justify-center rounded-[12px]"
+                              className="moxzk-button moxzk-button-soft min-h-11 justify-center rounded-[12px]"
                               onClick={() => setShowCoverPicker((open) => !open)}
                             >
                               <ImageIcon size={12} />
@@ -703,7 +703,7 @@ export default function AlbumListModal() {
                             </button>
                           )}
                           <button
-                            className="mg-button mg-button-danger min-h-11 justify-center rounded-[12px]"
+                            className="moxzk-button moxzk-button-danger min-h-11 justify-center rounded-[12px]"
                             onClick={() => handleDeleteAlbum(currentAlbum.id)}
                           >
                             <Trash2 size={12} />
@@ -719,13 +719,13 @@ export default function AlbumListModal() {
                 <section className="rounded-[18px] border border-white/10 bg-[#171717] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
                   <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-4">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--mg-dim)]">Page Library</p>
-                      <h4 className="mt-1 text-lg font-bold text-[var(--mg-text)]">หน้าทั้งหมด</h4>
-                      <p className="mt-1 text-sm text-[var(--mg-muted)]">คลิกเพื่อเปิดหน้าเข้า editor หรือสลับเป็นโหมดแก้ไขเพื่อเรียงลำดับและลบหน้า</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--moxzk-dim)]">Page Library</p>
+                      <h4 className="mt-1 text-lg font-bold text-[var(--moxzk-text)]">หน้าทั้งหมด</h4>
+                      <p className="mt-1 text-sm text-[var(--moxzk-muted)]">คลิกเพื่อเปิดหน้าเข้า editor หรือสลับเป็นโหมดแก้ไขเพื่อเรียงลำดับและลบหน้า</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="mg-pill">{currentPages.length} หน้า</span>
-                      {editMode && <span className="mg-pill text-yellow-100">โหมดแก้ไข</span>}
+                      <span className="moxzk-pill">{currentPages.length} หน้า</span>
+                      {editMode && <span className="moxzk-pill text-yellow-100">โหมดแก้ไข</span>}
                     </div>
                   </div>
                   <AlbumPageGrid
@@ -746,15 +746,15 @@ export default function AlbumListModal() {
             {/* ── Create Album View ── */}
             {user && view === 'create' && (
               <div className="mx-auto max-w-xl py-4">
-                <div className="rounded-[10px] border border-[var(--mg-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))] p-4">
+                <div className="rounded-[10px] border border-[var(--moxzk-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))] p-4">
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <label className="mg-label">
+                      <label className="moxzk-label">
                         <span>ชื่ออัลบั้ม *</span>
                       </label>
                       <input
                         type="text"
-                        className="mg-control"
+                        className="moxzk-control"
                         placeholder="เช่น One Piece Vol.1"
                         value={newTitle}
                         onChange={(e) => setNewTitle(e.target.value)}
@@ -763,11 +763,11 @@ export default function AlbumListModal() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="mg-label">
+                      <label className="moxzk-label">
                         <span>คำอธิบาย</span>
                       </label>
                       <textarea
-                        className="mg-control min-h-20 resize-none"
+                        className="moxzk-control min-h-20 resize-none"
                         placeholder="ไม่บังคับ"
                         value={newDesc}
                         onChange={(e) => setNewDesc(e.target.value)}
@@ -776,7 +776,7 @@ export default function AlbumListModal() {
                       />
                     </div>
                     <button
-                      className="mg-button mg-button-primary w-full"
+                      className="moxzk-button moxzk-button-primary w-full"
                       onClick={handleCreateAlbum}
                       disabled={!newTitle.trim() || creating}
                     >

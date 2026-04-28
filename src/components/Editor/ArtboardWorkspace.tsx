@@ -1149,7 +1149,7 @@ export default function ArtboardWorkspace({
               className="h-6 w-6 rounded"
               style={{ backgroundColor: eyedropPreview.color }}
             />
-            <span className="font-mono text-xs text-[var(--mg-text)]">{eyedropPreview.color}</span>
+            <span className="font-mono text-xs text-[var(--moxzk-text)]">{eyedropPreview.color}</span>
           </div>
         )}
         <Modal
@@ -1161,7 +1161,7 @@ export default function ArtboardWorkspace({
           className="max-w-sm"
         >
           <div className="space-y-4">
-            <p className="text-sm text-[var(--mg-muted)]">
+            <p className="text-sm text-[var(--moxzk-muted)]">
               {pendingDeleteEntry?.albumPageId
                 ? `หน้า ${pendingDeleteEntry.pageNumber ?? '?'} จะถูกลบออกจากอัลบั้มและ canvas ถาวร`
                 : `หน้า ${pendingDeleteEntry?.pageNumber ?? '?'} จะถูกลบออกจาก canvas นี้`}
@@ -1449,18 +1449,18 @@ function ArtboardProcessCardOverlay({
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-[var(--mg-text)]">{card.label}</p>
-              <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[var(--mg-muted)]">{card.message}</p>
+              <p className="truncate text-sm font-bold text-[var(--moxzk-text)]">{card.label}</p>
+              <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[var(--moxzk-muted)]">{card.message}</p>
             </div>
             {card.type === 'running' && (
-              <div className="mt-0.5 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/20 border-t-[var(--mg-accent)]" />
+              <div className="mt-0.5 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/20 border-t-[var(--moxzk-accent)]" />
             )}
           </div>
 
           {card.type === 'running' && (
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-[var(--mg-accent)] transition-all"
+                className="h-full rounded-full bg-[var(--moxzk-accent)] transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>

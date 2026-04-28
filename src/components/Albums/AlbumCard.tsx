@@ -43,7 +43,7 @@ export default function AlbumCard({ album, mode = 'browse', onOpen, onManage }: 
       role="button"
       tabIndex={0}
       aria-label={`${actionLabel}: ${album.title}`}
-      className="group relative flex h-full cursor-pointer flex-col overflow-visible rounded-[18px] bg-transparent transition duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mg-accent)]/45"
+      className="group relative flex h-full cursor-pointer flex-col overflow-visible rounded-[18px] bg-transparent transition duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--moxzk-accent)]/45"
       onClick={() => onOpen(album)}
       onKeyDown={(event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return
@@ -60,9 +60,9 @@ export default function AlbumCard({ album, mode = 'browse', onOpen, onManage }: 
             className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#111111] text-[var(--mg-dim)]">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#111111] text-[var(--moxzk-dim)]">
             <BookOpen size={30} />
-            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--mg-muted)]">No cover</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--moxzk-muted)]">No cover</span>
           </div>
         )}
 
@@ -72,7 +72,7 @@ export default function AlbumCard({ album, mode = 'browse', onOpen, onManage }: 
             <Clock3 size={11} className="text-white/70" />
             {formatAlbumTimeAgo(album.updated_at)}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[var(--mg-accent)] px-2 py-1 text-[11px] font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.32)]">
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[var(--moxzk-accent)] px-2 py-1 text-[11px] font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.32)]">
             <Languages size={11} className="text-white/85" />
             <span className="truncate">{sourceLabel}</span>
           </span>
@@ -92,7 +92,7 @@ export default function AlbumCard({ album, mode = 'browse', onOpen, onManage }: 
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-white/10 pt-3">
           <button
             type="button"
-            className="mg-button mg-button-primary mg-button-sm min-w-0 rounded-[12px] px-3"
+            className="moxzk-button moxzk-button-primary moxzk-button-sm min-w-0 rounded-[12px] px-3"
             onClick={(event) => {
               event.stopPropagation()
               onOpen(album)
@@ -102,7 +102,7 @@ export default function AlbumCard({ album, mode = 'browse', onOpen, onManage }: 
           </button>
           <button
             type="button"
-            className="mg-button mg-button-soft mg-button-sm rounded-[12px] border-white/10 bg-white/[0.04] px-3 hover:bg-white/[0.08]"
+            className="moxzk-button moxzk-button-soft moxzk-button-sm rounded-[12px] border-white/10 bg-white/[0.04] px-3 hover:bg-white/[0.08]"
             onClick={(event) => {
               event.stopPropagation()
               onManage(album)

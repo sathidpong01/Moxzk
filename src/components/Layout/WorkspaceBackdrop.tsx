@@ -16,8 +16,8 @@ export default function WorkspaceBackdrop() {
       const nextY = Math.round(Math.max(0, Math.min(rect.height, clientY - rect.top)))
       if (pointerRef.current.x === nextX && pointerRef.current.y === nextY) return
       pointerRef.current = { x: nextX, y: nextY }
-      backdrop.style.setProperty('--mg-pointer-x', `${nextX}px`)
-      backdrop.style.setProperty('--mg-pointer-y', `${nextY}px`)
+      backdrop.style.setProperty('--moxzk-pointer-x', `${nextX}px`)
+      backdrop.style.setProperty('--moxzk-pointer-y', `${nextY}px`)
     }
 
     const resetPointer = () => {
@@ -46,11 +46,11 @@ export default function WorkspaceBackdrop() {
   }, [])
 
   return (
-    <div ref={backdropRef} className="mg-dot-backdrop" aria-hidden="true">
-      <div className="mg-dot-backdrop__base" />
-      <div className="mg-dot-backdrop__dots" />
-      <div className="mg-dot-backdrop__glow" />
-      <div className="mg-dot-backdrop__dots mg-dot-backdrop__dots--highlight" />
+    <div ref={backdropRef} className="moxzk-dot-backdrop" aria-hidden="true">
+      <div className="moxzk-dot-backdrop__base" />
+      <div className="moxzk-dot-backdrop__dots" />
+      <div className="moxzk-dot-backdrop__glow" />
+      <div className="moxzk-dot-backdrop__dots moxzk-dot-backdrop__dots--highlight" />
     </div>
   )
 }

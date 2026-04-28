@@ -8,15 +8,15 @@ interface PageOverviewGridProps {
 }
 
 const statusMeta = {
-  pending: { label: 'รอทำงาน', className: 'text-[var(--mg-muted)]', icon: null },
-  clean_queued: { label: 'รอคลีน', className: 'text-[var(--mg-muted)]', icon: null },
-  cleaning: { label: 'กำลังคลีน', className: 'text-[var(--mg-accent)]', icon: Loader2 },
-  clean_done: { label: 'คลีนแล้ว', className: 'text-[var(--mg-success)]', icon: CheckCircle2 },
-  translate_queued: { label: 'รอแปล', className: 'text-[var(--mg-muted)]', icon: null },
-  translating: { label: 'กำลังแปล', className: 'text-[var(--mg-accent)]', icon: Loader2 },
-  processing: { label: 'กำลังประมวลผล', className: 'text-[var(--mg-accent)]', icon: Loader2 },
-  done: { label: 'เสร็จแล้ว', className: 'text-[var(--mg-success)]', icon: CheckCircle2 },
-  error: { label: 'ผิดพลาด', className: 'text-[var(--mg-danger)]', icon: AlertCircle },
+  pending: { label: 'รอทำงาน', className: 'text-[var(--moxzk-muted)]', icon: null },
+  clean_queued: { label: 'รอคลีน', className: 'text-[var(--moxzk-muted)]', icon: null },
+  cleaning: { label: 'กำลังคลีน', className: 'text-[var(--moxzk-accent)]', icon: Loader2 },
+  clean_done: { label: 'คลีนแล้ว', className: 'text-[var(--moxzk-success)]', icon: CheckCircle2 },
+  translate_queued: { label: 'รอแปล', className: 'text-[var(--moxzk-muted)]', icon: null },
+  translating: { label: 'กำลังแปล', className: 'text-[var(--moxzk-accent)]', icon: Loader2 },
+  processing: { label: 'กำลังประมวลผล', className: 'text-[var(--moxzk-accent)]', icon: Loader2 },
+  done: { label: 'เสร็จแล้ว', className: 'text-[var(--moxzk-success)]', icon: CheckCircle2 },
+  error: { label: 'ผิดพลาด', className: 'text-[var(--moxzk-danger)]', icon: AlertCircle },
 } as const
 
 export default function PageOverviewGrid({
@@ -27,7 +27,7 @@ export default function PageOverviewGrid({
   if (entries.length === 0) {
     return (
       <div className="studio-canvas flex h-full items-center justify-center">
-        <p className="text-sm text-[var(--mg-muted)]">ไม่มีรูปภาพ</p>
+        <p className="text-sm text-[var(--moxzk-muted)]">ไม่มีรูปภาพ</p>
       </div>
     )
   }
@@ -46,16 +46,16 @@ export default function PageOverviewGrid({
             <button
               key={entry.id}
               type="button"
-              className={`group overflow-hidden rounded-[8px] border bg-[var(--mg-surface)] text-left outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--mg-accent)] ${
+              className={`group overflow-hidden rounded-[8px] border bg-[var(--moxzk-surface)] text-left outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--moxzk-accent)] ${
                 isActive
-                  ? 'border-[var(--mg-accent)] shadow-[0_0_0_1px_var(--mg-accent)]'
-                  : 'border-[var(--mg-border)] hover:border-white/30'
+                  ? 'border-[var(--moxzk-accent)] shadow-[0_0_0_1px_var(--moxzk-accent)]'
+                  : 'border-[var(--moxzk-border)] hover:border-white/30'
               }`}
               onClick={() => onOpenPage(entry.id)}
               aria-label={`เปิดหน้า ${pageNumber} เพื่อแก้ไข`}
             >
-              <div className="flex h-9 items-center justify-between gap-2 border-b border-[var(--mg-border)] bg-black/25 px-3">
-                <span className="text-xs font-bold text-[var(--mg-text)]">หน้า {pageNumber}</span>
+              <div className="flex h-9 items-center justify-between gap-2 border-b border-[var(--moxzk-border)] bg-black/25 px-3">
+                <span className="text-xs font-bold text-[var(--moxzk-text)]">หน้า {pageNumber}</span>
                 <span className={`flex min-w-0 items-center gap-1 text-[11px] ${meta.className}`}>
                   {StatusIcon && (
                     <StatusIcon
@@ -76,14 +76,14 @@ export default function PageOverviewGrid({
                     draggable={false}
                   />
                 ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--mg-muted)]">
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--moxzk-muted)]">
                     <CloudOff size={18} />
                     <span className="text-xs">ยังไม่ได้โหลดรูป</span>
                   </div>
                 )}
 
                 {isActive && (
-                  <span className="absolute left-2 top-2 rounded-[6px] bg-[var(--mg-accent)] px-2 py-1 text-[10px] font-bold text-white">
+                  <span className="absolute left-2 top-2 rounded-[6px] bg-[var(--moxzk-accent)] px-2 py-1 text-[10px] font-bold text-white">
                     กำลังแก้ไข
                   </span>
                 )}

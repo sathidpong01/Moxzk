@@ -4,12 +4,12 @@ import { buildBrowserSmokeConfig, getBrowserSmokeSteps } from './browser-smoke.m
 
 test('buildBrowserSmokeConfig uses online Worker auth config and local app url by default', () => {
   const config = buildBrowserSmokeConfig({
-    VITE_CLOUDFLARE_API_URL: 'https://mg-translater-api.example.workers.dev',
-    MG_AUTH_SMOKE_EMAIL: 'smoke@example.com',
-    MG_AUTH_SMOKE_PASSWORD: 'secret-password-12345',
+    VITE_CLOUDFLARE_API_URL: 'https://moxzk-api.example.workers.dev',
+    MOXZK_AUTH_SMOKE_EMAIL: 'smoke@example.com',
+    MOXZK_AUTH_SMOKE_PASSWORD: 'secret-password-12345',
   })
 
-  assert.equal(config.worker.baseUrl, 'https://mg-translater-api.example.workers.dev')
+  assert.equal(config.worker.baseUrl, 'https://moxzk-api.example.workers.dev')
   assert.equal(config.appUrl, 'http://localhost:5173')
 })
 

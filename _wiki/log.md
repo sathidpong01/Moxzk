@@ -23,7 +23,7 @@ Recommended heading shape:
 
 - Treated `Clippings/` as the Obsidian Web Clipper source inbox
 - Ingested the Konva drag-image clipping into `_wiki/sources/`
-- Added a concept page for Konva image dragging patterns relevant to MG_Translater
+- Added a concept page for Konva image dragging patterns relevant to Moxzk
 - Added `/Clippings/` to `.gitignore` so raw clipped source snapshots stay local-only by default
 
 ## [2026-04-25] docs | konva ai documentation

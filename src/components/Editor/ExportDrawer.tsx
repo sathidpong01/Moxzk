@@ -87,7 +87,7 @@ function SegmentedPicker<T extends string | number>({
               buttonClassName,
               active
                 ? 'bg-[rgba(37,99,235,0.18)] text-white'
-                : 'bg-transparent text-[var(--mg-muted)] hover:bg-white/[0.05] hover:text-[var(--mg-text)]',
+                : 'bg-transparent text-[var(--moxzk-muted)] hover:bg-white/[0.05] hover:text-[var(--moxzk-text)]',
             )}
           >
             {option.label}
@@ -106,7 +106,7 @@ function PreviewZoomBar({
   onChange: (zoom: number) => void
 }) {
   const zoomPercent = Math.round(clampViewerZoom(zoom) * 100)
-  const buttonClassName = 'flex h-10 w-10 cursor-pointer items-center justify-center rounded-[14px] text-[var(--mg-muted)] transition hover:bg-white/[0.05] hover:text-[var(--mg-text)]'
+  const buttonClassName = 'flex h-10 w-10 cursor-pointer items-center justify-center rounded-[14px] text-[var(--moxzk-muted)] transition hover:bg-white/[0.05] hover:text-[var(--moxzk-text)]'
 
   return (
     <div className="flex items-center gap-1 rounded-[18px] bg-white/[0.03] p-1.5">
@@ -119,7 +119,7 @@ function PreviewZoomBar({
       >
         <ZoomOut size={16} />
       </button>
-      <div className="min-w-16 rounded-[12px] bg-black/20 px-3 py-2 text-center font-mono text-xs font-bold text-[var(--mg-text)]">
+      <div className="min-w-16 rounded-[12px] bg-black/20 px-3 py-2 text-center font-mono text-xs font-bold text-[var(--moxzk-text)]">
         {zoomPercent}%
       </div>
       <button
@@ -429,7 +429,7 @@ export default function ExportDrawer({
           <div className="flex items-center justify-between gap-4 px-6 py-4">
             <div className="min-w-0">
               <DialogTitle className="sr-only">ส่งออกโปรเจกต์</DialogTitle>
-              <p className="text-sm font-medium text-[var(--mg-muted)]">
+              <p className="text-sm font-medium text-[var(--moxzk-muted)]">
                 {selectedEntries.length > 0
                   ? `${selectedEntries.length} จาก ${sortedEntries.length} หน้า พร้อมส่งออก`
                   : 'เลือกหน้าอย่างน้อย 1 หน้าเพื่อส่งออก'}
@@ -466,9 +466,9 @@ export default function ExportDrawer({
                         onZoomChange={setPreviewZoom}
                       />
                     ) : (
-                      <div className="flex h-full min-h-[24rem] flex-col items-center justify-center rounded-[18px] bg-black/20 px-6 text-center text-[var(--mg-muted)]">
+                      <div className="flex h-full min-h-[24rem] flex-col items-center justify-center rounded-[18px] bg-black/20 px-6 text-center text-[var(--moxzk-muted)]">
                         <ImageIcon size={40} aria-hidden="true" />
-                        <p className="mt-4 text-sm font-bold text-[var(--mg-text)]">
+                        <p className="mt-4 text-sm font-bold text-[var(--moxzk-text)]">
                           {isRenderingPreview
                             ? 'กำลังสร้างตัวอย่างส่งออก'
                             : activeRenderError || (previewMode === 'after'
@@ -495,7 +495,7 @@ export default function ExportDrawer({
                           onClick={() => scrollPreviewStripByPage('backward')}
                           disabled={!canScrollPreviewBackward}
                           className={cn(
-                            'absolute left-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(7,7,7,0.88)] text-[var(--mg-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
+                            'absolute left-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(7,7,7,0.88)] text-[var(--moxzk-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
                             canScrollPreviewBackward ? 'cursor-pointer opacity-100 hover:bg-[rgba(18,18,18,0.96)]' : 'pointer-events-none opacity-0',
                           )}
                         >
@@ -508,7 +508,7 @@ export default function ExportDrawer({
                           onClick={() => scrollPreviewStripByPage('forward')}
                           disabled={!canScrollPreviewForward}
                           className={cn(
-                            'absolute right-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(7,7,7,0.88)] text-[var(--mg-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
+                            'absolute right-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(7,7,7,0.88)] text-[var(--moxzk-text)] shadow-[0_12px_28px_rgba(0,0,0,0.36)] backdrop-blur transition',
                             canScrollPreviewForward ? 'cursor-pointer opacity-100 hover:bg-[rgba(18,18,18,0.96)]' : 'pointer-events-none opacity-0',
                           )}
                         >
@@ -553,15 +553,15 @@ export default function ExportDrawer({
                                         draggable={false}
                                       />
                                     ) : (
-                                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--mg-muted)]">
+                                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--moxzk-muted)]">
                                         <ImageIcon size={28} aria-hidden="true" />
                                         <span className="text-xs font-bold">ไม่มีตัวอย่าง</span>
                                       </div>
                                     )}
                                   </div>
                                   <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                                    <span className="font-bold text-[var(--mg-text)]">หน้า {entry.pageNumber ?? '?'}</span>
-                                    <span className="truncate text-[var(--mg-muted)]">
+                                    <span className="font-bold text-[var(--moxzk-text)]">หน้า {entry.pageNumber ?? '?'}</span>
+                                    <span className="truncate text-[var(--moxzk-muted)]">
                                       {renderedPreviewUrls[entry.id]
                                         ? 'พร้อม'
                                         : isRenderingPreview
@@ -583,10 +583,10 @@ export default function ExportDrawer({
               <aside className="min-h-0 rounded-[24px] bg-white/[0.02] p-4">
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="shrink-0">
-                    <h2 className="text-lg font-bold text-[var(--mg-text)]">ตั้งค่าส่งออก</h2>
+                    <h2 className="text-lg font-bold text-[var(--moxzk-text)]">ตั้งค่าส่งออก</h2>
                   </div>
 
-                  <div className="mg-scrollbar-hidden mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                  <div className="moxzk-scrollbar-hidden mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                     <Field as="fieldset" label="รูปแบบไฟล์" className="gap-2">
                       <SegmentedPicker
                         value={exportFormat}
@@ -610,7 +610,7 @@ export default function ExportDrawer({
                         buttonClassName="w-full justify-center px-2 text-xs"
                         stretch
                       />
-                      <p className="text-xs leading-5 text-[var(--mg-muted)]">
+                      <p className="text-xs leading-5 text-[var(--moxzk-muted)]">
                         {exportDestination === 'folder'
                           ? 'Chrome จะขอสิทธิ์อ่านและแก้ไขโฟลเดอร์ก่อนบันทึกหลายไฟล์'
                           : 'บันทึกเป็นไฟล์เดียว ไม่ต้องให้สิทธิ์โฟลเดอร์กับ browser'}
@@ -623,7 +623,7 @@ export default function ExportDrawer({
                         label={(
                           <span className="flex items-center justify-between gap-2">
                             <span>คุณภาพ</span>
-                            <span className="text-[11px] font-bold text-[var(--mg-dim)]">{exportQuality}%</span>
+                            <span className="text-[11px] font-bold text-[var(--moxzk-dim)]">{exportQuality}%</span>
                           </span>
                         )}
                         className="gap-2"
@@ -643,12 +643,12 @@ export default function ExportDrawer({
                     {sortedEntries.length > 1 && (
                       <Field as="fieldset" label="หน้า" className="min-h-0 gap-2">
                         <div className="min-h-0 rounded-[20px] bg-black/20 p-2.5">
-                          <label className="flex items-center gap-3 rounded-[14px] bg-white/[0.03] px-3 py-2.5 text-sm font-bold text-[var(--mg-text)]">
+                          <label className="flex items-center gap-3 rounded-[14px] bg-white/[0.03] px-3 py-2.5 text-sm font-bold text-[var(--moxzk-text)]">
                             <input
                               type="checkbox"
                               checked={allSelected}
                               onChange={toggleAll}
-                              className="h-4 w-4 accent-[var(--mg-accent)]"
+                              className="h-4 w-4 accent-[var(--moxzk-accent)]"
                             />
                             เลือกทุกหน้า
                           </label>
@@ -671,11 +671,11 @@ export default function ExportDrawer({
                                       type="checkbox"
                                       checked={checked}
                                       onChange={() => toggleEntry(entry.id)}
-                                      className="h-4 w-4 accent-[var(--mg-accent)]"
+                                      className="h-4 w-4 accent-[var(--moxzk-accent)]"
                                     />
-                                    <span className="font-bold text-[var(--mg-text)]">หน้า {entry.pageNumber ?? '?'}</span>
+                                    <span className="font-bold text-[var(--moxzk-text)]">หน้า {entry.pageNumber ?? '?'}</span>
                                   </span>
-                                  <span className="truncate text-xs text-[var(--mg-muted)]">{entry.status}</span>
+                                  <span className="truncate text-xs text-[var(--moxzk-muted)]">{entry.status}</span>
                                 </label>
                               )
                             })}

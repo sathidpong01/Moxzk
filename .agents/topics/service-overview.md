@@ -1,6 +1,6 @@
 # Service Overview
 
-MG_Translater is a Windows-only Electron application for manga image cleanup and Thai translation. Electron V1 is the primary acceptance target; Linux/macOS are not planned targets. The web runtime remains a fallback and CI path.
+Moxzk is a Windows-only Electron application for manga image cleanup and Thai translation. Electron V1 is the primary acceptance target; Linux/macOS are not planned targets. The web runtime remains a fallback and CI path.
 
 ## Desktop Shell
 

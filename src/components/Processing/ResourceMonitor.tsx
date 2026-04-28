@@ -96,7 +96,7 @@ function CircleGauge({
           {Math.round(percent)}%
         </span>
       </div>
-      <span className="text-[9px] font-medium text-[var(--mg-muted)]">{label}</span>
+      <span className="text-[9px] font-medium text-[var(--moxzk-muted)]">{label}</span>
     </div>
   )
 }
@@ -172,8 +172,8 @@ export default function ResourceMonitor({ isProcessing }: ResourceMonitorProps) 
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5">
         <div {...dragHandleProps} className="flex items-center gap-1 drag-handle flex-1">
-          <GripVertical size={10} className="text-[var(--mg-dim)]" />
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--mg-muted)]">ทรัพยากร</span>
+          <GripVertical size={10} className="text-[var(--moxzk-dim)]" />
+          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--moxzk-muted)]">ทรัพยากร</span>
           {isProcessing && (
             <span className="ml-1 font-mono text-[10px] tabular-nums text-blue-300">
               {formatElapsed(elapsed)}
@@ -201,7 +201,7 @@ export default function ResourceMonitor({ isProcessing }: ResourceMonitorProps) 
         )}
         <div className="flex items-center gap-1 ml-1" title={sysInfo.gpuRenderer}>
           <Badge>GPU</Badge>
-          <span className="max-w-[100px] truncate text-[9px] text-[var(--mg-muted)]">{gpuShort}</span>
+          <span className="max-w-[100px] truncate text-[9px] text-[var(--moxzk-muted)]">{gpuShort}</span>
         </div>
       </div>
     </div>

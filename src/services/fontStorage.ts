@@ -1,4 +1,5 @@
-const DB_NAME = 'mg-translater-fonts'
+const DB_NAME = 'moxzk-fonts'
+const LEGACY_DB_NAME = 'mg-translater-fonts'
 const DB_VERSION = 1
 const STORE_NAME = 'custom-fonts'
 
@@ -12,9 +13,9 @@ export interface StoredFont {
   createdAt: number
 }
 
-function openDB(): Promise<IDBDatabase> {
+function openDB(dbName = DB_NAME): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
+    const request = indexedDB.open(dbName, DB_VERSION)
 
     request.onupgradeneeded = () => {
       const db = request.result
@@ -39,7 +40,12 @@ export async function saveFont(font: StoredFont): Promise<void> {
 }
 
 export async function getAllFonts(): Promise<StoredFont[]> {
-  const db = await openDB()
+  const lists = await Promise.all([DB_NAME, LEGACY_DB_NAME].map(getAllFontsFromDb))
+  return Array.from(new Map(lists.flat().map((font) => [font.name, font])).values())
+}
+
+async function getAllFontsFromDb(dbName: string): Promise<StoredFont[]> {
+  const db = await openDB(dbName)
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly')
     const request = tx.objectStore(STORE_NAME).getAll()
@@ -49,13 +55,15 @@ export async function getAllFonts(): Promise<StoredFont[]> {
 }
 
 export async function deleteFont(name: string): Promise<void> {
-  const db = await openDB()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite')
-    tx.objectStore(STORE_NAME).delete(name)
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
-  })
+  await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
+    const db = await openDB(dbName)
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      tx.objectStore(STORE_NAME).delete(name)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+  }))
 }
 
 export async function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {

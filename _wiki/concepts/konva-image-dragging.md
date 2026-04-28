@@ -4,7 +4,7 @@
 
 Konva image dragging is enabled at the shape level with `draggable: true` or `draggable()`.
 
-In MG_Translater, this matters because image dragging is part of the editor interaction model, but the source pattern should be adapted through the repo's existing state and viewport layers.
+In Moxzk, this matters because image dragging is part of the editor interaction model, but the source pattern should be adapted through the repo's existing state and viewport layers.
 
 ## Practical Rules
 

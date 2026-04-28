@@ -52,7 +52,7 @@ export default function SplitView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div
-        className={`studio-canvas relative min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[var(--mg-border)] bg-black/25 ${
+        className={`studio-canvas relative min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[var(--moxzk-border)] bg-black/25 ${
           canPan ? 'cursor-grab active:cursor-grabbing' : ''
         }`}
         onWheel={handleWheel}
@@ -164,17 +164,17 @@ export default function SplitView({
       </div>
 
       {mode === 'overlay' && (
-        <div className="mt-3 flex shrink-0 items-center gap-3 rounded-[14px] border border-[var(--mg-border)] bg-white/[0.03] px-3 py-2">
-          <span className="text-xs text-[var(--mg-muted)]">ต้นฉบับ</span>
+        <div className="mt-3 flex shrink-0 items-center gap-3 rounded-[14px] border border-[var(--moxzk-border)] bg-white/[0.03] px-3 py-2">
+          <span className="text-xs text-[var(--moxzk-muted)]">ต้นฉบับ</span>
           <input
             type="range"
-            className="mg-slider flex-1"
+            className="moxzk-slider flex-1"
             min={0}
             max={100}
             value={overlayOpacity}
             onChange={(e) => setOverlayOpacity(Number(e.target.value))}
           />
-          <span className="text-xs text-[var(--mg-muted)]">ฉบับแปล</span>
+          <span className="text-xs text-[var(--moxzk-muted)]">ฉบับแปล</span>
         </div>
       )}
     </div>

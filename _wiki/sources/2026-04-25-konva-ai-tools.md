@@ -4,7 +4,7 @@
 
 Konva provides AI-oriented documentation surfaces for coding agents: an MCP server, a concise `llms.txt`, a full text API reference, and an AI plugin identity file.
 
-For MG_Translater, these resources should be used whenever canvas/editor work depends on Konva or react-konva API details.
+For Moxzk, these resources should be used whenever canvas/editor work depends on Konva or react-konva API details.
 
 ## Key Points
 
@@ -15,7 +15,7 @@ For MG_Translater, these resources should be used whenever canvas/editor work de
 - Konva publishes `https://konvajs.org/.well-known/ai-plugin.json` as machine-readable identity/capability metadata
 - Konva recommends asking about one Konva task at a time and verifying generated code against the docs/API reference
 
-## MG_Translater Decision
+## Moxzk Decision
 
 Use both layers:
 

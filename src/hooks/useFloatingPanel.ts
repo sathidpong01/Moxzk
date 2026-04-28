@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FloatingPanelPosition } from '../types'
 
-const STORAGE_PREFIX = 'mg-panel-'
+const STORAGE_PREFIX = 'moxzk-panel-'
 const PANEL_MARGIN = 12
 
 interface UseFloatingPanelOptions {

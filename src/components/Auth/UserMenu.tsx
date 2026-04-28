@@ -33,7 +33,7 @@ export default function UserMenu() {
     <DropdownMenu
       trigger={(
         <button
-          className="inline-flex h-8 w-8 items-center justify-center rounded-[7px] bg-transparent text-[var(--mg-muted)] transition hover:bg-white/[0.055]"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-[7px] bg-transparent text-[var(--moxzk-muted)] transition hover:bg-white/[0.055]"
           aria-label={displayName}
         >
         {avatarUrl ? (
@@ -52,14 +52,14 @@ export default function UserMenu() {
       )}
       className="w-52"
     >
-      <div className="px-2 py-1 text-xs text-[var(--mg-dim)] truncate">{user.email}</div>
+      <div className="px-2 py-1 text-xs text-[var(--moxzk-dim)] truncate">{user.email}</div>
       <DropdownItem onClick={() => useAlbumStore.getState().openForBrowse()}>
         <FolderOpen size={14} /> อัลบั้มของฉัน
       </DropdownItem>
       <DropdownItem>
         <User size={14} /> โปรไฟล์
       </DropdownItem>
-      <div className="my-1 h-px bg-[var(--mg-border)]" />
+      <div className="my-1 h-px bg-[var(--moxzk-border)]" />
       <DropdownItem className="text-red-300" onClick={signOut}>
         <LogOut size={14} /> ออกจากระบบ
       </DropdownItem>

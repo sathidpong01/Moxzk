@@ -2,7 +2,7 @@ import JSZip from 'jszip'
 import { defaultOllamaClient } from '../services/ollama'
 import { defaultPanelCleanerClient } from '../services/panelcleaner-api'
 import { decodeDesktopProjectDraft, encodeDesktopProjectDraft } from './desktopDraftCodec'
-import type { MgRuntimeBridge, NativeFilePayload, NativeResult } from './electronBridge'
+import type { MoxzkRuntimeBridge, NativeFilePayload, NativeResult } from './electronBridge'
 import type {
   AppRuntime,
   LocalServiceName,
@@ -135,16 +135,18 @@ export class ElectronRuntime implements AppRuntime {
     },
   }
 
-  constructor(private readonly bridge: MgRuntimeBridge) {}
+  constructor(private readonly bridge: MoxzkRuntimeBridge) {}
 }
 
 export function installElectronRuntimeIfAvailable(): void {
-  if (typeof window === 'undefined' || !window.mgRuntime) return
-  setAppRuntime(new ElectronRuntime(window.mgRuntime))
+  if (typeof window === 'undefined') return
+  const bridge = window.moxzkRuntime ?? window.mgRuntime
+  if (!bridge) return
+  setAppRuntime(new ElectronRuntime(bridge))
 }
 
 async function saveZip(
-  bridge: MgRuntimeBridge,
+  bridge: MoxzkRuntimeBridge,
   files: RuntimeExportFile[],
   archiveName: string,
 ): Promise<void> {

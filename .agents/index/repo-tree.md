@@ -23,7 +23,7 @@ Root: `MG_Translater`
 |-- .claude/
 |-- .cursor/
 |   `-- rules/
-|       `-- mg-translater-skills.mdc
+|       `-- moxzk-skills.mdc
 |-- .obsidian/
 |   |-- app.json
 |   |-- appearance.json
@@ -55,7 +55,9 @@ Root: `MG_Translater`
 |   |   |       `-- before-expand.png
 |   |   |-- export-destination-check.png
 |   |   |-- package.json
-|   |   `-- sample-export.png
+|   |   |-- sample-export.png
+|   |   |-- windows-frameless-integrated.png
+|   |   `-- windows-unified-studio-chrome.png
 |   |-- browser-smoke/
 |   |   |-- downloads/
 |   |   |   |-- failure-1777189648539.png
@@ -141,8 +143,8 @@ Root: `MG_Translater`
 |   |   `-- index.cjs
 |   `-- renderer/
 |       |-- assets/
-|       |   |-- index-DLwypart.js
-|       |   `-- index-DRr_y3ee.css
+|       |   |-- index-Ccc7VQFX.js
+|       |   `-- index-DNAzDw0T.css
 |       |-- index.html
 |       `-- vite.svg
 |-- public/
@@ -177,6 +179,7 @@ Root: `MG_Translater`
 |   |-- panelcleaner-csv.mjs
 |   |-- panelcleaner-csv.test.mjs
 |   |-- pre-electron-readiness.test.mjs
+|   |-- rename-compat.test.mjs
 |   |-- settings-model-guide.test.mjs
 |   |-- smoke-env.mjs
 |   |-- story-context.test.mjs
@@ -214,7 +217,7 @@ Root: `MG_Translater`
 |   |   |   |-- PropertiesPanel.tsx
 |   |   |   `-- StrokeJoinPreview.tsx
 |   |   |-- Layout/
-|   |   |   |-- AppTitleBar.tsx
+|   |   |   |-- AppChromeBar.tsx
 |   |   |   |-- LogPanel.tsx
 |   |   |   |-- PanelToggleBar.tsx
 |   |   |   `-- WorkspaceBackdrop.tsx
@@ -232,6 +235,7 @@ Root: `MG_Translater`
 |   |   `-- Upload/
 |   |       `-- ImageUploader.tsx
 |   |-- config/
+|   |   |-- appIdentity.ts
 |   |   `-- fonts.ts
 |   |-- hooks/
 |   |   |-- useAutoSave.ts
@@ -247,6 +251,7 @@ Root: `MG_Translater`
 |   |   |-- types.ts
 |   |   `-- webRuntime.ts
 |   |-- services/
+|   |   |-- albumEditorSave.ts
 |   |   |-- albumImageUrls.ts
 |   |   |-- albumOpen.ts
 |   |   |-- albumSavePlan.ts
