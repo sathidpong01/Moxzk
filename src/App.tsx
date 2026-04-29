@@ -265,6 +265,8 @@ function App() {
       </header>
 
       <main className="relative z-10 h-full overflow-hidden">
+        <div className="moxzk-window-inglow" aria-hidden="true" />
+
         {store.currentStep === 'upload' && (
           <UploadStep
             images={store.images}
