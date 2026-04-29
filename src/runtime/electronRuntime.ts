@@ -7,8 +7,10 @@ import type {
   AppRuntime,
   LocalServiceName,
   ManagedServiceStatus,
+  PanelCleanerDependencyStatus,
   RuntimeActionResult,
   RuntimeExportFile,
+  RuntimePathPickResult,
   RuntimeProjectDraft,
   RuntimeSaveExportOptions,
   RuntimeWindowState,
@@ -82,6 +84,24 @@ export class ElectronRuntime implements AppRuntime {
     getManagedStatus: async (): Promise<Record<LocalServiceName, ManagedServiceStatus>> => {
       return unwrapNativeResult(await this.bridge.localServices.getManagedStatus())
     },
+    getPanelCleanerDependencyStatus: async (): Promise<PanelCleanerDependencyStatus> => {
+      return unwrapNativeResult(await this.bridge.localServices.getPanelCleanerDependencyStatus())
+    },
+    installPanelCleaner: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.localServices.installPanelCleaner()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
+    repairPanelCleaner: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.localServices.repairPanelCleaner()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
+    pickPanelCleanerExecutable: async (): Promise<RuntimePathPickResult> => {
+      const result = await this.bridge.localServices.pickPanelCleanerExecutable()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: false, error: 'No file selected.' }
+    },
     stopOwnedServices: async (): Promise<RuntimeActionResult> => {
       const result = await this.bridge.localServices.stopOwnedServices()
       if (!result.ok) return { ok: false, error: result.error }
@@ -140,7 +160,7 @@ export class ElectronRuntime implements AppRuntime {
 
 export function installElectronRuntimeIfAvailable(): void {
   if (typeof window === 'undefined') return
-  const bridge = window.moxzkRuntime ?? window.mgRuntime
+  const bridge = window.moxzkRuntime
   if (!bridge) return
   setAppRuntime(new ElectronRuntime(bridge))
 }

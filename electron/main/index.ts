@@ -9,6 +9,7 @@ import { APP_DISPLAY_NAME } from '../../src/config/appIdentity'
 const mainFilePath = fileURLToPath(import.meta.url)
 const mainDir = path.dirname(mainFilePath)
 
+app.setName(APP_DISPLAY_NAME)
 registerRuntimeIpcHandlers()
 
 let isShuttingDownOwnedServices = false

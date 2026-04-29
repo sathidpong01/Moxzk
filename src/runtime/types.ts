@@ -19,9 +19,34 @@ export interface RuntimeSaveExportOptions {
 export interface RuntimeActionResult {
   ok: boolean
   error?: string
+  logs?: string[]
 }
 
 export type LocalServiceName = 'panelcleaner' | 'ollama'
+
+export type PanelCleanerDependencyState = 'missing' | 'ready' | 'broken' | 'installing'
+export type PanelCleanerDependencySource = 'explicit' | 'managed' | 'dev' | 'path'
+
+export interface PanelCleanerDependencyStatus {
+  state: PanelCleanerDependencyState
+  source?: PanelCleanerDependencySource
+  version?: string
+  command?: string
+  installPath?: string
+  packageName: string
+  packageVersion: string
+  licenseName: string
+  projectUrl: string
+  error?: string
+  actionHint?: string
+  logs?: string[]
+}
+
+export interface RuntimePathPickResult {
+  ok: boolean
+  path?: string
+  error?: string
+}
 
 export interface ManagedServiceStatus {
   running: boolean
@@ -82,6 +107,10 @@ export interface AppRuntime {
     beginUsage(service: LocalServiceName): Promise<void>
     endUsage(service: LocalServiceName): Promise<void>
     getManagedStatus(): Promise<Record<LocalServiceName, ManagedServiceStatus>>
+    getPanelCleanerDependencyStatus(): Promise<PanelCleanerDependencyStatus>
+    installPanelCleaner(): Promise<RuntimeActionResult>
+    repairPanelCleaner(): Promise<RuntimeActionResult>
+    pickPanelCleanerExecutable(): Promise<RuntimePathPickResult>
     stopOwnedServices(): Promise<RuntimeActionResult>
     startOllama(): Promise<RuntimeActionResult>
     startPanelCleanerBridge(): Promise<RuntimeActionResult>

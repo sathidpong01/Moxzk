@@ -12,7 +12,7 @@ declare namespace Cloudflare {
 		SESSION_COOKIE_NAME: "moxzk_session";
 		SESSION_TTL_DAYS: "30";
 		ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174";
-		OAUTH_REDIRECT_ALLOWLIST: "http://localhost:5173/auth/callback,http://localhost:5174/auth/callback,http://127.0.0.1:5173/auth/callback,http://127.0.0.1:5174/auth/callback,moxzk://auth/callback,mg-translater://auth/callback";
+		OAUTH_REDIRECT_ALLOWLIST: "http://localhost:5173/auth/callback,http://localhost:5174/auth/callback,http://127.0.0.1:5173/auth/callback,http://127.0.0.1:5174/auth/callback,moxzk://auth/callback";
 		GOOGLE_CLIENT_ID: string;
 		GOOGLE_CLIENT_SECRET: string;
 	}

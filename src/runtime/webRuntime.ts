@@ -67,6 +67,17 @@ export class WebRuntime implements AppRuntime {
         idleDeadlineAt: null,
       },
     }),
+    getPanelCleanerDependencyStatus: async () => ({
+      state: 'missing' as const,
+      packageName: 'pcleaner-cli',
+      packageVersion: '2.11.9',
+      licenseName: 'GPLv3',
+      projectUrl: 'https://pypi.org/project/pcleaner-cli/',
+      actionHint: 'Electron runtime is required to install PanelCleaner from inside Moxzk.',
+    }),
+    installPanelCleaner: () => unsupportedRuntimeAction('Web runtime cannot install PanelCleaner.'),
+    repairPanelCleaner: () => unsupportedRuntimeAction('Web runtime cannot repair PanelCleaner.'),
+    pickPanelCleanerExecutable: async () => ({ ok: false, error: 'Web runtime cannot pick native executable paths.' }),
     stopOwnedServices: () => unsupportedRuntimeAction('Web runtime cannot stop local services.'),
     startOllama: () => unsupportedRuntimeAction('Web runtime cannot start Ollama.'),
     startPanelCleanerBridge: () => unsupportedRuntimeAction('Web runtime cannot start PanelCleaner bridge.'),
@@ -148,7 +159,7 @@ async function unsupportedRuntimeAction(error: string): Promise<RuntimeActionRes
 }
 
 async function signInWithGoogleInBrowser(): Promise<RuntimeActionResult> {
-  const bridge = window.moxzkRuntime ?? window.mgRuntime
+  const bridge = window.moxzkRuntime
   if (bridge?.auth) {
     const result = await bridge.auth.signInWithGoogle()
     if (!result.ok) return { ok: false, error: result.error }

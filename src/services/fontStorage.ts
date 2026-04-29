@@ -1,5 +1,4 @@
 const DB_NAME = 'moxzk-fonts'
-const LEGACY_DB_NAME = 'mg-translater-fonts'
 const DB_VERSION = 1
 const STORE_NAME = 'custom-fonts'
 
@@ -40,8 +39,7 @@ export async function saveFont(font: StoredFont): Promise<void> {
 }
 
 export async function getAllFonts(): Promise<StoredFont[]> {
-  const lists = await Promise.all([DB_NAME, LEGACY_DB_NAME].map(getAllFontsFromDb))
-  return Array.from(new Map(lists.flat().map((font) => [font.name, font])).values())
+  return getAllFontsFromDb(DB_NAME)
 }
 
 async function getAllFontsFromDb(dbName: string): Promise<StoredFont[]> {
@@ -55,15 +53,13 @@ async function getAllFontsFromDb(dbName: string): Promise<StoredFont[]> {
 }
 
 export async function deleteFont(name: string): Promise<void> {
-  await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
-    const db = await openDB(dbName)
-    return new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite')
-      tx.objectStore(STORE_NAME).delete(name)
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error)
-    })
-  }))
+  const db = await openDB(DB_NAME)
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).delete(name)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
 }
 
 export async function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {

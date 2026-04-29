@@ -127,7 +127,7 @@ electron/
 ## Prerequisites
 
 - Node.js 20+
-- Python environment ที่ติดตั้ง PanelCleaner CLI ได้
+- Python 3 สำหรับให้แอปสร้าง managed PanelCleaner venv ในเครื่องผู้ใช้
 - Ollama local app หรือ Ollama Cloud account
 - Vision-capable Ollama model เช่น `gemma4`
 - Cloudflare account ที่มี Worker, D1 และ R2
@@ -137,16 +137,17 @@ electron/
 
 ```bash
 npm install
-pip install pcleaner-cli
 ```
 
-PanelCleaner อาจดาวน์โหลด model data ครั้งแรกหลายร้อย MB. โปรเจคนี้ใช้ PanelCleaner เป็น external CLI เพื่อหลีกเลี่ยงการ vendor GPLv3 code เข้ามาใน repo
+PanelCleaner เป็น external GPLv3 dependency และไม่ถูก vendor หรือ bundle เข้าแอป. ใน Electron ให้ติดตั้ง/ซ่อมจาก Settings > Cleanup; แอปจะสร้าง managed venv ที่ user profile ของ Moxzk และติดตั้ง `pcleaner-cli==2.11.9` ให้เอง. นักพัฒนายังสามารถติดตั้งเองด้วย `pip install pcleaner-cli` หรือใช้ repo-local `.venv-panelcleaner` ได้
 
 หมายเหตุ: repo นี้ตั้ง `.npmrc` เป็น `legacy-peer-deps=true` เพราะ `electron-vite@5` ยังประกาศ peer range ถึง Vite 7 แต่โปรเจคใช้ Vite 8 และผ่าน build/test ด้วย stack นี้แล้ว
 
+สำหรับ Codex cloud ให้ใช้ `bash scripts/codex-cloud-setup.sh` เป็น environment setup script และดูรายละเอียดที่ [Codex Cloud Environment](docs/codex-cloud-environment.md)
+
 ## Local Environment
 
-สร้าง `.env.local` สำหรับ frontend override ถ้าต้องการ:
+สร้าง `.env.local` เฉพาะสำหรับ dev/local/smoke override ถ้าต้องการ. ไฟล์นี้ห้าม commit และห้าม bundle เข้า production app:
 
 ```env
 VITE_CLOUDFLARE_API_URL=https://moxzk-api.<your-subdomain>.workers.dev
@@ -158,7 +159,7 @@ VITE_OLLAMA_MODEL=gemma4
 
 ใน dev mode ค่า `VITE_CLOUDFLARE_API_URL` ใช้เป็น target ของ Vite proxy สำหรับ `/api` เพื่อให้ browser ยังเรียก same-origin `/api/...` และ session cookie ทำงานเหมือน app เดียวกัน. ถ้าไม่ตั้งค่านี้ proxy จะ fallback ไปที่ local Worker `http://localhost:8787` สำหรับ debug เฉพาะกรณี
 
-ไม่ควรใส่ Ollama Cloud API key ใน `VITE_*` env เพราะค่าจะถูก bundle เข้า browser app. ให้ใส่ใน Settings ระหว่าง web phase
+ห้ามใส่ secrets ใน `VITE_*` env เพราะค่าจะถูก bundle เข้า browser/Electron renderer. Ollama Cloud API key ให้ใส่ใน Settings; Google OAuth secrets ต้องอยู่บน Cloudflare Worker เท่านั้น
 
 ตั้ง Worker secrets บน Cloudflare:
 
@@ -192,7 +193,7 @@ ollama serve
 ollama pull gemma4
 ```
 
-เปิด PanelCleaner bridge เอง หรือให้ Electron dev shell เริ่มจาก Settings > Cleanup:
+เปิด PanelCleaner bridge เอง หรือให้ Electron dev shell เริ่มจาก Settings > Cleanup. ถ้าเครื่องยังไม่มี PanelCleaner ให้กด "ติดตั้ง PanelCleaner" ในหน้า Cleanup ก่อน:
 
 ```bash
 npm run backend:panelcleaner
@@ -222,7 +223,7 @@ npm run electron:build
 
 Electron dev/build ใช้ remote Worker หลัก `https://moxzk-api.sathidpong01.workers.dev` เป็นค่า default ถ้าไม่ได้ตั้ง `VITE_CLOUDFLARE_API_URL`. ตั้ง env เฉพาะเมื่อต้องการชี้ไป Worker อื่น.
 
-Electron local service start เป็นตัวช่วยสำหรับเครื่อง dev: PanelCleaner ยังเป็น external CLI ที่ต้องติดตั้งแยก และ Ollama ยังเป็น external app/CLI ไม่ได้ถูก bundle เข้า release.
+Electron local service start เป็นตัวช่วยสำหรับเครื่อง dev และ production: PanelCleaner ยังเป็น external dependency ที่ติดตั้งใน managed venv จากในแอป ส่วน Ollama ยังเป็น external app/CLI และไม่ได้ถูก bundle เข้า release. Production app ไม่ต้องใช้ `.env.local`; Worker URL มีค่า default ผ่าน electron-vite และ secrets อยู่บน Cloudflare Worker.
 
 ## Cloudflare Resources
 
@@ -325,9 +326,11 @@ Recommended workflow for better continuity:
 - Deep status endpoint: `POST /panelcleaner/status` สำหรับเช็ค CLI/executable และ cache ผลช่วงสั้นเพื่อลดการ spawn ซ้ำ
 - Single endpoint: `/panelcleaner/process`
 - Batch endpoint: `/panelcleaner/batch`
-- เรียก `pcleaner` ด้วย `spawn(..., { shell: false })`
+- ลำดับการหา executable คือ explicit path จาก Settings -> managed venv -> repo-local dev venv -> PATH
+- managed venv default อยู่ที่ `%APPDATA%\Moxzk\panelcleaner-venv` บน Windows
+- เรียก PanelCleaner ด้วย `spawn(..., { shell: false })`; managed/dev venv ใช้ `python -c "from pcleaner.main import main; main()"` เพื่อไม่พึ่ง stale console launcher
 - จำกัด origin เฉพาะ local dev origins โดย default
-- รองรับ `PANELCLEANER_BRIDGE_PORT`, `PANELCLEANER_MAX_BODY_BYTES`, `PANELCLEANER_ALLOWED_ORIGIN`
+- รองรับ `PANELCLEANER_BRIDGE_PORT`, `PANELCLEANER_MAX_BODY_BYTES`, `PANELCLEANER_ALLOWED_ORIGIN`, `PANELCLEANER_MANAGED_VENV_DIR`
 - รองรับ `PANELCLEANER_STATUS_CACHE_TTL_MS` สำหรับปรับ cache ของ deep status check
 - ลบ temp directory หลังจบงาน เว้นแต่ตั้ง `PANELCLEANER_KEEP_TEMP=1`
 
@@ -397,7 +400,7 @@ $env:MOXZK_AUTH_SMOKE_USERNAME = "Moxzk Smoke Test"
 npm run auth:smoke-user
 ```
 
-If `MOXZK_AUTH_SMOKE_BASE_URL` is not set, the script falls back to `VITE_CLOUDFLARE_API_URL`. Legacy `MG_AUTH_SMOKE_*` names are accepted during the rename transition. It intentionally does not default to localhost because this check is meant for the deployed Worker path. The smoke email and password must come from environment variables; do not commit real smoke credentials to the repo.
+If `MOXZK_AUTH_SMOKE_BASE_URL` is not set, the script falls back to `VITE_CLOUDFLARE_API_URL`. It intentionally does not default to localhost because this check is meant for the deployed Worker path. The smoke email and password must come from environment variables; do not commit real smoke credentials to the repo.
 
 Production smoke tests:
 

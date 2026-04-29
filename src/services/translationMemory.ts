@@ -6,7 +6,6 @@
  */
 
 const DB_NAME = 'moxzk-translation-memory'
-const LEGACY_DB_NAME = 'mg-translation-memory'
 const STORE_NAME = 'translations'
 const DB_VERSION = 1
 const MAX_ENTRIES = 10_000
@@ -40,8 +39,7 @@ export interface TranslationMemoryServiceOptions {
 
 class IndexedDbTranslationMemoryStore implements TranslationMemoryStore {
   async get(key: string): Promise<TranslationMemoryEntry | null> {
-    const entry = await this.getFromDb(DB_NAME, key)
-    return entry ?? this.getFromDb(LEGACY_DB_NAME, key)
+    return this.getFromDb(DB_NAME, key)
   }
 
   private async getFromDb(dbName: string, key: string): Promise<TranslationMemoryEntry | null> {
@@ -65,32 +63,27 @@ class IndexedDbTranslationMemoryStore implements TranslationMemoryStore {
   }
 
   async delete(key: string): Promise<void> {
-    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
-      const db = await this.openDB(dbName)
-      return new Promise<void>((resolve) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite')
-        const req = tx.objectStore(STORE_NAME).delete(key)
-        req.onsuccess = () => resolve()
-        req.onerror = () => resolve()
-      })
-    }))
+    const db = await this.openDB(DB_NAME)
+    return new Promise<void>((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      const req = tx.objectStore(STORE_NAME).delete(key)
+      req.onsuccess = () => resolve()
+      req.onerror = () => resolve()
+    })
   }
 
   async clear(): Promise<void> {
-    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
-      const db = await this.openDB(dbName)
-      return new Promise<void>((resolve) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite')
-        const req = tx.objectStore(STORE_NAME).clear()
-        req.onsuccess = () => resolve()
-        req.onerror = () => resolve()
-      })
-    }))
+    const db = await this.openDB(DB_NAME)
+    return new Promise<void>((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      const req = tx.objectStore(STORE_NAME).clear()
+      req.onsuccess = () => resolve()
+      req.onerror = () => resolve()
+    })
   }
 
   async count(): Promise<number> {
-    const counts = await Promise.all([DB_NAME, LEGACY_DB_NAME].map((dbName) => this.countFromDb(dbName)))
-    return counts.reduce((sum, count) => sum + count, 0)
+    return this.countFromDb(DB_NAME)
   }
 
   private async countFromDb(dbName: string): Promise<number> {
@@ -104,8 +97,7 @@ class IndexedDbTranslationMemoryStore implements TranslationMemoryStore {
   }
 
   async listByAccessed(): Promise<TranslationMemoryEntry[]> {
-    const lists = await Promise.all([DB_NAME, LEGACY_DB_NAME].map((dbName) => this.listByAccessedFromDb(dbName)))
-    return Array.from(new Map(lists.flat().map((entry) => [entry.key, entry])).values())
+    return this.listByAccessedFromDb(DB_NAME)
   }
 
   private async listByAccessedFromDb(dbName: string): Promise<TranslationMemoryEntry[]> {

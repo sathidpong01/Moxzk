@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import { getManagedPanelCleanerVenvDir } from './panelCleanerDependency'
 
 export type LocalServiceName = 'panelcleaner' | 'ollama'
 
@@ -391,6 +392,7 @@ function spawnPanelCleanerBridgeProcess(): ChildProcess {
     env: {
       ...process.env,
       PANELCLEANER_ALLOWED_ORIGIN: process.env.PANELCLEANER_ALLOWED_ORIGIN || 'http://localhost:5173',
+      PANELCLEANER_MANAGED_VENV_DIR: getManagedPanelCleanerVenvDir(),
     },
     stdio: 'ignore',
     windowsHide: true,

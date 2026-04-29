@@ -29,9 +29,34 @@ export interface NativeProjectDraftPayload {
 export interface NativeServiceActionResult {
   ok: boolean
   error?: string
+  logs?: string[]
 }
 
 export type NativeLocalServiceName = 'panelcleaner' | 'ollama'
+
+export type NativePanelCleanerDependencyState = 'missing' | 'ready' | 'broken' | 'installing'
+export type NativePanelCleanerDependencySource = 'explicit' | 'managed' | 'dev' | 'path'
+
+export interface NativePanelCleanerDependencyStatus {
+  state: NativePanelCleanerDependencyState
+  source?: NativePanelCleanerDependencySource
+  version?: string
+  command?: string
+  installPath?: string
+  packageName: string
+  packageVersion: string
+  licenseName: string
+  projectUrl: string
+  error?: string
+  actionHint?: string
+  logs?: string[]
+}
+
+export interface NativePathPickResult {
+  ok: boolean
+  path?: string
+  error?: string
+}
 
 export interface NativeManagedServiceStatus {
   running: boolean
@@ -63,6 +88,10 @@ export interface MoxzkRuntimeBridge {
     beginUsage(service: NativeLocalServiceName): Promise<NativeResult<void>>
     endUsage(service: NativeLocalServiceName): Promise<NativeResult<void>>
     getManagedStatus(): Promise<NativeResult<Record<NativeLocalServiceName, NativeManagedServiceStatus>>>
+    getPanelCleanerDependencyStatus(): Promise<NativeResult<NativePanelCleanerDependencyStatus>>
+    installPanelCleaner(): Promise<NativeResult<NativeServiceActionResult>>
+    repairPanelCleaner(): Promise<NativeResult<NativeServiceActionResult>>
+    pickPanelCleanerExecutable(): Promise<NativeResult<NativePathPickResult>>
     stopOwnedServices(): Promise<NativeResult<NativeServiceActionResult>>
     startPanelCleanerBridge(): Promise<NativeResult<NativeServiceActionResult>>
     startOllama(): Promise<NativeResult<NativeServiceActionResult>>
@@ -82,6 +111,5 @@ export interface MoxzkRuntimeBridge {
 declare global {
   interface Window {
     moxzkRuntime?: MoxzkRuntimeBridge
-    mgRuntime?: MoxzkRuntimeBridge
   }
 }

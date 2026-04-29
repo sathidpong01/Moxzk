@@ -2,7 +2,7 @@ import type { LocalServiceName } from '../runtime'
 
 function getBridge() {
   if (typeof window === 'undefined') return null
-  return (window.moxzkRuntime ?? window.mgRuntime)?.localServices ?? null
+  return window.moxzkRuntime?.localServices ?? null
 }
 
 export async function withLocalServiceUsage<T>(

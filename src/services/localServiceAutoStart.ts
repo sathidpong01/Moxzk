@@ -12,7 +12,7 @@ interface LocalServiceAutoStartReporter {
 
 interface LocalServiceAutoStartRequest {
   runtime: AppRuntime
-  settings: Pick<AppSettings, 'panelCleanerBridgeUrl' | 'ollamaUrl'>
+  settings: Pick<AppSettings, 'panelCleanerBridgeUrl' | 'panelCleanerExecutablePath' | 'ollamaUrl'>
   mode: ProcessingMode
   needsCleanup?: boolean
   reporter?: LocalServiceAutoStartReporter
@@ -48,6 +48,21 @@ export async function autoStartRequiredLocalServices({
       reporter,
     })
     if (!panelCleanerResult.ok) return panelCleanerResult
+
+    const cleanerStatus = await runtime.panelCleaner.getStatus({
+      bridgeUrl: settings.panelCleanerBridgeUrl,
+      executablePath: settings.panelCleanerExecutablePath,
+      timeoutMs: 15_000,
+    })
+    if (!cleanerStatus.ok) {
+      const error = [
+        cleanerStatus.error ?? 'PanelCleaner ยังไม่พร้อมใช้งาน',
+        'เปิด Settings > Cleanup แล้วกดติดตั้ง PanelCleaner หรือซ่อม PanelCleaner',
+      ].filter(Boolean).join(' ')
+      reporter?.onError?.('panelcleaner', `PanelCleaner: ${error}`)
+      reporter?.onLog?.(`PanelCleaner setup required: ${error}`)
+      return { ok: false, error }
+    }
   }
 
   if (mode !== 'clean_only' && isLocalServiceUrl(settings.ollamaUrl)) {

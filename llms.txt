@@ -12,6 +12,7 @@ Moxzk uses Konva/react-konva for the canvas editor, local PanelCleaner and Ollam
 - [Agent team](.agents/team.md): specialist roles, ownership boundaries, and routing rules
 - [Repo tree](.agents/index/repo-tree.md): generated project map
 - [Codex wiki](./_wiki/README.md): local LLM-readable knowledge base
+- [Codex cloud environment](docs/codex-cloud-environment.md): setup script, environment variables, and cloud limitations
 
 ## Architecture
 

@@ -31,6 +31,7 @@ test('desktop oauth accepts only loopback callback URLs with random ports', asyn
 test('worker desktop oauth uses one-time tickets instead of session tokens in browser URLs', () => {
   const auth = fs.readFileSync('src/worker/auth.ts', 'utf8')
   const routes = fs.readFileSync('src/worker/index.ts', 'utf8')
+  const removedDesktopHeader = new RegExp(['X-', 'M', 'G', '-Desktop-Auth-Origin'].join(''))
 
   assert.match(routes, /\/api\/auth\/google\/desktop\/start/)
   assert.match(routes, /\/api\/auth\/google\/desktop\/claim/)
@@ -38,7 +39,8 @@ test('worker desktop oauth uses one-time tickets instead of session tokens in br
   assert.match(auth, /desktop_auth_tickets|desktopAuthTickets/)
   assert.match(auth, /redirectUrl\.searchParams\.set\('ticket', ticket\)/)
   assert.match(auth, /isNull\(schema\.desktopAuthTickets\.consumedAt\)/)
-  assert.match(auth, /X-MG-Desktop-Auth-Origin/)
+  assert.match(auth, /X-Moxzk-Desktop-Auth-Origin/)
+  assert.doesNotMatch(auth, removedDesktopHeader)
   assert.match(auth, /sessionCookieName\(ctx\)/)
   assert.doesNotMatch(auth, /redirectUrl\.searchParams\.set\('session'/)
 })

@@ -1,14 +1,28 @@
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { extname, join, resolve } from 'node:path'
+import { dirname, extname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const PORT = Number(process.env.PANELCLEANER_BRIDGE_PORT || 5055)
 const MAX_BODY_BYTES = Number(process.env.PANELCLEANER_MAX_BODY_BYTES || 80 * 1024 * 1024)
 const KEEP_TEMP = process.env.PANELCLEANER_KEEP_TEMP === '1'
 const STATUS_CACHE_TTL_MS = Number(process.env.PANELCLEANER_STATUS_CACHE_TTL_MS || 15_000)
-const LOCAL_VENV_PCLEANER = resolve(process.cwd(), '.venv-panelcleaner', 'Scripts', 'pcleaner-cli.exe')
+const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const PANELCLEANER_MANAGED_VENV_DIR = process.env.PANELCLEANER_MANAGED_VENV_DIR || resolveDefaultManagedVenvDir()
+const MANAGED_VENV_BIN_DIR = PANELCLEANER_MANAGED_VENV_DIR
+  ? resolve(PANELCLEANER_MANAGED_VENV_DIR, process.platform === 'win32' ? 'Scripts' : 'bin')
+  : null
+const MANAGED_VENV_PYTHON = MANAGED_VENV_BIN_DIR
+  ? resolve(MANAGED_VENV_BIN_DIR, process.platform === 'win32' ? 'python.exe' : 'python')
+  : null
+const LOCAL_VENV_BIN_DIR = resolve(PROJECT_ROOT, '.venv-panelcleaner', process.platform === 'win32' ? 'Scripts' : 'bin')
+const LOCAL_VENV_PYTHON = resolve(LOCAL_VENV_BIN_DIR, process.platform === 'win32' ? 'python.exe' : 'python')
+const LOCAL_VENV_PCLEANER = resolve(LOCAL_VENV_BIN_DIR, process.platform === 'win32' ? 'pcleaner-cli.exe' : 'pcleaner-cli')
+const PCLEANER_MAIN_SNIPPET = 'from pcleaner.main import main; main()'
+const PCLEANER_VERSION_SNIPPET = "from pcleaner import __version__; print('Panel Cleaner ' + __version__)"
 const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
   'http://127.0.0.1:5173',
@@ -207,10 +221,15 @@ async function processImageBatch(payload) {
 async function getPanelCleanerStatus(executablePath) {
   try {
     if (executablePath != null && typeof executablePath !== 'string') throw new Error('Invalid executable path')
-    const run = await runPanelCleaner(sanitizeExecutablePath(executablePath), ['--version'])
-    return { ok: true, version: (run.stdout || run.stderr).trim(), command: run.command }
+    const candidate = await resolvePanelCleanerCandidate(sanitizeExecutablePath(executablePath))
+    const status = await getCandidatePanelCleanerStatus(candidate)
+    return { ok: true, ...status }
   } catch (err) {
-    return { ok: false, error: toSafeErrorMessage(err), installHint: 'pip install pcleaner-cli' }
+    return {
+      ok: false,
+      error: toSafeErrorMessage(err),
+      installHint: 'Open Settings > Cleanup and install PanelCleaner, or run pip install pcleaner-cli.',
+    }
   }
 }
 
@@ -230,30 +249,79 @@ async function getCachedPanelCleanerStatus(executablePath) {
 }
 
 async function runPanelCleaner(executablePath, args) {
-  const candidates = executablePath
-    ? [{ command: executablePath, argsPrefix: [] }]
-    : [
-        { command: LOCAL_VENV_PCLEANER, argsPrefix: [] },
-        { command: 'pcleaner', argsPrefix: [] },
-        { command: 'pcleaner-cli', argsPrefix: [] },
-        { command: 'python', argsPrefix: ['-m', 'pcleaner'] },
-        { command: 'py', argsPrefix: ['-m', 'pcleaner'] },
-      ]
+  const candidate = await resolvePanelCleanerCandidate(executablePath)
+  const result = await spawnCommand(candidate.command, [...candidate.argsPrefix, ...args])
+  return { ...result, command: describeCandidateCommand(candidate), source: candidate.source }
+}
+
+async function resolvePanelCleanerCandidate(executablePath) {
+  if (executablePath) return { source: 'explicit', command: executablePath, argsPrefix: [] }
+
+  const candidates = [
+    ...getManagedVenvPanelCleanerCandidates(),
+    ...getLocalVenvPanelCleanerCandidates(),
+    { source: 'path', command: 'pcleaner', argsPrefix: [] },
+    { source: 'path', command: 'pcleaner-cli', argsPrefix: [] },
+    { source: 'path', command: 'python', argsPrefix: ['-m', 'pcleaner'] },
+    { source: 'path', command: 'py', argsPrefix: ['-m', 'pcleaner'] },
+  ]
 
   const errors = []
   for (const candidate of candidates) {
     try {
-      const result = await spawnCommand(candidate.command, [...candidate.argsPrefix, ...args])
-      return { ...result, command: [candidate.command, ...candidate.argsPrefix].join(' ') }
+      await getCandidatePanelCleanerStatus(candidate)
+      return candidate
     } catch (err) {
-      errors.push(toSafeErrorMessage(err))
-      if (executablePath) {
-        throw err
-      }
+      errors.push(`${candidate.source}: ${toSafeErrorMessage(err)}`)
     }
   }
 
-  throw new Error(`PanelCleaner executable not found. Install with "pip install pcleaner-cli" or set an executable path. ${errors.join(' | ')}`)
+  throw new Error(`PanelCleaner executable not found. Install from Settings > Cleanup or set an executable path. ${errors.join(' | ')}`)
+}
+
+async function getCandidatePanelCleanerStatus(candidate) {
+  if (candidate.source === 'managed' || candidate.source === 'dev') {
+    const run = await spawnCommand(candidate.command, ['-c', PCLEANER_VERSION_SNIPPET])
+    return {
+      version: (run.stdout || run.stderr).trim(),
+      command: `${candidate.command} -c pcleaner.__version__`,
+      source: candidate.source,
+    }
+  }
+
+  const run = await spawnCommand(candidate.command, [...candidate.argsPrefix, '--version'])
+  return {
+    version: (run.stdout || run.stderr).trim(),
+    command: describeCandidateCommand(candidate),
+    source: candidate.source,
+  }
+}
+
+function getManagedVenvPanelCleanerCandidates() {
+  if (!MANAGED_VENV_PYTHON || !existsSync(MANAGED_VENV_PYTHON)) return []
+  return [{ source: 'managed', command: MANAGED_VENV_PYTHON, argsPrefix: ['-c', PCLEANER_MAIN_SNIPPET] }]
+}
+
+function getLocalVenvPanelCleanerCandidates() {
+  const candidates = []
+  if (existsSync(LOCAL_VENV_PYTHON)) {
+    candidates.push({ source: 'dev', command: LOCAL_VENV_PYTHON, argsPrefix: ['-c', PCLEANER_MAIN_SNIPPET] })
+  }
+  if (existsSync(LOCAL_VENV_PCLEANER)) {
+    candidates.push({ source: 'dev', command: LOCAL_VENV_PCLEANER, argsPrefix: [] })
+  }
+  return candidates
+}
+
+function describeCandidateCommand(candidate) {
+  return [candidate.command, ...candidate.argsPrefix].join(' ')
+}
+
+function resolveDefaultManagedVenvDir() {
+  const baseDir = process.platform === 'win32'
+    ? process.env.APPDATA || process.env.LOCALAPPDATA
+    : process.env.XDG_DATA_HOME || process.env.HOME
+  return baseDir ? resolve(baseDir, 'Moxzk', 'panelcleaner-venv') : null
 }
 
 function spawnCommand(command, args) {

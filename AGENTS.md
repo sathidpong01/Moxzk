@@ -13,6 +13,7 @@ For the fuller project context layer, read `.agents/AGENTS.md` first, then load 
 6. `.agents/topics/` contains durable notes for specific areas.
 7. `llms.txt` is the LLM-readable project entrypoint.
 8. `docs/llm/konva.md` is the Konva/react-konva documentation entrypoint for canvas editor work.
+9. `docs/codex-cloud-environment.md` contains the Codex cloud setup script, environment variables, and cloud verification limits.
 
 ## Basic Commands
 
@@ -30,6 +31,7 @@ For the fuller project context layer, read `.agents/AGENTS.md` first, then load 
   - Cache/context services: `npm run test:cache`
 - Worker dry run: `npm run worker:check`
 - Refresh agent repo tree: `npm run context:refresh`
+- Codex cloud setup script: `bash scripts/codex-cloud-setup.sh`
 
 ## Test Selection Policy
 

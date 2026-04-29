@@ -5,7 +5,6 @@
  */
 
 const DB_NAME = 'moxzk-cache'
-const LEGACY_DB_NAME = 'mg-translater-cache'
 const DB_VERSION = 1
 const STORE_NAME = 'images'
 const MAX_CACHE_BYTES = 500 * 1024 * 1024 // 500MB
@@ -37,8 +36,7 @@ export interface ImageCacheServiceOptions {
 
 class IndexedDbImageCacheStore implements ImageCacheStore {
   async get(key: string): Promise<ImageCacheEntry | null> {
-    const entry = await this.getFromDb(DB_NAME, key)
-    return entry ?? this.getFromDb(LEGACY_DB_NAME, key)
+    return this.getFromDb(DB_NAME, key)
   }
 
   private async getFromDb(dbName: string, key: string): Promise<ImageCacheEntry | null> {
@@ -60,30 +58,25 @@ class IndexedDbImageCacheStore implements ImageCacheStore {
   }
 
   async delete(key: string): Promise<void> {
-    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
-      const db = await this.openDB(dbName)
-      return new Promise<void>((resolve) => {
-        const req = this.txStore(db, 'readwrite').delete(key)
-        req.onsuccess = () => resolve()
-        req.onerror = () => resolve()
-      })
-    }))
+    const db = await this.openDB(DB_NAME)
+    return new Promise<void>((resolve) => {
+      const req = this.txStore(db, 'readwrite').delete(key)
+      req.onsuccess = () => resolve()
+      req.onerror = () => resolve()
+    })
   }
 
   async clear(): Promise<void> {
-    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
-      const db = await this.openDB(dbName)
-      return new Promise<void>((resolve) => {
-        const req = this.txStore(db, 'readwrite').clear()
-        req.onsuccess = () => resolve()
-        req.onerror = () => resolve()
-      })
-    }))
+    const db = await this.openDB(DB_NAME)
+    return new Promise<void>((resolve) => {
+      const req = this.txStore(db, 'readwrite').clear()
+      req.onsuccess = () => resolve()
+      req.onerror = () => resolve()
+    })
   }
 
   async list(): Promise<ImageCacheEntry[]> {
-    const lists = await Promise.all([DB_NAME, LEGACY_DB_NAME].map((dbName) => this.listFromDb(dbName)))
-    return Array.from(new Map(lists.flat().map((entry) => [entry.key, entry])).values())
+    return this.listFromDb(DB_NAME)
   }
 
   private async listFromDb(dbName: string): Promise<ImageCacheEntry[]> {

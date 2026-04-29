@@ -10,6 +10,11 @@ import {
   startPanelCleanerBridge,
   stopOwnedServices,
 } from './localServices'
+import {
+  getPanelCleanerDependencyStatus,
+  installPanelCleaner,
+  repairPanelCleaner,
+} from './panelCleanerDependency'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import type {
   NativeLocalServiceName,
@@ -17,6 +22,7 @@ import type {
   NativeProjectDraftPayload,
   NativeResult,
   NativeSaveExportOptions,
+  NativePathPickResult,
 } from '../../src/runtime/electronBridge'
 
 const DRAFT_DIR = 'current-project-draft'
@@ -80,6 +86,22 @@ export function registerRuntimeIpcHandlers(): void {
     return nativeActionResult(getManagedStatus)
   })
 
+  ipcMain.handle(IPC_CHANNELS.localServicesPanelCleanerDependencyStatus, async () => {
+    return nativeActionResult(getPanelCleanerDependencyStatus)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesInstallPanelCleaner, async () => {
+    return nativeActionResult(installPanelCleaner)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesRepairPanelCleaner, async () => {
+    return nativeActionResult(repairPanelCleaner)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesPickPanelCleanerExecutable, async () => {
+    return pickPanelCleanerExecutable()
+  })
+
   ipcMain.handle(IPC_CHANNELS.localServicesStopOwnedServices, async () => {
     return nativeActionResult(stopOwnedServices)
   })
@@ -115,6 +137,24 @@ export function registerRuntimeIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.windowControlsGetState, async (event) => {
     return nativeActionResult(async () => getWindowState(getSenderWindow(event.sender)))
   })
+}
+
+async function pickPanelCleanerExecutable(): Promise<NativeResult<NativePathPickResult>> {
+  try {
+    const result = await dialog.showOpenDialog({
+      title: 'เลือกไฟล์ PanelCleaner',
+      properties: ['openFile'],
+      filters: process.platform === 'win32'
+        ? [{ name: 'Executable', extensions: ['exe', 'bat', 'cmd'] }, { name: 'All Files', extensions: ['*'] }]
+        : [{ name: 'All Files', extensions: ['*'] }],
+    })
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: true, data: { ok: false, error: 'USER_CANCELLED' } }
+    }
+    return { ok: true, data: { ok: true, path: result.filePaths[0] } }
+  } catch (error) {
+    return nativeError(error)
+  }
 }
 
 async function saveNativeFile(file: NativeFilePayload): Promise<NativeResult<string>> {

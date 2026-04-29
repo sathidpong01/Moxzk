@@ -25,6 +25,10 @@ const bridge: MoxzkRuntimeBridge = {
     beginUsage: (service) => ipcRenderer.invoke(IPC_CHANNELS.localServicesBeginUsage, service),
     endUsage: (service) => ipcRenderer.invoke(IPC_CHANNELS.localServicesEndUsage, service),
     getManagedStatus: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesGetManagedStatus),
+    getPanelCleanerDependencyStatus: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesPanelCleanerDependencyStatus),
+    installPanelCleaner: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesInstallPanelCleaner),
+    repairPanelCleaner: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesRepairPanelCleaner),
+    pickPanelCleanerExecutable: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesPickPanelCleanerExecutable),
     stopOwnedServices: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStopOwnedServices),
     startPanelCleanerBridge: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStartPanelCleanerBridge),
     startOllama: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesStartOllama),
@@ -50,4 +54,3 @@ const bridge: MoxzkRuntimeBridge = {
 }
 
 contextBridge.exposeInMainWorld('moxzkRuntime', bridge)
-contextBridge.exposeInMainWorld('mgRuntime', bridge)

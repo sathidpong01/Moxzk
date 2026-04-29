@@ -2,7 +2,6 @@ import type { AppSettings, AppStep, BrushStroke, ImageEntry, TextRegion } from '
 import type { RuntimeProjectDraft } from '../runtime/types'
 
 const DB_NAME = 'moxzk-project-drafts'
-const LEGACY_DB_NAME = 'mg-project-drafts'
 const STORE_NAME = 'drafts'
 const DRAFT_KEY = 'current-project'
 const DB_VERSION = 1
@@ -58,7 +57,7 @@ export async function saveProjectDraft(draft: RuntimeProjectDraft): Promise<void
 
 export async function loadProjectDraft(): Promise<RuntimeProjectDraft | null> {
   try {
-    return await loadProjectDraftFromDb(DB_NAME) ?? await loadProjectDraftFromDb(LEGACY_DB_NAME)
+    return await loadProjectDraftFromDb(DB_NAME)
   } catch {
     return null
   }
@@ -76,11 +75,9 @@ async function loadProjectDraftFromDb(dbName: string): Promise<RuntimeProjectDra
 
 export async function clearProjectDraft(): Promise<void> {
   try {
-    await Promise.all([DB_NAME, LEGACY_DB_NAME].map(async (dbName) => {
-      const db = await openDB(dbName)
-      const tx = db.transaction(STORE_NAME, 'readwrite')
-      tx.objectStore(STORE_NAME).delete(DRAFT_KEY)
-    }))
+    const db = await openDB(DB_NAME)
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).delete(DRAFT_KEY)
   } catch {
     // ignore unavailable storage
   }

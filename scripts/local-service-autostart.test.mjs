@@ -18,6 +18,12 @@ function createRuntime(overrides = {}) {
         return { ok: true }
       },
     },
+    panelCleaner: {
+      async getStatus() {
+        calls.push('panelcleaner-status')
+        return { ok: true }
+      },
+    },
     ...overrides,
   }
   return { runtime, calls }
@@ -38,13 +44,14 @@ test('clean-only startup only starts panelcleaner', async () => {
     runtime,
     settings: {
       panelCleanerBridgeUrl: 'http://localhost:5055',
+      panelCleanerExecutablePath: '',
       ollamaUrl: 'http://localhost:11434',
     },
     mode: 'clean_only',
   })
 
   assert.equal(result.ok, true)
-  assert.deepEqual(calls, ['panelcleaner'])
+  assert.deepEqual(calls, ['panelcleaner', 'panelcleaner-status'])
 })
 
 test('translate startup can skip cleanup and only start ollama', async () => {
@@ -53,6 +60,7 @@ test('translate startup can skip cleanup and only start ollama', async () => {
     runtime,
     settings: {
       panelCleanerBridgeUrl: 'http://localhost:5055',
+      panelCleanerExecutablePath: '',
       ollamaUrl: 'http://localhost:11434',
     },
     mode: 'gemma_vision_full',
@@ -69,6 +77,7 @@ test('remote endpoints do not trigger local startup helpers', async () => {
     runtime,
     settings: {
       panelCleanerBridgeUrl: 'https://cleanup.example.com',
+      panelCleanerExecutablePath: '',
       ollamaUrl: 'https://ollama.example.com',
     },
     mode: 'gemma_vision_full',
@@ -96,6 +105,7 @@ test('panelcleaner startup failure stops the chain and returns the error', async
     runtime,
     settings: {
       panelCleanerBridgeUrl: 'http://localhost:5055',
+      panelCleanerExecutablePath: '',
       ollamaUrl: 'http://localhost:11434',
     },
     mode: 'gemma_vision_full',

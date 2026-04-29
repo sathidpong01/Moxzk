@@ -3,7 +3,7 @@ import * as schema from './db/schema'
 import { base64UrlDecodeToString, hashPassword, hashToken, optionalHash, passwordParamsJson, randomToken, verifyPassword } from './crypto'
 import { ApiError, json, jsonError, normalizeEmail, parseCsv, parseEmail, parsePassword, readJson, requiredEnv } from './http'
 import type { AuthUser, RequestContext } from './types'
-import { APP_DISPLAY_NAME, LEGACY_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from '../config/appIdentity'
+import { APP_DISPLAY_NAME, SESSION_COOKIE_NAME } from '../config/appIdentity'
 
 const DESKTOP_AUTH_TICKET_TTL_MS = 5 * 60 * 1000
 
@@ -400,7 +400,7 @@ function sessionCookieName(ctx: RequestContext): string {
 }
 
 function sessionCookieNames(ctx: RequestContext): string[] {
-  return Array.from(new Set([sessionCookieName(ctx), SESSION_COOKIE_NAME, LEGACY_SESSION_COOKIE_NAME]))
+  return Array.from(new Set([sessionCookieName(ctx), SESSION_COOKIE_NAME]))
 }
 
 function isAllowedRedirect(ctx: RequestContext, redirectTarget: string): boolean {
@@ -437,7 +437,6 @@ export function isDesktopRedirectTarget(redirectTarget: string): boolean {
 
 function desktopGoogleCallbackOrigin(ctx: RequestContext): string {
   const configuredOrigin = ctx.request.headers.get('X-Moxzk-Desktop-Auth-Origin')
-    || ctx.request.headers.get('X-MG-Desktop-Auth-Origin')
   if (configuredOrigin) {
     try {
       const origin = new URL(configuredOrigin).origin

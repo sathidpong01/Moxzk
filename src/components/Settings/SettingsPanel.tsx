@@ -4,7 +4,7 @@ import type { AppSettings, TranslationMode } from '../../types'
 import type { OllamaPullProgress, OllamaStatus } from '../../services/ollama'
 import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
 import { getAppRuntime } from '../../runtime'
-import type { LocalServiceName, ManagedServiceStatus } from '../../runtime'
+import type { LocalServiceName, ManagedServiceStatus, PanelCleanerDependencyStatus } from '../../runtime'
 import {
   AlertCircle,
   BookOpenText,
@@ -50,6 +50,7 @@ const OLLAMA_DOWNLOAD_URL = 'https://ollama.com/download/windows'
 const OLLAMA_API_DOC_URL = 'https://docs.ollama.com/api/introduction'
 const OLLAMA_PULL_DOC_URL = 'https://docs.ollama.com/api/pull'
 const GEMMA3_DOC_URL = 'https://ollama.com/library/gemma3'
+const PANELCLEANER_PACKAGE_URL = 'https://pypi.org/project/pcleaner-cli/'
 const OLLAMA_STATUS_TIMEOUT_MS = 8000
 const OLLAMA_MODELS_TIMEOUT_MS = 15000
 const PANELCLEANER_STATUS_TIMEOUT_MS = 15000
@@ -148,6 +149,35 @@ function describeManagedStatus(status: ManagedServiceStatus): string {
   return 'ยังไม่ทำงาน'
 }
 
+function describePanelCleanerDependency(status: PanelCleanerDependencyStatus | null): string {
+  if (!status) return 'ยังไม่ได้ตรวจ'
+  if (status.state === 'installing') return 'กำลังติดตั้ง'
+  if (status.state === 'ready') {
+    const source = status.source === 'managed'
+      ? 'managed venv'
+      : status.source === 'dev'
+        ? 'dev venv'
+        : status.source === 'explicit'
+          ? 'path ที่เลือกเอง'
+          : 'PATH'
+    return `พร้อมใช้งาน · ${source}`
+  }
+  if (status.state === 'broken') return 'ติดตั้งไว้แต่เสีย ต้องซ่อม'
+  return 'ยังไม่ได้ติดตั้ง'
+}
+
+function dependencyTone(status: PanelCleanerDependencyStatus | null): 'good' | 'muted' {
+  return status?.state === 'ready' ? 'good' : 'muted'
+}
+
+function panelCleanerSourceText(status: PanelCleanerStatus): string {
+  if (status.source === 'managed') return 'managed venv'
+  if (status.source === 'dev') return 'dev venv'
+  if (status.source === 'explicit') return 'path ที่เลือกเอง'
+  if (status.source === 'path') return 'PATH'
+  return 'ไม่ทราบแหล่งที่มา'
+}
+
 export default function SettingsPanel({
   settings,
   onSave,
@@ -165,9 +195,13 @@ export default function SettingsPanel({
   const [pullProgress, setPullProgress] = useState<OllamaPullProgress | null>(null)
   const [pullError, setPullError] = useState<string | null>(null)
   const [panelCleanerStatus, setPanelCleanerStatus] = useState<PanelCleanerStatus | null>(null)
+  const [panelCleanerDependency, setPanelCleanerDependency] = useState<PanelCleanerDependencyStatus | null>(null)
   const [checkingPanelCleaner, setCheckingPanelCleaner] = useState(false)
+  const [checkingPanelCleanerDependency, setCheckingPanelCleanerDependency] = useState(false)
   const [startingOllama, setStartingOllama] = useState(false)
   const [startingPanelCleaner, setStartingPanelCleaner] = useState(false)
+  const [installingPanelCleaner, setInstallingPanelCleaner] = useState(false)
+  const [panelCleanerInstallLogs, setPanelCleanerInstallLogs] = useState<string[]>([])
   const [localServiceStatus, setLocalServiceStatus] = useState<Record<LocalServiceName, ManagedServiceStatus>>(EMPTY_MANAGED_STATUS)
   const [stoppingOwnedServices, setStoppingOwnedServices] = useState(false)
 
@@ -191,6 +225,23 @@ export default function SettingsPanel({
     }
   }, [appRuntime.localServices, canStartLocalServices])
 
+  const refreshPanelCleanerDependency = useCallback(async () => {
+    if (!canStartLocalServices) {
+      setPanelCleanerDependency(null)
+      return
+    }
+    setCheckingPanelCleanerDependency(true)
+    try {
+      const status = await appRuntime.localServices.getPanelCleanerDependencyStatus()
+      setPanelCleanerDependency(status)
+      if (status.logs?.length) setPanelCleanerInstallLogs(status.logs)
+    } catch {
+      setPanelCleanerDependency(null)
+    } finally {
+      setCheckingPanelCleanerDependency(false)
+    }
+  }, [appRuntime.localServices, canStartLocalServices])
+
   useEffect(() => {
     if (isOpen) {
       setDraft(settings)
@@ -201,9 +252,12 @@ export default function SettingsPanel({
       setPullingModel(null)
       setStartingOllama(false)
       setStartingPanelCleaner(false)
+      setInstallingPanelCleaner(false)
+      setPanelCleanerInstallLogs([])
       void refreshManagedStatuses()
+      void refreshPanelCleanerDependency()
     }
-  }, [isOpen, refreshManagedStatuses, settings])
+  }, [isOpen, refreshManagedStatuses, refreshPanelCleanerDependency, settings])
 
   useEffect(() => {
     if (!isOpen || !canStartLocalServices) return
@@ -329,6 +383,7 @@ export default function SettingsPanel({
   const handleCheckPanelCleaner = async () => {
     setCheckingPanelCleaner(true)
     try {
+      await refreshPanelCleanerDependency()
       const status = await appRuntime.panelCleaner.getStatus({
         bridgeUrl: draft.panelCleanerBridgeUrl,
         executablePath: draft.panelCleanerExecutablePath,
@@ -336,7 +391,7 @@ export default function SettingsPanel({
       })
       setPanelCleanerStatus(status)
       await refreshManagedStatuses()
-      if (status.ok && !draft.panelCleanerExecutablePath && status.command && /[\\/]/.test(status.command)) {
+      if (status.ok && status.source === 'explicit' && !draft.panelCleanerExecutablePath && status.command && /[\\/]/.test(status.command)) {
         setDraft((current) => ({ ...current, panelCleanerExecutablePath: status.command! }))
       }
       if (status.ok) {
@@ -350,6 +405,64 @@ export default function SettingsPanel({
       toast.error(toFriendlyServiceError('panelcleaner', message))
     } finally {
       setCheckingPanelCleaner(false)
+    }
+  }
+
+  const handleInstallPanelCleaner = async () => {
+    setInstallingPanelCleaner(true)
+    setPanelCleanerInstallLogs(['กำลังเตรียมติดตั้ง PanelCleaner ในโปรไฟล์ผู้ใช้ของ Moxzk'])
+    try {
+      const result = await appRuntime.localServices.installPanelCleaner()
+      if (result.logs?.length) setPanelCleanerInstallLogs(result.logs)
+      if (!result.ok) {
+        toast.error(result.error ?? 'ติดตั้ง PanelCleaner ไม่สำเร็จ')
+        await refreshPanelCleanerDependency()
+        return
+      }
+      toast.success('ติดตั้ง PanelCleaner เสร็จแล้ว')
+      await handleStartPanelCleaner()
+      await refreshPanelCleanerDependency()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      toast.error(`ติดตั้ง PanelCleaner ไม่สำเร็จ: ${message}`)
+    } finally {
+      setInstallingPanelCleaner(false)
+    }
+  }
+
+  const handleRepairPanelCleaner = async () => {
+    setInstallingPanelCleaner(true)
+    setPanelCleanerInstallLogs(['กำลังซ่อม PanelCleaner โดยสร้าง managed venv ใหม่'])
+    try {
+      const result = await appRuntime.localServices.repairPanelCleaner()
+      if (result.logs?.length) setPanelCleanerInstallLogs(result.logs)
+      if (!result.ok) {
+        toast.error(result.error ?? 'ซ่อม PanelCleaner ไม่สำเร็จ')
+        await refreshPanelCleanerDependency()
+        return
+      }
+      toast.success('ซ่อม PanelCleaner เสร็จแล้ว')
+      await handleStartPanelCleaner()
+      await refreshPanelCleanerDependency()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      toast.error(`ซ่อม PanelCleaner ไม่สำเร็จ: ${message}`)
+    } finally {
+      setInstallingPanelCleaner(false)
+    }
+  }
+
+  const handlePickPanelCleanerExecutable = async () => {
+    try {
+      const result = await appRuntime.localServices.pickPanelCleanerExecutable()
+      if (!result.ok || !result.path) {
+        if (result.error && result.error !== 'USER_CANCELLED') toast.error(result.error)
+        return
+      }
+      setDraft((current) => ({ ...current, panelCleanerExecutablePath: result.path! }))
+      toast.success('เลือกไฟล์ PanelCleaner แล้ว กดบันทึกเพื่อเก็บค่า')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
     }
   }
 
@@ -776,7 +889,21 @@ export default function SettingsPanel({
                   <div className="space-y-4">
                     <div className="moxzk-notice">
                       <Server size={14} />
-                      <span>{canStartPanelCleaner ? 'กดเริ่ม bridge ได้จาก Electron หรือรัน npm run backend:panelcleaner เองก็ได้' : 'ให้รัน npm run backend:panelcleaner ก่อนเริ่มประมวลผล'}</span>
+                      <span>{canStartPanelCleaner ? 'กดติดตั้งหรือซ่อมจากหน้านี้ได้ แอปจะเก็บ PanelCleaner ไว้ใน managed venv ของ Moxzk' : 'ให้รัน bridge เองก่อนเริ่มประมวลผล'}</span>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <StatusTile
+                        icon={checkingPanelCleanerDependency || installingPanelCleaner ? <Loader2 size={16} className="animate-spin" /> : <HardDriveDownload size={16} />}
+                        label="PanelCleaner dependency"
+                        value={describePanelCleanerDependency(panelCleanerDependency)}
+                        tone={dependencyTone(panelCleanerDependency)}
+                      />
+                      <StatusTile
+                        icon={<Workflow size={16} />}
+                        label="Bridge process"
+                        value={describeManagedStatus(localServiceStatus.panelcleaner)}
+                        tone={localServiceStatus.panelcleaner.running ? 'good' : 'muted'}
+                      />
                     </div>
                     <Field label="PanelCleaner Bridge URL" hint="ค่าเริ่มต้น: http://localhost:5055">
                       <TextInput
@@ -786,21 +913,52 @@ export default function SettingsPanel({
                         onChange={(e) => setDraft({ ...draft, panelCleanerBridgeUrl: e.target.value })}
                       />
                     </Field>
-                    <Field label="ตำแหน่งไฟล์ PanelCleaner" hint="เว้นว่างเพื่อค้นหา pcleaner / pcleaner-cli จาก PATH">
+                    <Field label="ตำแหน่งไฟล์ PanelCleaner" hint="เว้นว่างเพื่อใช้ managed venv ก่อน แล้วค่อย fallback เป็น dev venv หรือ PATH">
                       <TextInput
                         type="text"
-                        placeholder="เว้นว่างเพื่อค้นหา pcleaner / pcleaner-cli จาก PATH"
+                        placeholder="เว้นว่างเพื่อใช้ managed venv"
                         value={draft.panelCleanerExecutablePath}
                         onChange={(e) => setDraft({ ...draft, panelCleanerExecutablePath: e.target.value })}
                       />
                     </Field>
                     <div className="flex flex-wrap gap-2">
                       {canStartPanelCleaner && (
+                        <>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleInstallPanelCleaner}
+                            disabled={installingPanelCleaner || checkingPanelCleaner}
+                          >
+                            {installingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <HardDriveDownload size={12} />}
+                            ติดตั้ง PanelCleaner
+                          </Button>
+                          <Button
+                            variant="soft"
+                            size="sm"
+                            onClick={handleRepairPanelCleaner}
+                            disabled={installingPanelCleaner || checkingPanelCleaner}
+                          >
+                            {installingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <Workflow size={12} />}
+                            ซ่อม PanelCleaner
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handlePickPanelCleanerExecutable}
+                            disabled={installingPanelCleaner}
+                          >
+                            <HardDriveDownload size={12} />
+                            เลือกไฟล์เอง
+                          </Button>
+                        </>
+                      )}
+                      {canStartPanelCleaner && (
                         <Button
-                          variant="primary"
+                          variant="soft"
                           size="sm"
                           onClick={handleStartPanelCleaner}
-                          disabled={startingPanelCleaner || checkingPanelCleaner}
+                          disabled={startingPanelCleaner || checkingPanelCleaner || installingPanelCleaner}
                         >
                           {startingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <Terminal size={12} />}
                           เริ่ม PanelCleaner
@@ -816,14 +974,35 @@ export default function SettingsPanel({
                         {panelCleanerStatus.ok ? <CheckCircle2 size={14} className="text-[var(--moxzk-success)]" /> : <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />}
                         <span>
                           {panelCleanerStatus.ok
-                            ? `PanelCleaner พร้อมใช้งาน${panelCleanerStatus.version ? ` (${panelCleanerStatus.version})` : ''}${panelCleanerStatus.command ? ` - ${panelCleanerStatus.command}` : ''}`
+                            ? `PanelCleaner พร้อมใช้งานจาก ${panelCleanerSourceText(panelCleanerStatus)}${panelCleanerStatus.version ? ` (${panelCleanerStatus.version})` : ''}${panelCleanerStatus.command ? ` - ${panelCleanerStatus.command}` : ''}`
                             : `${toFriendlyServiceError('panelcleaner', panelCleanerStatus.error)}${panelCleanerStatus.installHint ? ` - ${panelCleanerStatus.installHint}` : ''}`}
                         </span>
                       </div>
                     )}
+                    {panelCleanerDependency && panelCleanerDependency.state !== 'ready' && (
+                      <div className="moxzk-notice">
+                        <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
+                        <span>{panelCleanerDependency.actionHint ?? 'กดติดตั้ง PanelCleaner เพื่อให้ Cleanup ใช้งานได้'}</span>
+                      </div>
+                    )}
+                    {panelCleanerInstallLogs.length > 0 && (
+                      <div className="rounded-[8px] border border-white/10 bg-black/20 p-3">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-bold text-[var(--moxzk-muted)]">
+                          <Terminal size={13} />
+                          Installation log
+                        </div>
+                        <pre className="max-h-36 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-[var(--moxzk-muted)]">{panelCleanerInstallLogs.slice(-12).join('\n')}</pre>
+                      </div>
+                    )}
                     <div className="moxzk-notice">
-                      <Workflow size={14} />
-                      <span>สถานะที่แอปจัดการ: {describeManagedStatus(localServiceStatus.panelcleaner)}</span>
+                      <ExternalLink size={14} />
+                      <span>
+                        PanelCleaner เป็น external dependency ({panelCleanerDependency?.packageName ?? 'pcleaner-cli'} {panelCleanerDependency?.packageVersion ?? '2.11.9'}, {panelCleanerDependency?.licenseName ?? 'GPLv3'})
+                        {' '}
+                        <button className="font-bold text-[var(--moxzk-text)] underline" type="button" onClick={() => handleOpenLink(panelCleanerDependency?.projectUrl ?? PANELCLEANER_PACKAGE_URL)}>
+                          เปิดหน้า package
+                        </button>
+                      </span>
                     </div>
                   </div>
                 </SettingsRow>

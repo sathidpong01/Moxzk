@@ -21,11 +21,11 @@ export function getBrowserSmokeSteps() {
 
 export function buildBrowserSmokeConfig(env = process.env) {
   return {
-    appUrl: normalizeUrl(env.MOXZK_BROWSER_SMOKE_APP_URL || env.MG_BROWSER_SMOKE_APP_URL || DEFAULT_APP_URL),
+    appUrl: normalizeUrl(env.MOXZK_BROWSER_SMOKE_APP_URL || DEFAULT_APP_URL),
     worker: buildSmokeConfig(env),
     chromeExecutablePath: env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || DEFAULT_CHROME_PATH,
-    sampleImagePath: env.MOXZK_BROWSER_SMOKE_IMAGE || env.MG_BROWSER_SMOKE_IMAGE || DEFAULT_SAMPLE_IMAGE_PATH,
-    downloadDir: env.MOXZK_BROWSER_SMOKE_DOWNLOAD_DIR || env.MG_BROWSER_SMOKE_DOWNLOAD_DIR || path.resolve('_codex/browser-smoke/downloads'),
+    sampleImagePath: env.MOXZK_BROWSER_SMOKE_IMAGE || DEFAULT_SAMPLE_IMAGE_PATH,
+    downloadDir: env.MOXZK_BROWSER_SMOKE_DOWNLOAD_DIR || path.resolve('_codex/browser-smoke/downloads'),
   }
 }
 

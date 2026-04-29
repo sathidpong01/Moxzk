@@ -38,15 +38,16 @@ test('buildSmokeConfig prefers the explicit smoke base url and normalizes it', (
   assert.equal(config.username, 'Moxzk Smoke Test')
 })
 
-test('buildSmokeConfig keeps legacy MG smoke env names as fallback', () => {
-  const config = buildSmokeConfig({
-    MG_AUTH_SMOKE_BASE_URL: 'https://legacy.example.workers.dev',
-    MG_AUTH_SMOKE_EMAIL: 'legacy@example.com',
-    MG_AUTH_SMOKE_PASSWORD: 'secret-password-12345',
-  })
-
-  assert.equal(config.baseUrl, 'https://legacy.example.workers.dev')
-  assert.equal(config.email, 'legacy@example.com')
+test('buildSmokeConfig ignores removed MG smoke env names', () => {
+  const legacyPrefix = ['M', 'G', '_AUTH_SMOKE_'].join('')
+  assert.throws(
+    () => buildSmokeConfig({
+      [`${legacyPrefix}BASE_URL`]: 'https://legacy.example.workers.dev',
+      [`${legacyPrefix}EMAIL`]: 'legacy@example.com',
+      [`${legacyPrefix}PASSWORD`]: 'secret-password-12345',
+    }),
+    /MOXZK_AUTH_SMOKE_BASE_URL or VITE_CLOUDFLARE_API_URL/,
+  )
 })
 
 test('buildSmokeConfig falls back to the deployed Worker API url', () => {

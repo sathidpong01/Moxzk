@@ -4,19 +4,19 @@ import { loadSmokeEnv } from './smoke-env.mjs'
 const DEFAULT_USERNAME = 'Moxzk Smoke Test'
 
 export function buildSmokeConfig(env = process.env) {
-  const configuredBaseUrl = env.MOXZK_AUTH_SMOKE_BASE_URL || env.MG_AUTH_SMOKE_BASE_URL || env.VITE_CLOUDFLARE_API_URL
+  const configuredBaseUrl = env.MOXZK_AUTH_SMOKE_BASE_URL || env.VITE_CLOUDFLARE_API_URL
   if (!configuredBaseUrl) {
     throw new Error('Set MOXZK_AUTH_SMOKE_BASE_URL or VITE_CLOUDFLARE_API_URL to your online Worker API URL.')
   }
   const baseUrl = normalizeBaseUrl(configuredBaseUrl)
-  const emailValue = env.MOXZK_AUTH_SMOKE_EMAIL || env.MG_AUTH_SMOKE_EMAIL
-  const passwordValue = env.MOXZK_AUTH_SMOKE_PASSWORD || env.MG_AUTH_SMOKE_PASSWORD
+  const emailValue = env.MOXZK_AUTH_SMOKE_EMAIL
+  const passwordValue = env.MOXZK_AUTH_SMOKE_PASSWORD
   if (!emailValue || !passwordValue) {
     throw new Error('Set MOXZK_AUTH_SMOKE_EMAIL and MOXZK_AUTH_SMOKE_PASSWORD in the environment. Do not commit smoke credentials.')
   }
   const email = emailValue.trim()
   const password = passwordValue
-  const username = (env.MOXZK_AUTH_SMOKE_USERNAME || env.MG_AUTH_SMOKE_USERNAME || DEFAULT_USERNAME).trim()
+  const username = (env.MOXZK_AUTH_SMOKE_USERNAME || DEFAULT_USERNAME).trim()
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error('MOXZK_AUTH_SMOKE_EMAIL must be a valid email address.')

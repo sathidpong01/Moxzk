@@ -150,6 +150,45 @@ test('panelcleaner bridge keeps a lightweight health check before Electron', () 
   assert.match(bridge, /STATUS_CACHE_TTL_MS/)
   assert.match(bridge, /service: 'panelcleaner-bridge'/)
   assert.match(bridge, /getCachedPanelCleanerStatus/)
+  assert.match(bridge, /fileURLToPath\(import\.meta\.url\)/)
+  assert.match(bridge, /LOCAL_VENV_PYTHON/)
+  assert.match(bridge, /PANELCLEANER_MANAGED_VENV_DIR/)
+  assert.match(bridge, /source:\s*'managed'/)
+  assert.match(bridge, /source:\s*'dev'/)
+  assert.match(bridge, /source:\s*'path'/)
+  assert.match(bridge, /PCLEANER_MAIN_SNIPPET/)
+  assert.doesNotMatch(bridge, /resolve\(process\.cwd\(\), '\.venv-panelcleaner'/)
+})
+
+test('Electron exposes a managed PanelCleaner installer without bundling PanelCleaner', () => {
+  const channels = fs.readFileSync('electron/shared/ipcChannels.ts', 'utf8')
+  const preload = fs.readFileSync('electron/preload/index.ts', 'utf8')
+  const runtime = fs.readFileSync('src/runtime/types.ts', 'utf8')
+  const nativeBridge = fs.readFileSync('src/runtime/electronBridge.ts', 'utf8')
+  const dependencyManager = fs.readFileSync('electron/main/panelCleanerDependency.ts', 'utf8')
+  const serviceLauncher = fs.readFileSync('electron/main/localServices.ts', 'utf8')
+  const settingsPanel = fs.readFileSync('src/components/Settings/SettingsPanel.tsx', 'utf8')
+
+  assert.match(channels, /runtime:localServices\.panelCleanerDependencyStatus/)
+  assert.match(channels, /runtime:localServices\.installPanelCleaner/)
+  assert.match(channels, /runtime:localServices\.repairPanelCleaner/)
+  assert.match(channels, /runtime:localServices\.pickPanelCleanerExecutable/)
+  assert.match(preload, /getPanelCleanerDependencyStatus/)
+  assert.match(preload, /installPanelCleaner/)
+  assert.match(preload, /repairPanelCleaner/)
+  assert.match(preload, /pickPanelCleanerExecutable/)
+  assert.match(runtime, /PanelCleanerDependencyStatus/)
+  assert.match(nativeBridge, /NativePanelCleanerDependencyStatus/)
+  assert.match(dependencyManager, /pcleaner-cli==2\.11\.9/)
+  assert.match(dependencyManager, /panelcleaner-venv/)
+  assert.match(dependencyManager, /app\.getPath\('userData'\)/)
+  assert.match(dependencyManager, /python -m venv/)
+  assert.match(dependencyManager, /python -m pip install/)
+  assert.match(serviceLauncher, /PANELCLEANER_MANAGED_VENV_DIR/)
+  assert.match(settingsPanel, /ติดตั้ง PanelCleaner/)
+  assert.match(settingsPanel, /ซ่อม PanelCleaner/)
+  assert.match(settingsPanel, /เลือกไฟล์เอง/)
+  assert.match(settingsPanel, /GPLv3/)
 })
 
 test('export flow exposes an explicit zip-first destination choice before Electron', () => {
@@ -253,6 +292,7 @@ test('Electron IPC surface only exposes V1 runtime and window-control channels',
   const preload = fs.readFileSync('electron/preload/index.ts', 'utf8')
   const rendererRuntime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
   const mainIpc = fs.readFileSync('electron/main/ipc.ts', 'utf8')
+  const removedBridgeName = ['m', 'g', 'Runtime'].join('')
 
   for (const channel of [
     'runtime:files.saveFile',
@@ -265,6 +305,10 @@ test('Electron IPC surface only exposes V1 runtime and window-control channels',
     'runtime:localServices.beginUsage',
     'runtime:localServices.endUsage',
     'runtime:localServices.getManagedStatus',
+    'runtime:localServices.panelCleanerDependencyStatus',
+    'runtime:localServices.installPanelCleaner',
+    'runtime:localServices.repairPanelCleaner',
+    'runtime:localServices.pickPanelCleanerExecutable',
     'runtime:localServices.stopOwnedServices',
     'runtime:auth.signInWithGoogle',
     'runtime:windowControls.minimize',
@@ -279,11 +323,15 @@ test('Electron IPC surface only exposes V1 runtime and window-control channels',
   assert.doesNotMatch(channels, /secureStore/)
   assert.doesNotMatch(channels, /customProtocolAuth/)
   assert.match(preload, /contextBridge\.exposeInMainWorld\('moxzkRuntime'/)
-  assert.match(preload, /contextBridge\.exposeInMainWorld\('mgRuntime'/)
+  assert.equal(preload.includes(removedBridgeName), false)
   assert.match(preload, /localServices/)
   assert.match(preload, /beginUsage/)
   assert.match(preload, /endUsage/)
   assert.match(preload, /getManagedStatus/)
+  assert.match(preload, /getPanelCleanerDependencyStatus/)
+  assert.match(preload, /installPanelCleaner/)
+  assert.match(preload, /repairPanelCleaner/)
+  assert.match(preload, /pickPanelCleanerExecutable/)
   assert.match(preload, /stopOwnedServices/)
   assert.match(preload, /auth/)
   assert.match(preload, /windowControls/)
@@ -295,6 +343,10 @@ test('Electron IPC surface only exposes V1 runtime and window-control channels',
   assert.match(mainIpc, /beginUsage/)
   assert.match(mainIpc, /endUsage/)
   assert.match(mainIpc, /getManagedStatus/)
+  assert.match(mainIpc, /getPanelCleanerDependencyStatus/)
+  assert.match(mainIpc, /installPanelCleaner/)
+  assert.match(mainIpc, /repairPanelCleaner/)
+  assert.match(mainIpc, /pickPanelCleanerExecutable/)
   assert.match(mainIpc, /stopOwnedServices/)
   assert.match(mainIpc, /signInWithGoogleSystemBrowser/)
   assert.match(mainIpc, /BrowserWindow\.fromWebContents/)
@@ -322,6 +374,10 @@ test('Electron runtime installs through window bridge and keeps unsupported desk
   assert.match(runtime, /bridge\.localServices\.beginUsage/)
   assert.match(runtime, /bridge\.localServices\.endUsage/)
   assert.match(runtime, /bridge\.localServices\.getManagedStatus/)
+  assert.match(runtime, /bridge\.localServices\.getPanelCleanerDependencyStatus/)
+  assert.match(runtime, /bridge\.localServices\.installPanelCleaner/)
+  assert.match(runtime, /bridge\.localServices\.repairPanelCleaner/)
+  assert.match(runtime, /bridge\.localServices\.pickPanelCleanerExecutable/)
   assert.match(runtime, /bridge\.localServices\.stopOwnedServices/)
   assert.match(runtime, /bridge\.localServices\.startOllama/)
   assert.match(runtime, /bridge\.localServices\.startPanelCleanerBridge/)
@@ -344,6 +400,7 @@ test('Electron Google login uses system browser and loopback ticket claim', () =
   const desktopAuth = fs.readFileSync('electron/main/desktopAuth.ts', 'utf8')
   const authStore = fs.readFileSync('src/store/authStore.ts', 'utf8')
   const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
+  const removedBridgeAccess = ['window.moxzkRuntime ?? window.', 'm', 'g', 'Runtime'].join('')
 
   assert.match(desktopAuth, /shell\.openExternal/)
   assert.match(desktopAuth, /createServer/)
@@ -362,7 +419,8 @@ test('Electron Google login uses system browser and loopback ticket claim', () =
   assert.match(authStore, /getAppRuntime/)
   assert.match(authStore, /runtime\.auth\.signInWithGoogle/)
   assert.match(authStore, /hasElectronBridge/)
-  assert.match(webRuntime, /window\.moxzkRuntime \?\? window\.mgRuntime/)
+  assert.match(webRuntime, /window\.moxzkRuntime/)
+  assert.equal(webRuntime.includes(removedBridgeAccess), false)
   assert.match(webRuntime, /isElectronUserAgent/)
   assert.match(webRuntime, /Electron auth bridge is not available/)
 })
@@ -389,6 +447,9 @@ test('Electron native service launcher is loopback-only and keeps external depen
   assert.match(serviceLauncher, /scripts', 'panelcleaner-bridge\.mjs'/)
   assert.match(serviceLauncher, /ollama\.exe/)
   assert.match(settingsPanel, /handleStartPanelCleaner/)
+  assert.match(settingsPanel, /handleInstallPanelCleaner/)
+  assert.match(settingsPanel, /handleRepairPanelCleaner/)
+  assert.match(settingsPanel, /handlePickPanelCleanerExecutable/)
   assert.match(settingsPanel, /handleStartOllama/)
   assert.match(settingsPanel, /handleStopOwnedServices/)
   assert.match(settingsPanel, /หยุด local services ที่แอปเปิดไว้/)

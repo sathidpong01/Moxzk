@@ -15,6 +15,7 @@ export type {
   AppRuntime,
   LocalServiceName,
   ManagedServiceStatus,
+  PanelCleanerDependencyStatus,
   RuntimeActionResult,
   RuntimeExportDestination,
   RuntimeExportFile,

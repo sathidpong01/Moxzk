@@ -106,7 +106,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 }
 
 function isElectronRenderer(): boolean {
-  return typeof window !== 'undefined' && Boolean(window.moxzkRuntime ?? window.mgRuntime)
+  return typeof window !== 'undefined' && Boolean(window.moxzkRuntime)
 }
 
 export async function registerWithEmail(email: string, password: string, username?: string): Promise<{ user: AppUser; profile: Profile; session: AppSession }> {

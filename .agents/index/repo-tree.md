@@ -114,7 +114,8 @@ Root: `Moxzk`
 |   |   `-- ipc-contract.md
 |   |-- llm/
 |   |   `-- konva.md
-|   `-- cloudflare-d1-schema.md
+|   |-- cloudflare-d1-schema.md
+|   `-- codex-cloud-environment.md
 |-- drizzle/
 |   |-- meta/
 |   |   |-- 0000_snapshot.json
@@ -159,6 +160,7 @@ Root: `Moxzk`
 |   |-- browser-smoke.mjs
 |   |-- browser-smoke.test.mjs
 |   |-- cache-services.test.mjs
+|   |-- codex-cloud-setup.sh
 |   |-- d1-schema.test.mjs
 |   |-- desktop-oauth.test.mjs
 |   |-- editor-history-service.test.mjs

@@ -18,6 +18,7 @@ interface PanelCleanerBridgeResponse {
   logs?: string[]
   error?: string
   command?: string
+  source?: PanelCleanerStatus['source']
 }
 
 interface PanelCleanerBatchBridgeResponse {
@@ -49,6 +50,7 @@ export interface PanelCleanerStatus {
   ok: boolean
   version?: string
   command?: string
+  source?: 'explicit' | 'managed' | 'dev' | 'path'
   error?: string
   installHint?: string
 }
@@ -185,7 +187,12 @@ export async function getPanelCleanerStatus(options: PanelCleanerOptions = {}): 
     )
     const data = await readBridgeJson(res)
     if (!res.ok) return { ok: false, error: data.error, installHint: data.installHint }
-    return { ok: true, version: data.version, command: data.command }
+    return {
+      ok: true,
+      version: data.version,
+      command: data.command,
+      ...(data.source ? { source: data.source } : {}),
+    }
   } catch (err) {
     return {
       ok: false,
