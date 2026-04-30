@@ -64,6 +64,8 @@ export interface NativeManagedServiceStatus {
   inFlightCount: number
   idleTimeoutMs: number | null
   idleDeadlineAt: number | null
+  command: string | null
+  lastError: string | null
 }
 
 export interface NativeWindowState {
@@ -98,6 +100,20 @@ export interface MoxzkRuntimeBridge {
   }
   auth: {
     signInWithGoogle(): Promise<NativeResult<NativeServiceActionResult>>
+  }
+  app: {
+    getVersion(): Promise<NativeResult<string>>
+    openLogs(): Promise<NativeResult<NativeServiceActionResult>>
+    openSettingsFolder(): Promise<NativeResult<NativeServiceActionResult>>
+    openDraftsFolder(): Promise<NativeResult<NativeServiceActionResult>>
+  }
+  secureStore: {
+    getSecret(key: string): Promise<NativeResult<string | null>>
+    setSecret(key: string, value: string): Promise<NativeResult<NativeServiceActionResult>>
+    deleteSecret(key: string): Promise<NativeResult<NativeServiceActionResult>>
+  }
+  customProtocolAuth: {
+    getCallbackUrl(path: string): Promise<NativeResult<string | null>>
   }
   windowControls: {
     minimize(): Promise<NativeResult<void>>

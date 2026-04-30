@@ -1,7 +1,8 @@
-import { app, BrowserWindow, dialog, ipcMain, type WebContents } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell, type WebContents } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { signInWithGoogleSystemBrowser } from './desktopAuth'
+import { getDraftDir, getLogsDir, getUserDataDir } from './appPaths'
+import { getCustomProtocolCallbackUrl, signInWithGoogleSystemBrowser } from './desktopAuth'
 import {
   beginUsage,
   endUsage,
@@ -15,6 +16,7 @@ import {
   installPanelCleaner,
   repairPanelCleaner,
 } from './panelCleanerDependency'
+import { deleteSecret, getSecret, setSecret } from './secureStore'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import type {
   NativeLocalServiceName,
@@ -24,8 +26,6 @@ import type {
   NativeSaveExportOptions,
   NativePathPickResult,
 } from '../../src/runtime/electronBridge'
-
-const DRAFT_DIR = 'current-project-draft'
 const ASSETS_DIR = 'assets'
 const MANIFEST_FILE = 'manifest.json'
 const ASSET_META_FILE = 'assets.json'
@@ -108,6 +108,38 @@ export function registerRuntimeIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.authSignInWithGoogle, async () => {
     return nativeActionResult(signInWithGoogleSystemBrowser)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.appGetVersion, async () => {
+    return nativeActionResult(async () => app.getVersion())
+  })
+
+  ipcMain.handle(IPC_CHANNELS.appOpenLogs, async () => {
+    return nativeActionResult(async () => openNativePath(getLogsDir()))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.appOpenSettingsFolder, async () => {
+    return nativeActionResult(async () => openNativePath(getUserDataDir()))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.appOpenDraftsFolder, async () => {
+    return nativeActionResult(async () => openNativePath(getDraftDir()))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.secureStoreGetSecret, async (_event, key: string) => {
+    return nativeActionResult(async () => getSecret(key))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.secureStoreSetSecret, async (_event, key: string, value: string) => {
+    return nativeActionResult(async () => setSecret(key, value))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.secureStoreDeleteSecret, async (_event, key: string) => {
+    return nativeActionResult(async () => deleteSecret(key))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.customProtocolAuthGetCallbackUrl, async (_event, callbackPath: string) => {
+    return nativeActionResult(async () => getCustomProtocolCallbackUrl(callbackPath))
   })
 
   ipcMain.handle(IPC_CHANNELS.windowControlsMinimize, async (event) => {
@@ -256,10 +288,6 @@ async function clearProjectDraft(): Promise<NativeResult<void>> {
   }
 }
 
-function getDraftDir(): string {
-  return path.join(app.getPath('userData'), DRAFT_DIR)
-}
-
 function nativeError(error: unknown): NativeResult<never> {
   return { ok: false, error: error instanceof Error ? error.message : String(error) }
 }
@@ -292,4 +320,11 @@ function getSenderWindow(sender: WebContents): BrowserWindow {
 
 function getWindowState(win: BrowserWindow): { isMaximized: boolean } {
   return { isMaximized: win.isMaximized() }
+}
+
+async function openNativePath(targetPath: string): Promise<{ ok: boolean; error?: string }> {
+  await fs.mkdir(targetPath, { recursive: true })
+  const error = await shell.openPath(targetPath)
+  if (error) return { ok: false, error }
+  return { ok: true }
 }

@@ -54,6 +54,8 @@ export interface ManagedServiceStatus {
   inFlightCount: number
   idleTimeoutMs: number | null
   idleDeadlineAt: number | null
+  command: string | null
+  lastError: string | null
 }
 
 export interface RuntimeWindowState {
@@ -117,6 +119,12 @@ export interface AppRuntime {
   }
   auth: {
     signInWithGoogle(): Promise<RuntimeActionResult>
+  }
+  app: {
+    getVersion(): Promise<string>
+    openLogs(): Promise<RuntimeActionResult>
+    openSettingsFolder(): Promise<RuntimeActionResult>
+    openDraftsFolder(): Promise<RuntimeActionResult>
   }
   secureStore: {
     getSecret(key: string): Promise<string | null>

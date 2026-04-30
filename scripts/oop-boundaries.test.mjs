@@ -64,6 +64,8 @@ test('web runtime local service lifecycle helpers stay inert and explicit', asyn
         inFlightCount: 0,
         idleTimeoutMs: null,
         idleDeadlineAt: null,
+        command: null,
+        lastError: null,
       },
       ollama: {
         running: false,
@@ -71,6 +73,8 @@ test('web runtime local service lifecycle helpers stay inert and explicit', asyn
         inFlightCount: 0,
         idleTimeoutMs: null,
         idleDeadlineAt: null,
+        command: null,
+        lastError: null,
       },
     },
   )

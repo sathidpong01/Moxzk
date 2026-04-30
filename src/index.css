@@ -70,23 +70,29 @@ button:disabled {
 }
 
 .moxzk-has-custom-chrome .moxzk-window-inglow {
+  --moxzk-inglow-strong: color-mix(in srgb, var(--moxzk-canvas) 62%, transparent);
+  --moxzk-inglow-mid: color-mix(in srgb, var(--moxzk-canvas) 32%, transparent);
+  --moxzk-inglow-top: color-mix(in srgb, var(--moxzk-canvas) 46%, transparent);
+  --moxzk-inglow-soft: color-mix(in srgb, var(--moxzk-canvas) 20%, transparent);
+  --moxzk-inglow-side: color-mix(in srgb, var(--moxzk-canvas) 50%, transparent);
+  --moxzk-inglow-edge: color-mix(in srgb, var(--moxzk-canvas) 36%, transparent);
   display: block;
   position: absolute;
   inset: 0;
   z-index: 15;
   pointer-events: none;
   background:
-    radial-gradient(circle at top left, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.36) 18px, transparent 58px),
-    radial-gradient(circle at top right, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.36) 18px, transparent 58px),
-    radial-gradient(circle at bottom left, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.36) 18px, transparent 58px),
-    radial-gradient(circle at bottom right, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.36) 18px, transparent 58px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.28) 14px, transparent 42px),
-    linear-gradient(to top, rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.24) 14px, transparent 42px),
-    linear-gradient(to right, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0.3) 16px, transparent 52px),
-    linear-gradient(to left, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0.3) 16px, transparent 52px);
+    radial-gradient(circle at top left, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 18px, transparent 58px),
+    radial-gradient(circle at top right, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 18px, transparent 58px),
+    radial-gradient(circle at bottom left, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 18px, transparent 58px),
+    radial-gradient(circle at bottom right, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 18px, transparent 58px),
+    linear-gradient(to bottom, var(--moxzk-inglow-top), var(--moxzk-inglow-soft) 14px, transparent 42px),
+    linear-gradient(to top, var(--moxzk-inglow-top), var(--moxzk-inglow-soft) 14px, transparent 42px),
+    linear-gradient(to right, var(--moxzk-inglow-side), var(--moxzk-inglow-soft) 16px, transparent 52px),
+    linear-gradient(to left, var(--moxzk-inglow-side), var(--moxzk-inglow-soft) 16px, transparent 52px);
   box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.42),
-    inset 0 0 34px rgba(0, 0, 0, 0.62);
+    inset 0 0 0 1px var(--moxzk-inglow-edge),
+    inset 0 0 34px var(--moxzk-inglow-top);
 }
 
 .moxzk-has-custom-chrome {

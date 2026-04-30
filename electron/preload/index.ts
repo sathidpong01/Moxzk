@@ -36,6 +36,20 @@ const bridge: MoxzkRuntimeBridge = {
   auth: {
     signInWithGoogle: () => ipcRenderer.invoke(IPC_CHANNELS.authSignInWithGoogle),
   },
+  app: {
+    getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.appGetVersion),
+    openLogs: () => ipcRenderer.invoke(IPC_CHANNELS.appOpenLogs),
+    openSettingsFolder: () => ipcRenderer.invoke(IPC_CHANNELS.appOpenSettingsFolder),
+    openDraftsFolder: () => ipcRenderer.invoke(IPC_CHANNELS.appOpenDraftsFolder),
+  },
+  secureStore: {
+    getSecret: (key: string) => ipcRenderer.invoke(IPC_CHANNELS.secureStoreGetSecret, key),
+    setSecret: (key: string, value: string) => ipcRenderer.invoke(IPC_CHANNELS.secureStoreSetSecret, key, value),
+    deleteSecret: (key: string) => ipcRenderer.invoke(IPC_CHANNELS.secureStoreDeleteSecret, key),
+  },
+  customProtocolAuth: {
+    getCallbackUrl: (callbackPath: string) => ipcRenderer.invoke(IPC_CHANNELS.customProtocolAuthGetCallbackUrl, callbackPath),
+  },
   windowControls: {
     minimize: () => ipcRenderer.invoke(IPC_CHANNELS.windowControlsMinimize),
     toggleMaximize: () => ipcRenderer.invoke(IPC_CHANNELS.windowControlsToggleMaximize),

@@ -132,7 +132,7 @@ export async function googleDesktopStart(ctx: RequestContext): Promise<Response>
   const clientId = requiredEnv(ctx.env.GOOGLE_CLIENT_ID, 'GOOGLE_CLIENT_ID')
   const redirectTarget = ctx.url.searchParams.get('redirectTarget') || ''
   if (!isDesktopRedirectTarget(redirectTarget)) {
-    return jsonError('VALIDATION_ERROR', 'Desktop redirect target must be a loopback /auth/callback URL with a port', 422)
+    return jsonError('VALIDATION_ERROR', 'Desktop redirect target must be moxzk://auth/callback or a loopback /auth/callback URL with a port', 422)
   }
 
   return createGoogleStartResponse(ctx, clientId, redirectTarget)
@@ -426,6 +426,13 @@ function googleCallbackUrl(ctx: RequestContext, redirectTarget: string): string 
 export function isDesktopRedirectTarget(redirectTarget: string): boolean {
   try {
     const target = new URL(redirectTarget)
+    if (
+      target.protocol === 'moxzk:'
+      && target.hostname === 'auth'
+      && target.pathname === '/callback'
+    ) {
+      return true
+    }
     return target.protocol === 'http:'
       && (target.hostname === '127.0.0.1' || target.hostname === '[::1]' || target.hostname === '::1')
       && target.pathname === '/auth/callback'

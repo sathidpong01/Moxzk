@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerRuntimeIpcHandlers } from './ipc'
+import { consumeDesktopProtocolCallback, registerDesktopProtocol } from './desktopAuth'
 import { shutdownOwnedServices } from './localServices'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import { APP_DISPLAY_NAME } from '../../src/config/appIdentity'
@@ -13,6 +14,17 @@ app.setName(APP_DISPLAY_NAME)
 registerRuntimeIpcHandlers()
 
 let isShuttingDownOwnedServices = false
+let mainWindow: BrowserWindow | null = null
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+if (!hasSingleInstanceLock) {
+  app.quit()
+}
+
+app.on('second-instance', (_event, commandLine) => {
+  handleProtocolLaunch(commandLine)
+  focusMainWindow()
+})
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -60,10 +72,17 @@ function createWindow(): void {
   } else {
     void win.loadFile(path.join(mainDir, '../renderer/index.html'))
   }
+
+  mainWindow = win
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
+  })
 }
 
 void app.whenReady().then(() => {
+  registerDesktopProtocol()
   createWindow()
+  handleProtocolLaunch(process.argv)
 })
 
 app.on('before-quit', (event) => {
@@ -84,6 +103,22 @@ function sendWindowState(win: BrowserWindow): void {
   win.webContents.send(IPC_CHANNELS.windowControlsStateChanged, {
     isMaximized: win.isMaximized(),
   })
+}
+
+function handleProtocolLaunch(argv: string[]): void {
+  for (const arg of argv) {
+    if (consumeDesktopProtocolCallback(arg)) {
+      return
+    }
+  }
+}
+
+function focusMainWindow(): void {
+  const win = mainWindow ?? BrowserWindow.getAllWindows()[0]
+  if (!win || win.isDestroyed()) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
 }
 
 function shouldOpenExternally(targetUrl: string, currentUrl: string): boolean {

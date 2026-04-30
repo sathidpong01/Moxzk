@@ -287,7 +287,7 @@ test('Electron shell keeps secure Windows-only frameless BrowserWindow defaults 
   assert.match(electronVite, /'\/api'/)
 })
 
-test('Electron IPC surface only exposes V1 runtime and window-control channels', () => {
+test('Electron IPC surface exposes the narrowed desktop runtime channels', () => {
   const channels = fs.readFileSync('electron/shared/ipcChannels.ts', 'utf8')
   const preload = fs.readFileSync('electron/preload/index.ts', 'utf8')
   const rendererRuntime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
@@ -311,6 +311,14 @@ test('Electron IPC surface only exposes V1 runtime and window-control channels',
     'runtime:localServices.pickPanelCleanerExecutable',
     'runtime:localServices.stopOwnedServices',
     'runtime:auth.signInWithGoogle',
+    'runtime:app.getVersion',
+    'runtime:app.openLogs',
+    'runtime:app.openSettingsFolder',
+    'runtime:app.openDraftsFolder',
+    'runtime:secureStore.getSecret',
+    'runtime:secureStore.setSecret',
+    'runtime:secureStore.deleteSecret',
+    'runtime:customProtocolAuth.getCallbackUrl',
     'runtime:windowControls.minimize',
     'runtime:windowControls.toggleMaximize',
     'runtime:windowControls.close',
@@ -320,8 +328,6 @@ test('Electron IPC surface only exposes V1 runtime and window-control channels',
     assert.match(channels, new RegExp(channel.replace('.', '\\.')))
   }
 
-  assert.doesNotMatch(channels, /secureStore/)
-  assert.doesNotMatch(channels, /customProtocolAuth/)
   assert.match(preload, /contextBridge\.exposeInMainWorld\('moxzkRuntime'/)
   assert.equal(preload.includes(removedBridgeName), false)
   assert.match(preload, /localServices/)
@@ -334,6 +340,16 @@ test('Electron IPC surface only exposes V1 runtime and window-control channels',
   assert.match(preload, /pickPanelCleanerExecutable/)
   assert.match(preload, /stopOwnedServices/)
   assert.match(preload, /auth/)
+  assert.match(preload, /app:/)
+  assert.match(preload, /getVersion/)
+  assert.match(preload, /openLogs/)
+  assert.match(preload, /openSettingsFolder/)
+  assert.match(preload, /openDraftsFolder/)
+  assert.match(preload, /secureStore/)
+  assert.match(preload, /getSecret/)
+  assert.match(preload, /setSecret/)
+  assert.match(preload, /deleteSecret/)
+  assert.match(preload, /customProtocolAuth/)
   assert.match(preload, /windowControls/)
   assert.match(preload, /onStateChange/)
   assert.match(preload, /removeListener/)
@@ -349,12 +365,20 @@ test('Electron IPC surface only exposes V1 runtime and window-control channels',
   assert.match(mainIpc, /pickPanelCleanerExecutable/)
   assert.match(mainIpc, /stopOwnedServices/)
   assert.match(mainIpc, /signInWithGoogleSystemBrowser/)
+  assert.match(mainIpc, /appGetVersion/)
+  assert.match(mainIpc, /appOpenLogs/)
+  assert.match(mainIpc, /appOpenSettingsFolder/)
+  assert.match(mainIpc, /appOpenDraftsFolder/)
+  assert.match(mainIpc, /secureStoreGetSecret/)
+  assert.match(mainIpc, /secureStoreSetSecret/)
+  assert.match(mainIpc, /secureStoreDeleteSecret/)
+  assert.match(mainIpc, /customProtocolAuthGetCallbackUrl/)
   assert.match(mainIpc, /BrowserWindow\.fromWebContents/)
   assert.match(mainIpc, /windowControlsToggleMaximize/)
   assert.doesNotMatch(rendererRuntime, /ipcRenderer/)
 })
 
-test('Electron runtime installs through window bridge and keeps unsupported desktop stubs explicit', () => {
+test('Electron runtime installs through the window bridge with secure store and diagnostics support', () => {
   const main = fs.readFileSync('src/main.tsx', 'utf8')
   const app = fs.readFileSync('src/App.tsx', 'utf8')
   const runtime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
@@ -370,6 +394,8 @@ test('Electron runtime installs through window bridge and keeps unsupported desk
   assert.match(runtime, /kind = 'electron'/)
   assert.match(runtime, /canPickNativeFolders:\s*true/)
   assert.match(runtime, /canStartLocalServices:\s*true/)
+  assert.match(runtime, /canSecureStoreSecrets:\s*true/)
+  assert.match(runtime, /canUseCustomProtocolAuth:\s*true/)
   assert.match(runtime, /canUseCustomWindowControls:\s*true/)
   assert.match(runtime, /bridge\.localServices\.beginUsage/)
   assert.match(runtime, /bridge\.localServices\.endUsage/)
@@ -382,8 +408,13 @@ test('Electron runtime installs through window bridge and keeps unsupported desk
   assert.match(runtime, /bridge\.localServices\.startOllama/)
   assert.match(runtime, /bridge\.localServices\.startPanelCleanerBridge/)
   assert.match(runtime, /bridge\.auth\.signInWithGoogle/)
+  assert.match(runtime, /bridge\.app\.getVersion/)
+  assert.match(runtime, /bridge\.app\.openLogs/)
+  assert.match(runtime, /bridge\.secureStore\.getSecret/)
+  assert.match(runtime, /bridge\.secureStore\.setSecret/)
+  assert.match(runtime, /bridge\.secureStore\.deleteSecret/)
+  assert.match(runtime, /bridge\.customProtocolAuth\.getCallbackUrl/)
   assert.match(runtime, /bridge\.windowControls\.toggleMaximize/)
-  assert.match(runtime, /Electron V1 does not provide secure secret storage yet/)
   assert.match(chromeBar, /getAppRuntime/)
   assert.match(chromeBar, /canUseCustomWindowControls/)
   assert.match(chromeBar, /windowControls\.minimize/)

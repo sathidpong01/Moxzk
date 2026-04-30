@@ -52,7 +52,6 @@ npx crawl-chat-mcp --id=67d221efb4b9de65095a2579 --name=konva_documentation
 - `src/services/konvaInteraction.ts`: small interaction predicates for Konva targets
 - `src/services/workspaceViewport.ts`: stage/workspace viewport sizing and positioning
 - `src/services/exporter.ts`: stage export behavior
-- `_wiki/concepts/konva-image-dragging.md`: local distilled guidance from Konva drag docs
 
 ## Official Konva Patterns To Remember
 

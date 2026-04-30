@@ -14,9 +14,10 @@ Use this Windows-only checklist as the acceptance path for Electron V1 and later
 8. Export to folder and confirm individual images are written through the native folder picker.
 9. Close and relaunch the app; confirm desktop draft restore returns the page list, active page, regions, brush strokes, and local image assets.
 10. Confirm Electron dev/build uses the default remote Worker, or respects `VITE_CLOUDFLARE_API_URL` when overriding it.
-11. Confirm Google OAuth opens in the system browser, returns to the loopback callback, and Electron refreshes into a signed-in state.
+11. Confirm Google OAuth opens in the system browser, prefers `moxzk://auth/callback` when available, falls back to the loopback callback otherwise, and Electron refreshes into a signed-in state.
 12. Open Settings > Cleanup, click `เริ่ม PanelCleaner`, then confirm PanelCleaner status becomes ready or returns a clear external dependency error.
-13. Open Settings > AI / Models with a localhost endpoint, click `เริ่ม Ollama`, then confirm Ollama status becomes ready or returns a clear install/PATH error.
+13. Open Settings > AI / Models with a localhost endpoint, click `เริ่ม Ollama`, then confirm Ollama status becomes ready or returns a clear install/PATH error plus the detected command/last error details.
+14. Save an Ollama Cloud API key in Settings, relaunch the app, and confirm the key still works while `localStorage['moxzk-settings']` does not contain the plain-text secret.
 
 ## Core Workflow
 
@@ -39,5 +40,5 @@ Use this Windows-only checklist as the acceptance path for Electron V1 and later
 - PanelCleaner bridge starts through Electron IPC or reports a clear external dependency error.
 - Ollama starts through Electron IPC or reports a clear install/PATH error.
 - Google OAuth never renders `accounts.google.com` inside the Electron window.
-- Secure secrets are not stored in browser localStorage.
+- Secure secrets are not stored in browser localStorage, and desktop settings can open logs/settings/drafts folders through the diagnostics actions.
 - The renderer never imports Electron modules or raw ipcRenderer.

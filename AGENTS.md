@@ -47,3 +47,13 @@ For the fuller project context layer, read `.agents/AGENTS.md` first, then load 
 - Keep Cloudflare D1 schema changes in Drizzle migrations and run the relevant checks before shipping.
 - Preserve Thai text as UTF-8. Check for replacement characters (`U+FFFD`) after editing Thai content.
 - Windows desktop/Electron is the only supported app target. Keep Windows desktop workflows stable first and do not spend implementation effort on Linux/macOS or small-screen/mobile layouts unless the user explicitly asks for it.
+
+## graphify
+
+This project is configured to use a graphify knowledge graph at graphify-out/ once generated.
+In Codex Desktop, invoke it with `$graphify .` from this repo after starting a fresh session.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)

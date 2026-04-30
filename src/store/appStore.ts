@@ -10,7 +10,7 @@ import type {
 } from '../types'
 import type { AlbumPage } from '../types/database'
 import { DEFAULT_MOOD_MAP, restoreCustomFont } from '../config/fonts'
-import { loadSettings, saveSettings } from '../services/settingsStorage'
+import { hydrateSecureSettings, loadStoredSettingsSnapshot, persistSettings } from '../services/settingsStorage'
 import { DEFAULT_TRANSLATION_STYLE_GUIDE } from '../services/story-context'
 import { getAllFonts } from '../services/fontStorage'
 import { downloadImage } from '../services/storageService'
@@ -45,6 +45,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   translationMode: 'concise',
   translationStyleGuide: DEFAULT_TRANSLATION_STYLE_GUIDE,
 }
+
+const INITIAL_SETTINGS_SNAPSHOT = loadStoredSettingsSnapshot(DEFAULT_SETTINGS)
 
 export type PanelId = 'inspector' | 'resource' | 'logs'
 type ProcessKind = 'ai' | 'loading' | null
@@ -130,7 +132,7 @@ interface AppStore {
 
   // Settings
   settings: AppSettings
-  setSettings: (s: AppSettings) => void
+  setSettings: (s: AppSettings) => Promise<void>
   showSettings: boolean
   showFontConfig: boolean
   toggleSettings: (show?: boolean) => void
@@ -729,10 +731,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
     })),
 
   // Settings
-  settings: loadSettings(DEFAULT_SETTINGS),
-  setSettings: (s) => {
+  settings: INITIAL_SETTINGS_SNAPSHOT.settings,
+  setSettings: async (s) => {
+    await persistSettings(s)
     set({ settings: s })
-    saveSettings(s)
   },
   showSettings: false,
   showFontConfig: false,
@@ -1130,6 +1132,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
     } catch (err) {
       console.error('Failed to restore cached fonts:', err)
+    }
+
+    const hydratedSettings = await hydrateSecureSettings(get().settings, INITIAL_SETTINGS_SNAPSHOT.legacyOllamaApiKey)
+    if (hydratedSettings !== get().settings) {
+      set({ settings: hydratedSettings })
     }
   },
 }))

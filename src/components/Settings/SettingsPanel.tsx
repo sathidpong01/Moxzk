@@ -13,6 +13,7 @@ import {
   Cpu,
   Download,
   ExternalLink,
+  FolderOpen,
   Globe,
   HardDriveDownload,
   Key,
@@ -32,7 +33,7 @@ import { isLocalServiceUrl } from '../../services/localServiceAutoStart'
 
 interface SettingsPanelProps {
   settings: AppSettings
-  onSave: (settings: AppSettings) => void
+  onSave: (settings: AppSettings) => void | Promise<void>
   isOpen: boolean
   onClose: () => void
 }
@@ -118,6 +119,8 @@ const EMPTY_MANAGED_STATUS: Record<LocalServiceName, ManagedServiceStatus> = {
     inFlightCount: 0,
     idleTimeoutMs: null,
     idleDeadlineAt: null,
+    command: null,
+    lastError: null,
   },
   ollama: {
     running: false,
@@ -125,6 +128,8 @@ const EMPTY_MANAGED_STATUS: Record<LocalServiceName, ManagedServiceStatus> = {
     inFlightCount: 0,
     idleTimeoutMs: null,
     idleDeadlineAt: null,
+    command: null,
+    lastError: null,
   },
 }
 
@@ -204,6 +209,9 @@ export default function SettingsPanel({
   const [panelCleanerInstallLogs, setPanelCleanerInstallLogs] = useState<string[]>([])
   const [localServiceStatus, setLocalServiceStatus] = useState<Record<LocalServiceName, ManagedServiceStatus>>(EMPTY_MANAGED_STATUS)
   const [stoppingOwnedServices, setStoppingOwnedServices] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [appVersion, setAppVersion] = useState<string>('...')
+  const [authCallbackUrl, setAuthCallbackUrl] = useState<string | null>(null)
 
   const installedModels = useMemo(() => new Set(modelNames), [modelNames])
   const pullPercent = getPullPercent(pullProgress)
@@ -254,10 +262,17 @@ export default function SettingsPanel({
       setStartingPanelCleaner(false)
       setInstallingPanelCleaner(false)
       setPanelCleanerInstallLogs([])
+      setSavingSettings(false)
       void refreshManagedStatuses()
       void refreshPanelCleanerDependency()
+      void appRuntime.app.getVersion()
+        .then(setAppVersion)
+        .catch(() => setAppVersion(appRuntime.kind))
+      void appRuntime.customProtocolAuth.getCallbackUrl('/auth/callback')
+        .then(setAuthCallbackUrl)
+        .catch(() => setAuthCallbackUrl(null))
     }
-  }, [isOpen, refreshManagedStatuses, refreshPanelCleanerDependency, settings])
+  }, [appRuntime.app, appRuntime.customProtocolAuth, appRuntime.kind, isOpen, refreshManagedStatuses, refreshPanelCleanerDependency, settings])
 
   useEffect(() => {
     if (!isOpen || !canStartLocalServices) return
@@ -267,10 +282,17 @@ export default function SettingsPanel({
     return () => window.clearInterval(timer)
   }, [canStartLocalServices, isOpen, refreshManagedStatuses])
 
-  const handleSave = () => {
-    onSave({ ...draft, theme: 'studio-dark' })
-    onClose()
-    toast.success('บันทึกการตั้งค่าเรียบร้อย')
+  const handleSave = async () => {
+    setSavingSettings(true)
+    try {
+      await onSave({ ...draft, theme: 'studio-dark' })
+      onClose()
+      toast.success('บันทึกการตั้งค่าเรียบร้อย')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSavingSettings(false)
+    }
   }
 
   const handleCheckOllama = async () => {
@@ -378,6 +400,22 @@ export default function SettingsPanel({
 
   const handleOpenLink = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleOpenRuntimePath = async (
+    action: () => Promise<{ ok: boolean; error?: string }>,
+    successMessage: string,
+  ) => {
+    try {
+      const result = await action()
+      if (!result.ok) {
+        toast.error(result.error ?? 'เปิดโฟลเดอร์ไม่สำเร็จ')
+        return
+      }
+      toast.success(successMessage)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
   }
 
   const handleCheckPanelCleaner = async () => {
@@ -560,8 +598,8 @@ export default function SettingsPanel({
               <Button variant="ghost" size="sm" onClick={onClose}>
                 <X size={13} /> ยกเลิก
               </Button>
-              <Button variant="primary" size="sm" onClick={handleSave}>
-                <Save size={13} /> บันทึก
+              <Button variant="primary" size="sm" onClick={handleSave} disabled={savingSettings}>
+                {savingSettings ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} บันทึก
               </Button>
             </div>
           </header>
@@ -625,6 +663,61 @@ export default function SettingsPanel({
                     </Button>
                   </div>
                 </SettingsRow>
+                <SettingsRow title="Desktop diagnostics" description="ดู runtime จริง เปิดโฟลเดอร์สำคัญ และเช็ค auth callback ที่เครื่องนี้รองรับ">
+                  <div className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <StatusTile
+                        icon={<Cpu size={16} />}
+                        label="App version"
+                        value={appVersion}
+                        tone="muted"
+                      />
+                      <StatusTile
+                        icon={<Workflow size={16} />}
+                        label="Runtime kind"
+                        value={appRuntime.kind}
+                        tone="muted"
+                      />
+                      <StatusTile
+                        icon={<Globe size={16} />}
+                        label="Auth callback"
+                        value={authCallbackUrl ?? 'loopback fallback'}
+                        tone={authCallbackUrl ? 'good' : 'muted'}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="soft"
+                        size="sm"
+                        onClick={() => handleOpenRuntimePath(appRuntime.app.openSettingsFolder, 'เปิดโฟลเดอร์ settings แล้ว')}
+                      >
+                        <FolderOpen size={12} /> เปิด settings
+                      </Button>
+                      <Button
+                        variant="soft"
+                        size="sm"
+                        onClick={() => handleOpenRuntimePath(appRuntime.app.openDraftsFolder, 'เปิดโฟลเดอร์ drafts แล้ว')}
+                      >
+                        <FolderOpen size={12} /> เปิด drafts
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenRuntimePath(appRuntime.app.openLogs, 'เปิด app logs แล้ว')}
+                      >
+                        <Terminal size={12} /> เปิด logs
+                      </Button>
+                    </div>
+                    <div className="moxzk-notice">
+                      <Key size={14} />
+                      <span>
+                        {appRuntime.capabilities.canSecureStoreSecrets
+                          ? 'Electron จะเก็บ Ollama Cloud API key ไว้ใน secure store ของระบบ ไม่เก็บเป็น plain text ใน settings JSON'
+                          : 'Runtime นี้ยังไม่มี secure secret storage'}
+                      </span>
+                    </div>
+                  </div>
+                </SettingsRow>
               </SettingsSheet>
             )}
 
@@ -672,6 +765,22 @@ export default function SettingsPanel({
                         โหลดโมเดล
                       </Button>
                     </div>
+                    <div className="moxzk-notice">
+                      <Workflow size={14} />
+                      <span>สถานะที่แอปจัดการ: {describeManagedStatus(localServiceStatus.ollama)}</span>
+                    </div>
+                    {localServiceStatus.ollama.command && (
+                      <div className="moxzk-notice">
+                        <Terminal size={14} />
+                        <span>คำสั่งที่ตรวจพบ: {localServiceStatus.ollama.command}</span>
+                      </div>
+                    )}
+                    {localServiceStatus.ollama.lastError && (
+                      <div className="moxzk-notice">
+                        <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
+                        <span>เริ่ม Ollama ครั้งล่าสุดไม่สำเร็จ: {localServiceStatus.ollama.lastError}</span>
+                      </div>
+                    )}
                     {ollamaStatus && (
                       <div className="moxzk-notice">
                         {ollamaStatus.ok ? <CheckCircle2 size={14} className="text-[var(--moxzk-success)]" /> : <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />}
@@ -682,10 +791,18 @@ export default function SettingsPanel({
                         </span>
                       </div>
                     )}
-                    <div className="moxzk-notice">
-                      <Workflow size={14} />
-                      <span>สถานะที่แอปจัดการ: {describeManagedStatus(localServiceStatus.ollama)}</span>
-                    </div>
+                    {!localServiceStatus.ollama.command && (
+                      <div className="moxzk-notice">
+                        <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
+                        <span>
+                          ยังหา `ollama.exe` ไม่เจอใน PATH หรือโฟลเดอร์ติดตั้งมาตรฐาน
+                          {' '}
+                          <button className="font-bold text-[var(--moxzk-text)] underline" type="button" onClick={() => handleOpenLink(OLLAMA_DOWNLOAD_URL)}>
+                            เปิดหน้าโหลด Ollama
+                          </button>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </SettingsRow>
 

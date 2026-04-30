@@ -18,6 +18,8 @@ export interface ManagedServiceStatus {
   inFlightCount: number
   idleTimeoutMs: number | null
   idleDeadlineAt: number | null
+  command: string | null
+  lastError: string | null
 }
 
 export interface ManagedLocalServicesStatus {
@@ -87,6 +89,8 @@ function createInitialState(name: LocalServiceName): ManagedServiceState {
     inFlightCount: 0,
     idleTimeoutMs: SERVICE_CONFIGS[name].idleTimeoutMs,
     idleDeadlineAt: null,
+    command: resolveServiceCommand(name),
+    lastError: null,
     pid: null,
     lastActivityAt: null,
     startError: null,
@@ -130,6 +134,8 @@ export function createLocalServiceManager(deps: LocalServiceManagerDeps) {
     clearIdleTimer(name)
     state.running = true
     state.ownedByApp = false
+    state.lastError = null
+    state.startError = null
     state.pid = null
     state.child = null
     state.stopping = false
@@ -152,6 +158,7 @@ export function createLocalServiceManager(deps: LocalServiceManagerDeps) {
       const state = states[name]
       if (state.child !== child) return
       state.startError = error instanceof Error ? error.message : String(error)
+      state.lastError = state.startError
       resetState(name)
     })
     child.once('exit', (code, signal) => {
@@ -159,6 +166,7 @@ export function createLocalServiceManager(deps: LocalServiceManagerDeps) {
       if (state.child !== child) return
       if (!state.stopping && (code !== 0 || signal)) {
         state.startError = `exited with code ${code}${signal ? ` (${signal})` : ''}`
+        state.lastError = state.startError
       }
       resetState(name)
     })
@@ -204,6 +212,8 @@ export function createLocalServiceManager(deps: LocalServiceManagerDeps) {
       if (await waitForServiceReady(name, SERVICE_READY_TIMEOUT_MS)) {
         state.running = true
         state.ownedByApp = true
+        state.lastError = null
+        state.startError = null
         armIdleTimer(name)
         return { ok: true }
       }
@@ -249,6 +259,8 @@ export function createLocalServiceManager(deps: LocalServiceManagerDeps) {
       inFlightCount: state.inFlightCount,
       idleTimeoutMs: state.idleTimeoutMs,
       idleDeadlineAt: state.idleDeadlineAt,
+      command: state.command,
+      lastError: state.startError ?? state.lastError,
     }
   }
 
@@ -469,6 +481,13 @@ function resolveOllamaCommand(): string | null {
 
   const installedPath = candidates.find((candidate) => path.isAbsolute(candidate) && existsSync(candidate))
   return installedPath ?? candidates[0] ?? null
+}
+
+function resolveServiceCommand(name: LocalServiceName): string | null {
+  if (name === 'ollama') {
+    return resolveOllamaCommand()
+  }
+  return null
 }
 
 async function isServiceReady(url: string): Promise<boolean> {

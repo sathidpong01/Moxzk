@@ -1,4 +1,4 @@
-import { shell, session } from 'electron'
+import { app, shell, session } from 'electron'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { APP_DISPLAY_NAME } from '../../src/config/appIdentity'
@@ -32,13 +32,69 @@ interface LoopbackCallbackServer {
   close(): Promise<void>
 }
 
+interface DesktopCallbackReceiver {
+  callbackUrl: string
+  waitForTicket(): Promise<string>
+  close(): Promise<void>
+}
+
 declare const __MOXZK_WORKER_API_BASE__: string
 
 const DESKTOP_LOGIN_TIMEOUT_MS = 5 * 60 * 1000
+const DESKTOP_AUTH_PROTOCOL = 'moxzk'
+const DESKTOP_AUTH_CALLBACK_HOST = 'auth'
+const DESKTOP_AUTH_CALLBACK_PATH = '/callback'
 
 let activeGoogleLogin: Promise<NativeAuthActionResult> | null = null
 let desktopSessionCookie: DesktopSessionCookie | null = null
 let requestHeaderBridgeInstalled = false
+let customProtocolRegistered = false
+let activeProtocolCallback:
+  | {
+      settled: boolean
+      resolveTicket: (ticket: string) => void
+      rejectTicket: (error: Error) => void
+    }
+  | null = null
+
+export function registerDesktopProtocol(): boolean {
+  const launchArgs = process.defaultApp && process.argv[1]
+    ? [process.argv[1]]
+    : []
+  try {
+    customProtocolRegistered = app.setAsDefaultProtocolClient(
+      DESKTOP_AUTH_PROTOCOL,
+      process.execPath,
+      launchArgs,
+    )
+  } catch {
+    customProtocolRegistered = false
+  }
+  return customProtocolRegistered
+}
+
+export function getCustomProtocolCallbackUrl(callbackPath: string): string | null {
+  if (!customProtocolRegistered) return null
+  const normalizedPath = normalizeCallbackPath(callbackPath)
+  if (normalizedPath !== DESKTOP_AUTH_CALLBACK_PATH) return null
+  return `${DESKTOP_AUTH_PROTOCOL}://${DESKTOP_AUTH_CALLBACK_HOST}${normalizedPath}`
+}
+
+export function consumeDesktopProtocolCallback(rawUrl: string): boolean {
+  const callback = parseDesktopProtocolCallback(rawUrl)
+  if (!callback) return false
+  const pending = activeProtocolCallback
+  if (pending && !pending.settled) {
+    pending.settled = true
+    activeProtocolCallback = null
+    if (callback.ticket) {
+      pending.resolveTicket(callback.ticket)
+    } else {
+      pending.rejectTicket(new Error(callback.error || 'Google login callback did not include a desktop ticket.'))
+    }
+  }
+  return true
+}
 
 export function signInWithGoogleSystemBrowser(): Promise<NativeAuthActionResult> {
   if (activeGoogleLogin) {
@@ -53,18 +109,18 @@ export function signInWithGoogleSystemBrowser(): Promise<NativeAuthActionResult>
 
 async function runGoogleSystemBrowserLogin(): Promise<NativeAuthActionResult> {
   const apiBase = getApiBaseUrl()
-  const loopback = await createLoopbackCallbackServer()
+  const callbackReceiver = await createDesktopCallbackReceiver()
   try {
-    const redirectUrl = await startDesktopGoogleFlow(apiBase, loopback.callbackUrl)
+    const redirectUrl = await startDesktopGoogleFlow(apiBase, callbackReceiver.callbackUrl)
     await shell.openExternal(redirectUrl)
-    const ticket = await withTimeout(loopback.waitForTicket(), DESKTOP_LOGIN_TIMEOUT_MS)
+    const ticket = await withTimeout(callbackReceiver.waitForTicket(), DESKTOP_LOGIN_TIMEOUT_MS)
     const claimed = await claimDesktopTicket(apiBase, ticket)
     await setElectronSessionCookies(apiBase, claimed.cookie)
     return { ok: true }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   } finally {
-    await loopback.close()
+    await callbackReceiver.close()
   }
 }
 
@@ -237,6 +293,39 @@ async function createLoopbackCallbackServer(): Promise<LoopbackCallbackServer> {
   }
 }
 
+async function createDesktopCallbackReceiver(): Promise<DesktopCallbackReceiver> {
+  const customProtocolCallbackUrl = getCustomProtocolCallbackUrl(DESKTOP_AUTH_CALLBACK_PATH)
+  if (customProtocolCallbackUrl) {
+    return createCustomProtocolCallbackReceiver(customProtocolCallbackUrl)
+  }
+  return createLoopbackCallbackServer()
+}
+
+function createCustomProtocolCallbackReceiver(callbackUrl: string): DesktopCallbackReceiver {
+  let resolveTicket: (ticket: string) => void = () => {}
+  let rejectTicket: (error: Error) => void = () => {}
+  const ticketPromise = new Promise<string>((resolve, reject) => {
+    resolveTicket = resolve
+    rejectTicket = reject
+  })
+
+  activeProtocolCallback = {
+    settled: false,
+    resolveTicket,
+    rejectTicket,
+  }
+
+  return {
+    callbackUrl,
+    waitForTicket: () => ticketPromise,
+    close: async () => {
+      if (activeProtocolCallback?.resolveTicket === resolveTicket) {
+        activeProtocolCallback = null
+      }
+    },
+  }
+}
+
 function listenOnLoopback(server: Server): Promise<void> {
   return new Promise((resolve, reject) => {
     server.once('error', reject)
@@ -304,4 +393,26 @@ function getWorkerCallbackOrigin(): string | null {
 
 function normalizeBaseUrl(value: string | undefined): string {
   return (value || '').trim().replace(/\/+$/, '')
+}
+
+function normalizeCallbackPath(value: string): string {
+  const normalized = `/${value}`.replace(/\/+/g, '/')
+  return normalized.endsWith('/') && normalized !== '/'
+    ? normalized.slice(0, -1)
+    : normalized
+}
+
+function parseDesktopProtocolCallback(rawUrl: string): { ticket: string | null; error: string | null } | null {
+  try {
+    const url = new URL(rawUrl)
+    if (url.protocol !== `${DESKTOP_AUTH_PROTOCOL}:`) return null
+    if (url.hostname !== DESKTOP_AUTH_CALLBACK_HOST) return null
+    if (normalizeCallbackPath(url.pathname) !== DESKTOP_AUTH_CALLBACK_PATH) return null
+    return {
+      ticket: url.searchParams.get('ticket'),
+      error: url.searchParams.get('error'),
+    }
+  } catch {
+    return null
+  }
 }

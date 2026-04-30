@@ -8,7 +8,7 @@ import { Badge, Button, Field, Modal, SelectField } from '../ui/primitives'
 
 interface FontConfigPageProps {
   moodMap: FontMoodMap
-  onSave: (moodMap: FontMoodMap) => void
+  onSave: (moodMap: FontMoodMap) => void | Promise<void>
   isOpen: boolean
   onClose: () => void
 }
@@ -67,8 +67,8 @@ export default function FontConfigPage({
     }
   }, [])
 
-  const handleSave = () => {
-    onSave(draft)
+  const handleSave = async () => {
+    await onSave(draft)
     onClose()
     toast.success('บันทึกการตั้งค่าฟอนต์เรียบร้อย')
   }

@@ -12,7 +12,6 @@ Root: `Moxzk`
 |   |-- sessions/
 |   |   `-- .gitkeep
 |   |-- topics/
-|   |   |-- codex-llm-wiki.md
 |   |   `-- service-overview.md
 |   |-- workflows/
 |   |   |-- dev.md
@@ -21,93 +20,17 @@ Root: `Moxzk`
 |   |-- AGENTS.md
 |   `-- team.md
 |-- .claude/
+|-- .codex/
+|   |-- config.toml
+|   `-- hooks.json
 |-- .cursor/
 |   `-- rules/
 |       `-- moxzk-skills.mdc
-|-- .obsidian/
-|   |-- app.json
-|   |-- appearance.json
-|   |-- bookmarks.json
-|   |-- core-plugins.json
-|   `-- workspace.json
 |-- .windsurf/
 |   `-- workflows/
 |       |-- dev.md
 |       |-- review.md
 |       `-- skills.md
-|-- _codex/
-|   |-- browser-check/
-|   |   |-- artifacts/
-|   |   |   |-- bubble-layout-check/
-|   |   |   |   |-- trial-100.png
-|   |   |   |   |-- verify-zoom-100.png
-|   |   |   |   |-- verify-zoom-150.png
-|   |   |   |   |-- verify-zoom-35.png
-|   |   |   |   |-- zoom-100-selected.png
-|   |   |   |   |-- zoom-150-selected.png
-|   |   |   |   `-- zoom-35.png
-|   |   |   |-- bubble-layout-polish/
-|   |   |   |   |-- hud-closed.png
-|   |   |   |   |-- hud-menu-open-polished.png
-|   |   |   |   `-- hud-menu-open.png
-|   |   |   `-- expand-box-fix/
-|   |   |       |-- after-expand.png
-|   |   |       `-- before-expand.png
-|   |   |-- export-destination-check.png
-|   |   |-- package.json
-|   |   |-- sample-export.png
-|   |   |-- windows-frameless-integrated.png
-|   |   `-- windows-unified-studio-chrome.png
-|   |-- browser-smoke/
-|   |   |-- downloads/
-|   |   |   |-- failure-1777189648539.png
-|   |   |   |-- failure-1777189791456.png
-|   |   |   |-- failure-1777189968306.png
-|   |   |   |-- failure-1777190113397.png
-|   |   |   `-- page-1.zip
-|   |   `-- sample-page.png
-|   |-- artistic-frame-browser-check.png
-|   |-- artistic-frame-resize-browser-check.png
-|   |-- artistic-free-browser-check.png
-|   |-- current-task.md
-|   |-- dashboard.md
-|   |-- decisions.md
-|   |-- handoff.md
-|   |-- inbox.md
-|   |-- inline-font-measure-after-fix.png
-|   |-- inline-font-measure-before-fix.png
-|   `-- README.md
-|-- _wiki/
-|   |-- concepts/
-|   |   |-- .gitkeep
-|   |   |-- codex-first-llm-wiki.md
-|   |   |-- konva-ai-documentation.md
-|   |   `-- konva-image-dragging.md
-|   |-- entities/
-|   |   `-- .gitkeep
-|   |-- outputs/
-|   |   `-- .gitkeep
-|   |-- raw/
-|   |   |-- .gitkeep
-|   |   `-- Getting Started with Konva — HTML5 Canvas 2D Framework  Konva - JavaScript Canvas 2d Library.md
-|   |-- sources/
-|   |   |-- .gitkeep
-|   |   |-- 2026-04-23-karpathy-llm-wiki-note.md
-|   |   |-- 2026-04-25-konva-ai-tools.md
-|   |   `-- 2026-04-25-konva-drag-image.md
-|   |-- AGENTS.md
-|   |-- index.md
-|   |-- log.md
-|   |-- podcast.md
-|   `-- README.md
-|-- Clippings/
-|   |-- How to use portals in react-konva  Konva - JavaScript Canvas 2d Library.md
-|   |-- HTML5 Canvas All Konva performance tips list  Konva - JavaScript Canvas 2d Library.md
-|   |-- HTML5 Canvas Drag and Drop an Image  Konva - JavaScript Canvas 2d Library.md
-|   |-- HTML5 Canvas Drag and Drop Tutorial  Konva - JavaScript Canvas 2d Library.md
-|   |-- HTML5 Canvas Optimize Strokes Performance Tip  Konva - JavaScript Canvas 2d Library.md
-|   |-- HTML5 Canvas Set Shape Opacity Tutorial  Konva - JavaScript Canvas 2d Library.md
-|   `-- HTML5 Canvas Set Shape Stroke Color and Width Tutorial  Konva - JavaScript Canvas 2d Library.md
 |-- docs/
 |   |-- electron/
 |   |   |-- desktop-smoke-test.md
@@ -129,10 +52,14 @@ Root: `Moxzk`
 |   `-- 0003_gray_lucky_pierre.sql
 |-- electron/
 |   |-- main/
+|   |   |-- appPaths.ts
 |   |   |-- desktopAuth.ts
 |   |   |-- index.ts
 |   |   |-- ipc.ts
-|   |   `-- localServices.ts
+|   |   |-- localServices.ts
+|   |   |-- panelCleanerDependency.ts
+|   |   |-- secureStore.ts
+|   |   `-- secureStoreCore.ts
 |   |-- preload/
 |   |   `-- index.ts
 |   `-- shared/
@@ -144,8 +71,8 @@ Root: `Moxzk`
 |   |   `-- index.cjs
 |   `-- renderer/
 |       |-- assets/
-|       |   |-- index-Ccc7VQFX.js
-|       |   `-- index-DNAzDw0T.css
+|       |   |-- index-BQl9r3Nx.css
+|       |   `-- index-InHCoBtk.js
 |       |-- index.html
 |       `-- vite.svg
 |-- public/
@@ -163,6 +90,7 @@ Root: `Moxzk`
 |   |-- codex-cloud-setup.sh
 |   |-- d1-schema.test.mjs
 |   |-- desktop-oauth.test.mjs
+|   |-- desktop-secure-store.test.mjs
 |   |-- editor-history-service.test.mjs
 |   |-- editor-model.test.mjs
 |   |-- editor-processing-ui.test.mjs
@@ -321,6 +249,7 @@ Root: `Moxzk`
 |   `-- vite-env.d.ts
 |-- .diff.txt
 |-- .gitignore
+|-- .graphifyignore
 |-- .npmrc
 |-- .store_new.ts
 |-- .store_old.ts

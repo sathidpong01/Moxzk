@@ -23,8 +23,8 @@ export class ElectronRuntime implements AppRuntime {
   readonly capabilities = {
     canStartLocalServices: true,
     canPickNativeFolders: true,
-    canSecureStoreSecrets: false,
-    canUseCustomProtocolAuth: false,
+    canSecureStoreSecrets: true,
+    canUseCustomProtocolAuth: true,
     canUseCustomWindowControls: true,
   }
 
@@ -125,14 +125,41 @@ export class ElectronRuntime implements AppRuntime {
     signInWithGoogle: async () => unwrapNativeResult(await this.bridge.auth.signInWithGoogle()),
   }
 
+  readonly app = {
+    getVersion: async (): Promise<string> => unwrapNativeResult(await this.bridge.app.getVersion()),
+    openLogs: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.app.openLogs()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
+    openSettingsFolder: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.app.openSettingsFolder()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
+    openDraftsFolder: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.app.openDraftsFolder()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
+  }
+
   readonly secureStore = {
-    getSecret: async () => null,
-    setSecret: () => unsupportedRuntimeAction('Electron V1 does not provide secure secret storage yet.'),
-    deleteSecret: () => unsupportedRuntimeAction('Electron V1 does not provide secure secret storage yet.'),
+    getSecret: async (key: string) => unwrapNativeResult(await this.bridge.secureStore.getSecret(key)),
+    setSecret: async (key: string, value: string): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.secureStore.setSecret(key, value)
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
+    deleteSecret: async (key: string): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.secureStore.deleteSecret(key)
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
   }
 
   readonly customProtocolAuth = {
-    getCallbackUrl: async () => null,
+    getCallbackUrl: async (callbackPath: string) => unwrapNativeResult(await this.bridge.customProtocolAuth.getCallbackUrl(callbackPath)),
   }
 
   readonly windowControls = {
@@ -188,10 +215,6 @@ async function toNativeFilePayload(file: RuntimeExportFile): Promise<NativeFileP
     type: file.blob.type || 'application/octet-stream',
     data: await file.blob.arrayBuffer(),
   }
-}
-
-async function unsupportedRuntimeAction(error: string): Promise<RuntimeActionResult> {
-  return { ok: false, error }
 }
 
 async function unwrapNativeResult<T>(result: NativeResult<T>): Promise<T> {

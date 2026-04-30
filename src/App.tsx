@@ -315,7 +315,7 @@ function App() {
       />
       <FontConfigPage
         moodMap={store.settings.fontMoodMap}
-        onSave={(moodMap) => store.setSettings({ ...store.settings, fontMoodMap: moodMap })}
+        onSave={async (moodMap) => store.setSettings({ ...store.settings, fontMoodMap: moodMap })}
         isOpen={store.showFontConfig}
         onClose={() => store.toggleFontConfig(false)}
       />

@@ -58,6 +58,8 @@ export class WebRuntime implements AppRuntime {
         inFlightCount: 0,
         idleTimeoutMs: null,
         idleDeadlineAt: null,
+        command: null,
+        lastError: null,
       },
       ollama: {
         running: false,
@@ -65,6 +67,8 @@ export class WebRuntime implements AppRuntime {
         inFlightCount: 0,
         idleTimeoutMs: null,
         idleDeadlineAt: null,
+        command: null,
+        lastError: null,
       },
     }),
     getPanelCleanerDependencyStatus: async () => ({
@@ -85,6 +89,13 @@ export class WebRuntime implements AppRuntime {
 
   readonly auth = {
     signInWithGoogle: signInWithGoogleInBrowser,
+  }
+
+  readonly app = {
+    getVersion: async (): Promise<string> => 'web',
+    openLogs: () => unsupportedRuntimeAction('Web runtime does not expose native app logs.'),
+    openSettingsFolder: () => unsupportedRuntimeAction('Web runtime does not expose native settings folders.'),
+    openDraftsFolder: () => unsupportedRuntimeAction('Web runtime does not expose native draft folders.'),
   }
 
   readonly secureStore = {

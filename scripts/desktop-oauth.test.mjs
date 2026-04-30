@@ -16,15 +16,17 @@ async function loadViteModule(path) {
   }
 }
 
-test('desktop oauth accepts only loopback callback URLs with random ports', async () => {
+test('desktop oauth accepts custom protocol callbacks and loopback fallbacks', async () => {
   const { isDesktopRedirectTarget } = await loadViteModule('/src/worker/auth.ts')
 
+  assert.equal(isDesktopRedirectTarget('moxzk://auth/callback'), true)
   assert.equal(isDesktopRedirectTarget('http://127.0.0.1:49231/auth/callback'), true)
   assert.equal(isDesktopRedirectTarget('http://[::1]:49231/auth/callback'), true)
   assert.equal(isDesktopRedirectTarget('http://127.0.0.1/auth/callback'), false)
   assert.equal(isDesktopRedirectTarget('https://127.0.0.1:49231/auth/callback'), false)
   assert.equal(isDesktopRedirectTarget('http://localhost:49231/auth/callback'), false)
   assert.equal(isDesktopRedirectTarget('http://127.0.0.1:49231/other'), false)
+  assert.equal(isDesktopRedirectTarget('moxzk://auth/other'), false)
   assert.equal(isDesktopRedirectTarget('https://evil.example/auth/callback'), false)
 })
 

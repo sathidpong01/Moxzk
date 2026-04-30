@@ -11,7 +11,6 @@ Moxzk uses Konva/react-konva for the canvas editor, local PanelCleaner and Ollam
 - [Active project state](.agents/active.md): current task state and next action
 - [Agent team](.agents/team.md): specialist roles, ownership boundaries, and routing rules
 - [Repo tree](.agents/index/repo-tree.md): generated project map
-- [Codex wiki](./_wiki/README.md): local LLM-readable knowledge base
 - [Codex cloud environment](docs/codex-cloud-environment.md): setup script, environment variables, and cloud limitations
 
 ## Architecture
@@ -22,8 +21,6 @@ Moxzk uses Konva/react-konva for the canvas editor, local PanelCleaner and Ollam
 ## Konva And Canvas
 
 - [Konva AI docs for this repo](docs/llm/konva.md): official Konva AI resources, MCP command, and repo-specific canvas rules
-- [Konva image dragging concept](./_wiki/concepts/konva-image-dragging.md): local distilled guidance for draggable images
-- [Konva drag image source](./_wiki/sources/2026-04-25-konva-drag-image.md): ingested Konva clipping summary
 
 Official Konva LLM-readable sources:
 
@@ -47,6 +44,4 @@ Official Konva LLM-readable sources:
 - Read `AGENTS.md` and `.agents/AGENTS.md` first.
 - For multi-agent work, read `.agents/team.md` before splitting ownership.
 - For Konva/canvas work, read `docs/llm/konva.md` before changing editor interaction code.
-- For research or repeated questions, read `_wiki/podcast.md`, `_wiki/index.md`, then only relevant wiki pages.
-- Treat `Clippings/` as local-only raw Web Clipper source material.
 - Preserve Thai text as UTF-8.
