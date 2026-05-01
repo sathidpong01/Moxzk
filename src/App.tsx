@@ -330,7 +330,7 @@ function App() {
           <p className="text-sm leading-6 text-[var(--moxzk-muted)]">
             {aiConfirmTarget === 'batch'
               ? 'ระบบจะคลีนและแปลทุกหน้าที่ยังไม่เสร็จ ถ้าหยุดระหว่างทางจะหยุดหลังหน้าปัจจุบันเสร็จ'
-              : 'ระบบจะคลีน OCR และแปลหน้าที่เลือกอยู่ตอนนี้ ระหว่างทำงานสามารถกดยกเลิกงานนี้ได้'}
+              : 'ระบบจะลบข้อความเดิม อ่านข้อความในภาพ และแปลหน้าที่เลือกอยู่ตอนนี้ ระหว่างทำงานสามารถกดยกเลิกงานนี้ได้'}
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setAiConfirmTarget(null)}>
@@ -345,7 +345,7 @@ function App() {
       <Modal
         isOpen={batchStopConfirmOpen}
         onClose={() => setBatchStopConfirmOpen(false)}
-        title="ยืนยันหยุด Batch AI"
+        title="ยืนยันหยุดแปลหลายหน้า"
       >
         <div className="space-y-4">
           <p className="text-sm leading-6 text-[var(--moxzk-muted)]">
@@ -374,7 +374,7 @@ function App() {
       >
         <div className="space-y-4">
           <p className="text-sm leading-6 text-[var(--moxzk-muted)]">
-            รูปและการแก้ไขที่ยังไม่ได้บันทึกจะถูกนำออกจาก canvas แล้วกลับไปหน้าอัปโหลด
+            รูปและการแก้ไขที่ยังไม่ได้บันทึกจะถูกนำออกจากพื้นที่แก้ไข แล้วกลับไปหน้าอัปโหลด
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setClearProjectConfirmOpen(false)}>

@@ -257,7 +257,7 @@ export default function FloatingInspector({
                   onClick={onOpenOcr}
                 >
                   <FileSearch size={12} />
-                  ตรวจ OCR
+                  ตรวจข้อความ
                 </Button>
                 <Button
                   variant="ghost"
@@ -285,7 +285,7 @@ export default function FloatingInspector({
               <div className="flex flex-wrap gap-2">
                 <Button variant={panels.logs ? 'primary' : 'ghost'} size="sm" onClick={() => store.togglePanel('logs')}>
                   <ScrollText size={12} />
-                  บันทึกระบบ
+                  รายงานการทำงาน
                 </Button>
                 <Button variant={panels.resource ? 'primary' : 'ghost'} size="sm" onClick={() => store.togglePanel('resource')}>
                   <Cpu size={12} />

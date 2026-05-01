@@ -22,11 +22,14 @@ interface AlbumStore {
   loading: boolean
   showAlbumModal: boolean
   saveMode: boolean
+  pendingOpenAlbumId: string | null
 
   setShowAlbumModal: (show: boolean) => void
   setSaveMode: (save: boolean) => void
   openForSave: () => void
   openForBrowse: () => void
+  openAlbumById: (albumId: string) => void
+  consumePendingOpenAlbumId: () => string | null
   setCurrentAlbum: (album: Album | null) => void
 
   fetchAlbums: () => Promise<void>
@@ -57,11 +60,18 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
   loading: false,
   showAlbumModal: false,
   saveMode: false,
+  pendingOpenAlbumId: null,
 
   setShowAlbumModal: (show) => set({ showAlbumModal: show }),
   setSaveMode: (save) => set({ saveMode: save }),
-  openForSave: () => set({ showAlbumModal: true, saveMode: true }),
-  openForBrowse: () => set({ showAlbumModal: true, saveMode: false }),
+  openForSave: () => set({ showAlbumModal: true, saveMode: true, pendingOpenAlbumId: null }),
+  openForBrowse: () => set({ showAlbumModal: true, saveMode: false, pendingOpenAlbumId: null }),
+  openAlbumById: (albumId) => set({ showAlbumModal: true, saveMode: false, pendingOpenAlbumId: albumId }),
+  consumePendingOpenAlbumId: () => {
+    const albumId = get().pendingOpenAlbumId
+    set({ pendingOpenAlbumId: null })
+    return albumId
+  },
   setCurrentAlbum: (album) => set({ currentAlbum: album }),
 
   fetchAlbums: async () => {

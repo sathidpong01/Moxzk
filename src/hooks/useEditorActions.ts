@@ -133,13 +133,13 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
       (retryFailedOnly ? entry.status === 'error' : entry.status !== 'done') && !entry.file
     ))
     if (missingFiles.length > 0) {
-      toast.warning('บางหน้ามีแค่ข้อมูลจาก cloud และยังไม่ได้โหลดรูปเต็ม ให้คลิกโหลดหน้านั้นก่อนถ้าต้องการ batch')
+      toast.warning('บางหน้ายังไม่ได้โหลดรูปเต็ม ให้คลิกโหลดหน้านั้นก่อนถ้าต้องการแปลหลายหน้า')
     }
     stopBatchRef.current = false
     setIsBatchProcessing(true)
     setBatchStatus(null)
     state.clearLogs()
-    state.addLog(`Batch AI: เริ่ม ${retryFailedOnly ? 'หน้าที่พลาด' : 'ทุกหน้า'}`)
+    state.addLog(`AI แปลหลายหน้า: เริ่ม${retryFailedOnly ? 'เฉพาะหน้าที่พลาด' : 'ทุกหน้า'}`)
 
     const needsClean = entries.some((entry) =>
       (retryFailedOnly ? entry.status === 'error' : entry.status !== 'done') &&
@@ -181,9 +181,9 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
         onBatchProgress: setBatchStatus,
         onLog: (message) => useAppStore.getState().addLog(`[${new Date().toLocaleTimeString()}] ${message}`),
       })
-      toast.success('Batch AI เสร็จแล้ว')
+      toast.success('แปลหลายหน้าเสร็จแล้ว')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Batch AI ล้มเหลว')
+      toast.error(error instanceof Error ? error.message : 'แปลหลายหน้าไม่สำเร็จ')
     } finally {
       setIsBatchProcessing(false)
       setBatchStatus((current) => current ? { ...current, progress: current.phase === 'done' ? 100 : current.progress } : null)

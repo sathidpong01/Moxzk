@@ -27,12 +27,14 @@ interface DesktopSessionCookie {
 }
 
 interface LoopbackCallbackServer {
+  kind: 'loopback'
   callbackUrl: string
   waitForTicket(): Promise<string>
   close(): Promise<void>
 }
 
 interface DesktopCallbackReceiver {
+  kind: 'custom-protocol' | 'loopback'
   callbackUrl: string
   waitForTicket(): Promise<string>
   close(): Promise<void>
@@ -109,9 +111,19 @@ export function signInWithGoogleSystemBrowser(): Promise<NativeAuthActionResult>
 
 async function runGoogleSystemBrowserLogin(): Promise<NativeAuthActionResult> {
   const apiBase = getApiBaseUrl()
-  const callbackReceiver = await createDesktopCallbackReceiver()
+  let callbackReceiver = await createDesktopCallbackReceiver()
   try {
-    const redirectUrl = await startDesktopGoogleFlow(apiBase, callbackReceiver.callbackUrl)
+    let redirectUrl: string
+    try {
+      redirectUrl = await startDesktopGoogleFlow(apiBase, callbackReceiver.callbackUrl)
+    } catch (error) {
+      if (callbackReceiver.kind !== 'custom-protocol' || !shouldRetryWithLoopbackCallback(error)) {
+        throw error
+      }
+      await callbackReceiver.close()
+      callbackReceiver = await createLoopbackCallbackServer()
+      redirectUrl = await startDesktopGoogleFlow(apiBase, callbackReceiver.callbackUrl)
+    }
     await shell.openExternal(redirectUrl)
     const ticket = await withTimeout(callbackReceiver.waitForTicket(), DESKTOP_LOGIN_TIMEOUT_MS)
     const claimed = await claimDesktopTicket(apiBase, ticket)
@@ -287,6 +299,7 @@ async function createLoopbackCallbackServer(): Promise<LoopbackCallbackServer> {
   const address = server.address() as AddressInfo
   callbackBase = `http://127.0.0.1:${address.port}`
   return {
+    kind: 'loopback',
     callbackUrl: `${callbackBase}/auth/callback`,
     waitForTicket: () => ticketPromise,
     close: () => closeServer(server),
@@ -316,6 +329,7 @@ function createCustomProtocolCallbackReceiver(callbackUrl: string): DesktopCallb
   }
 
   return {
+    kind: 'custom-protocol',
     callbackUrl,
     waitForTicket: () => ticketPromise,
     close: async () => {
@@ -324,6 +338,11 @@ function createCustomProtocolCallbackReceiver(callbackUrl: string): DesktopCallb
       }
     },
   }
+}
+
+function shouldRetryWithLoopbackCallback(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return /Desktop redirect target|Redirect target is not allowed/i.test(error.message)
 }
 
 function listenOnLoopback(server: Server): Promise<void> {

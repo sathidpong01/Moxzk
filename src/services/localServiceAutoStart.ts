@@ -41,8 +41,8 @@ export async function autoStartRequiredLocalServices({
   if (needsCleanup && isLocalServiceUrl(settings.panelCleanerBridgeUrl)) {
     const panelCleanerResult = await startService({
       service: 'panelcleaner',
-      loadingMessage: 'กำลังเริ่ม PanelCleaner bridge…',
-      successMessage: 'PanelCleaner bridge พร้อมใช้งาน',
+      loadingMessage: 'กำลังเริ่มตัวลบข้อความ…',
+      successMessage: 'ตัวลบข้อความพร้อมใช้งาน',
       failurePrefix: 'PanelCleaner',
       start: () => runtime.localServices.startPanelCleanerBridge(),
       reporter,
@@ -57,10 +57,10 @@ export async function autoStartRequiredLocalServices({
     if (!cleanerStatus.ok) {
       const error = [
         cleanerStatus.error ?? 'PanelCleaner ยังไม่พร้อมใช้งาน',
-        'เปิด Settings > Cleanup แล้วกดติดตั้ง PanelCleaner หรือซ่อม PanelCleaner',
+        'เปิด Settings > ลบข้อความ แล้วกดติดตั้ง PanelCleaner หรือซ่อม PanelCleaner',
       ].filter(Boolean).join(' ')
       reporter?.onError?.('panelcleaner', `PanelCleaner: ${error}`)
-      reporter?.onLog?.(`PanelCleaner setup required: ${error}`)
+      reporter?.onLog?.(`ต้องตั้งค่า PanelCleaner: ${error}`)
       return { ok: false, error }
     }
   }

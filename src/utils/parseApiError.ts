@@ -70,10 +70,10 @@ export function parseApiError(raw: string): ParsedError {
         : 'เชื่อมต่อ Ollama ไม่ได้ — เปิด Ollama app หรือรัน ollama serve แล้วลองใหม่'
     } else if (lower.includes('panelcleaner') || lower.includes('5055')) {
       result.shortMessage = lower.includes('timed out') || lower.includes('timeout')
-        ? 'PanelCleaner bridge ตอบช้าเกินเวลา — bridge เปิดอยู่แต่ CLI อาจยังไม่พร้อม'
-        : 'เชื่อมต่อ PanelCleaner bridge ไม่ได้ — รัน npm run backend:panelcleaner แล้วลองใหม่'
+        ? 'ตัวลบข้อความตอบช้าเกินเวลา — อาจกำลังเปิดหรือยังไม่พร้อม'
+        : 'เชื่อมต่อตัวลบข้อความไม่ได้ — เปิด Settings > ลบข้อความ แล้วลองติดตั้งหรือเริ่มใหม่'
     } else {
-      result.shortMessage = 'เชื่อมต่อ Server ไม่ได้ — ตรวจสอบ PanelCleaner bridge'
+      result.shortMessage = 'เชื่อมต่อไม่ได้ — ตรวจสอบตัวช่วยลบข้อความ'
     }
   }
 

@@ -837,7 +837,7 @@ export async function pullOllamaModel(options: OllamaPullOptions): Promise<Ollam
 
   const url = normalizeOllamaBaseUrl(options.ollamaUrl)
   if (isOllamaCloudUrl(url)) {
-    throw new Error('การติดตั้งโมเดลในเครื่องรองรับเฉพาะ Local Ollama endpoint')
+    throw new Error('การติดตั้งโมเดลในเครื่องรองรับเฉพาะ Ollama ที่เปิดบนเครื่องนี้')
   }
 
   const res = await withLocalServiceUsage('ollama', () =>

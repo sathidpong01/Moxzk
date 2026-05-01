@@ -1163,8 +1163,8 @@ export default function ArtboardWorkspace({
           <div className="space-y-4">
             <p className="text-sm text-[var(--moxzk-muted)]">
               {pendingDeleteEntry?.albumPageId
-                ? `หน้า ${pendingDeleteEntry.pageNumber ?? '?'} จะถูกลบออกจากอัลบั้มและ canvas ถาวร`
-                : `หน้า ${pendingDeleteEntry?.pageNumber ?? '?'} จะถูกลบออกจาก canvas นี้`}
+                ? `หน้า ${pendingDeleteEntry.pageNumber ?? '?'} จะถูกลบออกจากอัลบั้มและพื้นที่แก้ไขถาวร`
+                : `หน้า ${pendingDeleteEntry?.pageNumber ?? '?'} จะถูกลบออกจากพื้นที่แก้ไขนี้`}
             </p>
             <div className="flex justify-end gap-2">
               <Button

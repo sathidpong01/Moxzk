@@ -15,16 +15,16 @@ test('settings modal is sized as a desktop workspace', () => {
 })
 
 test('settings exposes a zero-knowledge Ollama model tutorial', () => {
-  assert.match(source, /AI \/ Models/)
+  assert.match(source, /AI แปลภาษา/)
   assert.match(source, /ดาวน์โหลด Ollama/)
   assert.match(source, /https:\/\/ollama\.com\/download\/windows/)
   assert.match(source, /name: 'gemma3:4b'/)
   assert.match(source, /`ollama pull \$\{model\}`/)
   assert.match(source, /ติดตั้งในเครื่องนี้/)
   assert.match(source, /คัดลอกคำสั่ง/)
-  assert.match(source, /Electron/)
-  assert.match(source, /หยุด local services ที่แอปเปิดไว้/)
-  assert.match(source, /สถานะที่แอปจัดการ/)
+  assert.match(source, /แอปเดสก์ท็อป/)
+  assert.match(source, /หยุดโปรแกรมช่วยทำงานที่แอปเปิดไว้/)
+  assert.match(source, /สถานะในเครื่อง/)
 })
 
 test('settings keeps translation guidance separate from model setup', () => {

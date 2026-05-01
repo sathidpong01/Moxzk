@@ -50,7 +50,7 @@ export interface ProcessingViewStatus {
 
 const STEPS: { id: PipelineStep; label: string; icon: typeof Search }[] = [
   { id: 'detection', label: 'คลีน', icon: Search },
-  { id: 'ocr', label: 'OCR', icon: FileText },
+  { id: 'ocr', label: 'อ่านข้อความ', icon: FileText },
   { id: 'inpainting', label: 'ภาพคลีน', icon: Paintbrush },
   { id: 'translating', label: 'แปล', icon: Languages },
   { id: 'done', label: 'เสร็จ', icon: CheckCircle2 },
@@ -155,7 +155,7 @@ export default function ProcessingView({
           },
         })
         if (!startupResult.ok) {
-          throw new Error(startupResult.error ?? 'ไม่สามารถเริ่ม local services ได้')
+          throw new Error(startupResult.error ?? 'ไม่สามารถเริ่มโปรแกรมช่วยทำงานในเครื่องได้')
         }
 
         // Smart retry: skip cleanup backend if we already have OCR/cleaned results

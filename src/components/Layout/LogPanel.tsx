@@ -19,10 +19,10 @@ export default function LogPanel({ logs }: { logs: string[] }) {
   return (
     <div className="floating-panel-sm flex h-full min-h-0 flex-col p-2">
       <h3 className="mb-1 shrink-0 text-xs font-bold uppercase tracking-wider text-[var(--moxzk-muted)]">
-        บันทึกระบบ ({logs.length})
+        รายงานการทำงาน ({logs.length})
       </h3>
       {logs.length === 0 && (
-        <p className="py-4 text-center text-xs text-[var(--moxzk-dim)]">ยังไม่มีบันทึกระบบ กด AI แปลเพื่อเริ่ม</p>
+        <p className="py-4 text-center text-xs text-[var(--moxzk-dim)]">ยังไม่มีรายงาน กด AI แปลเพื่อเริ่ม</p>
       )}
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto font-mono text-xs">
         {logs.map((log, i) => (

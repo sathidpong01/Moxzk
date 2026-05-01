@@ -449,4 +449,6 @@ Installed skills that are relevant to this project:
 
 ## License
 
-MIT
+Moxzk source code is licensed under the MIT License. See [LICENSE](./LICENSE).
+
+The MIT license applies to the app source code and project documentation unless a file states a different license. It does not cover the Moxzk name/logo/branding, manga images, translated pages, user files, Magga website content, third-party tools, model artifacts, or external services. See [NOTICE.md](./NOTICE.md) for the current rights and third-party dependency boundary.

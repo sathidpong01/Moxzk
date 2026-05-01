@@ -612,8 +612,8 @@ export default function ExportDrawer({
                       />
                       <p className="text-xs leading-5 text-[var(--moxzk-muted)]">
                         {exportDestination === 'folder'
-                          ? 'Chrome จะขอสิทธิ์อ่านและแก้ไขโฟลเดอร์ก่อนบันทึกหลายไฟล์'
-                          : 'บันทึกเป็นไฟล์เดียว ไม่ต้องให้สิทธิ์โฟลเดอร์กับ browser'}
+                          ? 'ระบบจะขอสิทธิ์เลือกโฟลเดอร์ก่อนบันทึกหลายไฟล์'
+                          : 'บันทึกเป็นไฟล์เดียว ไม่ต้องเลือกโฟลเดอร์ปลายทาง'}
                       </p>
                     </Field>
 

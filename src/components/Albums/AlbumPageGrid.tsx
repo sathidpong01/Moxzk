@@ -121,7 +121,7 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
       {editMode && (
         <div className="mb-4 rounded-[12px] border border-yellow-300/20 bg-yellow-300/8 px-3 py-2.5">
           <p className="text-xs font-medium text-yellow-100">
-            โหมดแก้ไข: ลาก thumbnail เพื่อเรียงหน้าใหม่ หรือใช้ปุ่มลูกศรเป็นทางเลือก
+            โหมดแก้ไข: ลากรูปตัวอย่างเพื่อเรียงหน้าใหม่ หรือใช้ปุ่มลูกศรเป็นทางเลือก
           </p>
         </div>
       )}

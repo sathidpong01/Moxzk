@@ -46,3 +46,13 @@ test('worker desktop oauth uses one-time tickets instead of session tokens in br
   assert.match(auth, /sessionCookieName\(ctx\)/)
   assert.doesNotMatch(auth, /redirectUrl\.searchParams\.set\('session'/)
 })
+
+test('Electron Google login retries loopback when custom protocol is rejected', () => {
+  const desktopAuth = fs.readFileSync('electron/main/desktopAuth.ts', 'utf8')
+
+  assert.match(desktopAuth, /kind: 'custom-protocol'/)
+  assert.match(desktopAuth, /kind: 'loopback'/)
+  assert.match(desktopAuth, /shouldRetryWithLoopbackCallback\(error\)/)
+  assert.match(desktopAuth, /callbackReceiver = await createLoopbackCallbackServer\(\)/)
+  assert.match(desktopAuth, /Desktop redirect target\|Redirect target is not allowed/)
+})

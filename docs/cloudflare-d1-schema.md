@@ -24,8 +24,10 @@ Users are stored in `users`. Login methods are stored in `auth_identities` so on
 - Google account linking is by verified Google email only.
 - Password hashes use Web Crypto PBKDF2 SHA-256 with per-identity salt and `100000` iterations, which is the Cloudflare Workers runtime limit.
 - Session cookies are HttpOnly, Secure, SameSite=Lax.
+- Auth abuse protection stores only hashed attempt metadata in `auth_attempts` and coarse audit rows in `security_events`.
 - Email/password registration marks the email as verified immediately.
 - Email verification and email-based password reset are disabled in the current app build, so Resend is not required.
+- Profile/account management is documented in `docs/auth-profile-security.md`.
 
 ## Storage Model
 

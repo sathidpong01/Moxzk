@@ -92,11 +92,11 @@ export async function processImageWithPanelCleaner(
   options: PanelCleanerOptions = {},
   onProgress?: (progress: StreamProgress) => void,
 ): Promise<TranslatorResponse> {
-  onProgress?.({ status: 'progress', message: 'PanelCleaner: preparing image' })
+  onProgress?.({ status: 'progress', message: 'กำลังเตรียมรูปสำหรับลบข้อความ' })
 
   const res = await withLocalServiceUsage('panelcleaner', () =>
     runWithRequestTimeout(
-      { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
+      { label: 'PanelCleaner', signal: options.signal, timeoutMs: options.timeoutMs },
       async (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/process`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,13 +118,13 @@ export async function processImageWithPanelCleaner(
   data.logs?.forEach((message) => onProgress?.({ status: 'progress', message: `PanelCleaner: ${message}` }))
 
   if (!data.cleanedImageBase64) {
-    throw new Error('PanelCleaner bridge did not return a cleaned image')
+    throw new Error('PanelCleaner ไม่ได้ส่งรูปที่ลบข้อความแล้วกลับมา')
   }
 
   const cleanedImageBlob = base64ToBlob(data.cleanedImageBase64, data.cleanedImageMimeType || 'image/png')
   const regions = data.ocrCsv ? parsePanelCleanerOcrCsv(data.ocrCsv) : []
 
-  onProgress?.({ status: 'progress', message: `PanelCleaner: cleaned image ready${regions.length ? `, OCR ${regions.length} regions` : ''}` })
+  onProgress?.({ status: 'progress', message: `ลบข้อความเสร็จ${regions.length ? ` พบข้อความ ${regions.length} จุด` : ''}` })
   return { cleanedImageBlob, regions }
 }
 
@@ -134,11 +134,11 @@ export async function processImagesWithPanelCleanerBatch(
   onProgress?: (progress: StreamProgress) => void,
 ): Promise<PanelCleanerBatchResult[]> {
   if (images.length === 0) return []
-  onProgress?.({ status: 'progress', message: `PanelCleaner: preparing ${images.length} images` })
+  onProgress?.({ status: 'progress', message: `กำลังเตรียมรูป ${images.length} หน้าเพื่อลบข้อความ` })
 
   const res = await withLocalServiceUsage('panelcleaner', () =>
     runWithRequestTimeout(
-      { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
+      { label: 'PanelCleaner', signal: options.signal, timeoutMs: options.timeoutMs },
       async (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,7 +176,7 @@ export async function getPanelCleanerStatus(options: PanelCleanerOptions = {}): 
   try {
     const res = await withLocalServiceUsage('panelcleaner', () =>
       runWithRequestTimeout(
-        { label: 'PanelCleaner bridge', signal: options.signal, timeoutMs: options.timeoutMs },
+        { label: 'PanelCleaner', signal: options.signal, timeoutMs: options.timeoutMs },
         (signal) => fetch(`${getPanelCleanerBridgeUrl(options.bridgeUrl)}/panelcleaner/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -197,7 +197,7 @@ export async function getPanelCleanerStatus(options: PanelCleanerOptions = {}): 
     return {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
-      installHint: 'Start the bridge with npm run backend:panelcleaner and install PanelCleaner with pip install pcleaner-cli',
+      installHint: 'เปิด Settings > ลบข้อความ แล้วกดติดตั้ง PanelCleaner หรือซ่อม PanelCleaner',
     }
   }
 }
@@ -286,14 +286,14 @@ function parseCsvRows(csv: string): string[][] {
 async function readBridgeResponse(res: Response): Promise<PanelCleanerBridgeResponse & { version?: string; installHint?: string }> {
   const data = await readBridgeJson(res)
   if (!res.ok && data.error) throw new Error(data.error)
-  if (!res.ok) throw new Error(`PanelCleaner bridge failed: ${res.status}`)
+  if (!res.ok) throw new Error(`PanelCleaner ทำงานไม่สำเร็จ (${res.status})`)
   return data
 }
 
 async function readBridgeBatchResponse(res: Response): Promise<PanelCleanerBatchBridgeResponse> {
   const data = await readBridgeJson(res) as PanelCleanerBatchBridgeResponse
   if (!res.ok && data.error) throw new Error(data.error)
-  if (!res.ok) throw new Error(`PanelCleaner bridge failed: ${res.status}`)
+  if (!res.ok) throw new Error(`PanelCleaner ทำงานไม่สำเร็จ (${res.status})`)
   return data
 }
 
@@ -302,7 +302,7 @@ async function readBridgeJson(res: Response): Promise<PanelCleanerBridgeResponse
   try {
     return text ? JSON.parse(text) : {}
   } catch {
-    throw new Error(`PanelCleaner bridge returned invalid JSON: ${text.slice(0, 200)}`)
+    throw new Error(`PanelCleaner ส่งข้อมูลกลับมาไม่ถูกต้อง: ${text.slice(0, 200)}`)
   }
 }
 

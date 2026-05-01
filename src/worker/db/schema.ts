@@ -7,6 +7,8 @@ export const emailTokenTypes = ['verify_email', 'reset_password'] as const
 export const pageStatuses = ['pending', 'processing', 'clean_done', 'translated', 'error'] as const
 export const processingModes = ['full', 'clean_only'] as const
 export const objectKinds = ['original', 'cleaned', 'thumbnail', 'cover'] as const
+export const authAttemptActions = ['register', 'login', 'google_start', 'google_desktop_start', 'google_desktop_claim'] as const
+export const securityEventTypes = ['auth_rate_limited', 'auth_account_locked', 'auth_challenge_required', 'profile_updated', 'password_changed', 'session_revoked', 'account_deleted'] as const
 
 export const users = sqliteTable('users', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -99,6 +101,38 @@ export const desktopAuthTickets = sqliteTable('desktop_auth_tickets', {
   index('desktop_auth_tickets_expires_at_idx').on(table.expiresAt),
 ])
 
+export const authAttempts = sqliteTable('auth_attempts', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  action: text('action', { enum: authAttemptActions }).notNull(),
+  subjectHash: text('subject_hash'),
+  ipHash: text('ip_hash'),
+  userAgentHash: text('user_agent_hash'),
+  success: integer('success').notNull().default(0),
+  errorCode: text('error_code'),
+  createdAt: integer('created_at').notNull().$defaultFn(() => Date.now()),
+}, (table) => [
+  index('auth_attempts_action_subject_created_idx').on(table.action, table.subjectHash, table.createdAt),
+  index('auth_attempts_action_ip_created_idx').on(table.action, table.ipHash, table.createdAt),
+  index('auth_attempts_created_at_idx').on(table.createdAt),
+  check('auth_attempts_action_check', sql`${table.action} in ('register', 'login', 'google_start', 'google_desktop_start', 'google_desktop_claim')`),
+  check('auth_attempts_success_check', sql`${table.success} in (0, 1)`),
+])
+
+export const securityEvents = sqliteTable('security_events', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  type: text('type', { enum: securityEventTypes }).notNull(),
+  ipHash: text('ip_hash'),
+  userAgentHash: text('user_agent_hash'),
+  metadataJson: text('metadata_json').notNull().default('{}'),
+  createdAt: integer('created_at').notNull().$defaultFn(() => Date.now()),
+}, (table) => [
+  index('security_events_user_created_idx').on(table.userId, table.createdAt),
+  index('security_events_type_created_idx').on(table.type, table.createdAt),
+  check('security_events_type_check', sql`${table.type} in ('auth_rate_limited', 'auth_account_locked', 'auth_challenge_required', 'profile_updated', 'password_changed', 'session_revoked', 'account_deleted')`),
+  check('security_events_metadata_json_valid', sql`json_valid(${table.metadataJson})`),
+])
+
 export const albums = sqliteTable('albums', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -176,6 +210,10 @@ export const desktopAuthTicketsRelations = relations(desktopAuthTickets, ({ one 
   user: one(users, { fields: [desktopAuthTickets.userId], references: [users.id] }),
 }))
 
+export const securityEventsRelations = relations(securityEvents, ({ one }) => ({
+  user: one(users, { fields: [securityEvents.userId], references: [users.id] }),
+}))
+
 export const emailTokensRelations = relations(emailTokens, ({ one }) => ({
   user: one(users, { fields: [emailTokens.userId], references: [users.id] }),
 }))
@@ -209,6 +247,10 @@ export type OAuthState = typeof oauthStates.$inferSelect
 export type NewOAuthState = typeof oauthStates.$inferInsert
 export type DesktopAuthTicket = typeof desktopAuthTickets.$inferSelect
 export type NewDesktopAuthTicket = typeof desktopAuthTickets.$inferInsert
+export type AuthAttempt = typeof authAttempts.$inferSelect
+export type NewAuthAttempt = typeof authAttempts.$inferInsert
+export type SecurityEvent = typeof securityEvents.$inferSelect
+export type NewSecurityEvent = typeof securityEvents.$inferInsert
 export type Album = typeof albums.$inferSelect
 export type NewAlbum = typeof albums.$inferInsert
 export type AlbumPage = typeof albumPages.$inferSelect

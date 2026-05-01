@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import {
+  CloudflareApiError,
   getCurrentUser,
   loginWithEmail,
   logout,
@@ -13,14 +14,25 @@ import type { Profile } from '../types/database'
 
 let hasInitializedAuth = false
 
+export interface AuthUiError {
+  code: string
+  status: number | null
+  message: string
+  retryAfterSec: number | null
+  lockoutUntil: number | null
+  requiresChallenge: boolean
+}
+
 interface AuthStore {
   user: AppUser | null
   session: AppSession | null
   profile: Profile | null
   loading: boolean
   showAuthModal: boolean
+  authError: AuthUiError | null
 
   setShowAuthModal: (show: boolean) => void
+  clearAuthError: () => void
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (email: string, password: string, username?: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
@@ -35,31 +47,31 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   profile: null,
   loading: true,
   showAuthModal: false,
+  authError: null,
 
-  setShowAuthModal: (show) => set({ showAuthModal: show }),
+  setShowAuthModal: (show) => set({ showAuthModal: show, authError: null }),
+  clearAuthError: () => set({ authError: null }),
 
   signInWithEmail: async (email, password) => {
-    set({ loading: true })
+    set({ loading: true, authError: null })
     try {
       const auth = await loginWithEmail(email, password)
-      set({ ...auth, loading: false, showAuthModal: false })
+      set({ ...auth, loading: false, showAuthModal: false, authError: null })
       toast.success('เข้าสู่ระบบสำเร็จ!')
     } catch (error) {
-      set({ loading: false })
-      toast.error(error instanceof Error ? error.message : 'เข้าสู่ระบบล้มเหลว')
+      set({ loading: false, authError: toAuthUiError(error, 'เข้าสู่ระบบล้มเหลว') })
       throw error
     }
   },
 
   signUpWithEmail: async (email, password, username) => {
-    set({ loading: true })
+    set({ loading: true, authError: null })
     try {
       const auth = await registerWithEmail(email, password, username)
-      set({ ...auth, loading: false, showAuthModal: false })
+      set({ ...auth, loading: false, showAuthModal: false, authError: null })
       toast.success('สมัครสำเร็จ!')
     } catch (error) {
-      set({ loading: false })
-      toast.error(error instanceof Error ? error.message : 'สมัครสมาชิกล้มเหลว')
+      set({ loading: false, authError: toAuthUiError(error, 'สมัครสมาชิกล้มเหลว') })
       throw error
     }
   },
@@ -67,17 +79,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   signInWithGoogle: async () => {
     const runtime = getAppRuntime()
     const hasElectronBridge = typeof window !== 'undefined' && Boolean(window.moxzkRuntime)
-    set({ loading: true })
+    set({ loading: true, authError: null })
     try {
       const result = await runtime.auth.signInWithGoogle()
       if (!result.ok) throw new Error(result.error || 'Google login ล้มเหลว')
       if (runtime.kind === 'electron' || hasElectronBridge) {
         await get().fetchProfile()
-        set({ showAuthModal: false })
+        set({ showAuthModal: false, authError: null })
         toast.success('เข้าสู่ระบบด้วย Google สำเร็จ!')
       }
     } catch (error) {
-      set({ loading: false })
+      set({ loading: false, authError: toAuthUiError(error, 'Google login ล้มเหลว') })
       toast.error(error instanceof Error ? error.message : 'Google login ล้มเหลว')
       throw error
     }
@@ -116,3 +128,24 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     return () => {}
   },
 }))
+
+function toAuthUiError(error: unknown, fallbackMessage: string): AuthUiError {
+  if (error instanceof CloudflareApiError) {
+    return {
+      code: error.code,
+      status: error.status,
+      message: error.message,
+      retryAfterSec: error.retryAfterSec,
+      lockoutUntil: error.lockoutUntil,
+      requiresChallenge: error.requiresChallenge,
+    }
+  }
+  return {
+    code: 'UNKNOWN',
+    status: null,
+    message: error instanceof Error ? error.message : fallbackMessage,
+    retryAfterSec: null,
+    lockoutUntil: null,
+    requiresChallenge: false,
+  }
+}

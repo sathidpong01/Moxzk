@@ -66,13 +66,72 @@ interface ApiPage {
 export class CloudflareApiError extends Error {
   status: number
   code: string
+  details: unknown
+  retryAfterSec: number | null
+  lockoutUntil: number | null
+  requiresChallenge: boolean
 
-  constructor(status: number, code: string, message: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    options: {
+      details?: unknown
+      retryAfterSec?: number | null
+      lockoutUntil?: number | null
+      requiresChallenge?: boolean
+    } = {},
+  ) {
     super(message)
     this.name = 'CloudflareApiError'
     this.status = status
     this.code = code
+    this.details = options.details
+    this.retryAfterSec = options.retryAfterSec ?? null
+    this.lockoutUntil = options.lockoutUntil ?? null
+    this.requiresChallenge = options.requiresChallenge ?? false
   }
+}
+
+export interface UserIdentity {
+  id: string
+  provider: 'password' | 'google'
+  email: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface UserSessionInfo {
+  id: string
+  current: boolean
+  userAgent: string | null
+  createdAt: number
+  expiresAt: number
+  revokedAt: number | null
+}
+
+export interface UserUsageSummary {
+  albumCount: number
+  pageCount: number
+  objectCount: number
+  storageBytes: number
+}
+
+export interface UserAlbumSummary {
+  id: string
+  title: string
+  description: string | null
+  coverKey: string | null
+  pageCount: number
+  updatedAt: number
+}
+
+export interface UserProfileResponse {
+  user: ApiUser
+  identities: UserIdentity[]
+  sessions: UserSessionInfo[]
+  albums: UserAlbumSummary[]
+  usage: UserUsageSummary
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -91,14 +150,21 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (!response.ok) {
     let code = 'HTTP_ERROR'
     let message = `Request failed with status ${response.status}`
+    let details: unknown
     try {
-      const payload = await response.json() as { error?: { code?: string; message?: string } }
+      const payload = await response.json() as { error?: { code?: string; message?: string; details?: unknown } }
       code = payload.error?.code || code
       message = payload.error?.message || message
+      details = payload.error?.details
     } catch {
       // Keep the status-based fallback.
     }
-    throw new CloudflareApiError(response.status, code, message)
+    throw new CloudflareApiError(response.status, code, message, {
+      details,
+      retryAfterSec: parseRetryAfter(response.headers.get('Retry-After'), details),
+      lockoutUntil: readNumberDetail(details, 'lockoutUntil'),
+      requiresChallenge: code === 'CHALLENGE_REQUIRED' || readBooleanDetail(details, 'requiresChallenge'),
+    })
   }
 
   if (response.status === 204) return undefined as T
@@ -107,6 +173,28 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
 function isElectronRenderer(): boolean {
   return typeof window !== 'undefined' && Boolean(window.moxzkRuntime)
+}
+
+function parseRetryAfter(header: string | null, details: unknown): number | null {
+  const detailValue = readNumberDetail(details, 'retryAfterSec')
+  if (detailValue != null) return Math.max(0, Math.ceil(detailValue))
+  if (!header) return null
+  const numeric = Number(header)
+  if (Number.isFinite(numeric)) return Math.max(0, Math.ceil(numeric))
+  const dateMs = Date.parse(header)
+  if (Number.isFinite(dateMs)) return Math.max(0, Math.ceil((dateMs - Date.now()) / 1000))
+  return null
+}
+
+function readNumberDetail(details: unknown, key: string): number | null {
+  if (!details || typeof details !== 'object') return null
+  const value = (details as Record<string, unknown>)[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function readBooleanDetail(details: unknown, key: string): boolean {
+  if (!details || typeof details !== 'object') return false
+  return (details as Record<string, unknown>)[key] === true
 }
 
 export async function registerWithEmail(email: string, password: string, username?: string): Promise<{ user: AppUser; profile: Profile; session: AppSession }> {
@@ -133,6 +221,39 @@ export async function getCurrentUser(): Promise<{ user: AppUser; profile: Profil
 
 export async function logout(): Promise<void> {
   await apiFetch('/api/auth/logout', { method: 'POST' })
+}
+
+export async function getProfile(): Promise<UserProfileResponse> {
+  return apiFetch<UserProfileResponse>('/api/profile')
+}
+
+export async function updateProfile(input: { username?: string | null; avatarUrl?: string | null }): Promise<{ user: AppUser; profile: Profile; session: AppSession }> {
+  const { user } = await apiFetch<{ user: ApiUser }>('/api/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  return authPayload(user)
+}
+
+export async function changePassword(input: { currentPassword?: string; newPassword: string }): Promise<void> {
+  await apiFetch('/api/auth/password/change', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function revokeUserSessions(input: { scope?: 'current' | 'others' | 'all'; sessionId?: string }): Promise<void> {
+  await apiFetch('/api/auth/sessions/revoke', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function deleteCurrentAccount(confirmation: string): Promise<void> {
+  await apiFetch('/api/account', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmation }),
+  })
 }
 
 export async function getGoogleRedirectUrl(redirectTarget = `${window.location.origin}/auth/callback`): Promise<string> {

@@ -121,7 +121,7 @@ test('retry failed translate reuses cleaned image without running cleanup again'
   assert.equal(statusUpdates.includes('clean_queued'), false)
   assert.equal(statusUpdates.includes('cleaning'), false)
   assert.deepEqual(statusUpdates, ['clean_done', 'clean_done', 'translating', 'done'])
-  assert.ok(logs.some((message) => message.includes('ใช้ผลคลีนเดิมหน้า 2')))
+  assert.ok(logs.some((message) => message.includes('ใช้รูปที่ลบข้อความแล้วของหน้า 2')))
 })
 
 test('retry failed clean runs cleanup when no cleaned image exists', async () => {

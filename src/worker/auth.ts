@@ -4,19 +4,30 @@ import { base64UrlDecodeToString, hashPassword, hashToken, optionalHash, passwor
 import { ApiError, json, jsonError, normalizeEmail, parseCsv, parseEmail, parsePassword, readJson, requiredEnv } from './http'
 import type { AuthUser, RequestContext } from './types'
 import { APP_DISPLAY_NAME, SESSION_COOKIE_NAME } from '../config/appIdentity'
+import { enforceAuthProtection, recordAuthAttempt } from './security'
 
 const DESKTOP_AUTH_TICKET_TTL_MS = 5 * 60 * 1000
 
 export async function register(ctx: RequestContext): Promise<Response> {
-  const input = await readJson<{ email?: unknown; password?: unknown; username?: unknown }>(ctx.request)
+  const input = await readJson<{ email?: unknown; password?: unknown; username?: unknown; turnstileToken?: unknown }>(ctx.request)
   const email = parseEmail(input.email)
+  const protection = await enforceAuthProtection(ctx, 'register', {
+    subject: email,
+    turnstileToken: typeof input.turnstileToken === 'string' ? input.turnstileToken : null,
+  })
   const password = parsePassword(input.password)
   const username = typeof input.username === 'string' && input.username.trim() ? input.username.trim() : null
-  if (!email || !password) return jsonError('VALIDATION_ERROR', 'Valid email and password are required', 422)
+  if (!email || !password) {
+    await recordAuthAttempt(ctx, protection, false, 'VALIDATION_ERROR')
+    return jsonError('VALIDATION_ERROR', 'Valid email and password are required', 422)
+  }
 
   const emailNormalized = normalizeEmail(email)
   const existing = await ctx.db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.emailNormalized, emailNormalized)).get()
-  if (existing) return jsonError('CONFLICT', 'Email is already registered', 409)
+  if (existing) {
+    await recordAuthAttempt(ctx, protection, false, 'CONFLICT')
+    return jsonError('CONFLICT', 'Email is already registered', 409)
+  }
 
   const now = Date.now()
   const userId = crypto.randomUUID()
@@ -49,6 +60,7 @@ export async function register(ctx: RequestContext): Promise<Response> {
   }).run()
 
   const session = await createSession(ctx, userId)
+  await recordAuthAttempt(ctx, protection, true)
   const response = json({
     user: publicUser({ id: userId, email, emailNormalized, username, avatarUrl: null, plan: 'free' }),
     emailVerificationRequired: false,
@@ -58,24 +70,41 @@ export async function register(ctx: RequestContext): Promise<Response> {
 }
 
 export async function login(ctx: RequestContext): Promise<Response> {
-  const input = await readJson<{ email?: unknown; password?: unknown }>(ctx.request)
+  const input = await readJson<{ email?: unknown; password?: unknown; turnstileToken?: unknown }>(ctx.request)
   const email = parseEmail(input.email)
+  const protection = await enforceAuthProtection(ctx, 'login', {
+    subject: email,
+    turnstileToken: typeof input.turnstileToken === 'string' ? input.turnstileToken : null,
+  })
   const password = parsePassword(input.password)
-  if (!email || !password) return jsonError('VALIDATION_ERROR', 'Valid email and password are required', 422)
+  if (!email || !password) {
+    await recordAuthAttempt(ctx, protection, false, 'VALIDATION_ERROR')
+    return jsonError('VALIDATION_ERROR', 'Valid email and password are required', 422)
+  }
 
   const emailNormalized = normalizeEmail(email)
   const identity = await ctx.db.select().from(schema.authIdentities)
     .where(and(eq(schema.authIdentities.provider, 'password'), eq(schema.authIdentities.providerSubject, emailNormalized)))
     .get()
-  if (!identity?.credentialHash || !identity.credentialSalt) return jsonError('UNAUTHORIZED', 'Invalid credentials', 401)
+  if (!identity?.credentialHash || !identity.credentialSalt) {
+    await recordAuthAttempt(ctx, protection, false, 'UNAUTHORIZED')
+    return jsonError('UNAUTHORIZED', 'Invalid credentials', 401)
+  }
 
   const valid = await verifyPassword(password, identity.credentialSalt, identity.credentialHash)
-  if (!valid) return jsonError('UNAUTHORIZED', 'Invalid credentials', 401)
+  if (!valid) {
+    await recordAuthAttempt(ctx, protection, false, 'UNAUTHORIZED')
+    return jsonError('UNAUTHORIZED', 'Invalid credentials', 401)
+  }
 
   const user = await ctx.db.select().from(schema.users).where(eq(schema.users.id, identity.userId)).get()
-  if (!user) return jsonError('UNAUTHORIZED', 'Invalid credentials', 401)
+  if (!user) {
+    await recordAuthAttempt(ctx, protection, false, 'UNAUTHORIZED')
+    return jsonError('UNAUTHORIZED', 'Invalid credentials', 401)
+  }
 
   const session = await createSession(ctx, user.id)
+  await recordAuthAttempt(ctx, protection, true)
   const response = json({ user: publicUser(user) })
   response.headers.append('Set-Cookie', buildSessionCookie(ctx, session.token, session.expiresAt))
   return response
@@ -121,20 +150,32 @@ export async function resetPassword(_ctx: RequestContext): Promise<Response> {
 }
 
 export async function googleStart(ctx: RequestContext): Promise<Response> {
+  const protection = await enforceAuthProtection(ctx, 'google_start', {
+    turnstileToken: ctx.url.searchParams.get('turnstileToken'),
+  })
   const clientId = requiredEnv(ctx.env.GOOGLE_CLIENT_ID, 'GOOGLE_CLIENT_ID')
   const redirectTarget = ctx.url.searchParams.get('redirectTarget') || defaultWebRedirect(ctx)
-  if (!isAllowedRedirect(ctx, redirectTarget)) return jsonError('VALIDATION_ERROR', 'Redirect target is not allowed', 422)
+  if (!isAllowedRedirect(ctx, redirectTarget)) {
+    await recordAuthAttempt(ctx, protection, false, 'VALIDATION_ERROR')
+    return jsonError('VALIDATION_ERROR', 'Redirect target is not allowed', 422)
+  }
 
+  await recordAuthAttempt(ctx, protection, true)
   return createGoogleStartResponse(ctx, clientId, redirectTarget)
 }
 
 export async function googleDesktopStart(ctx: RequestContext): Promise<Response> {
+  const protection = await enforceAuthProtection(ctx, 'google_desktop_start', {
+    turnstileToken: ctx.url.searchParams.get('turnstileToken'),
+  })
   const clientId = requiredEnv(ctx.env.GOOGLE_CLIENT_ID, 'GOOGLE_CLIENT_ID')
   const redirectTarget = ctx.url.searchParams.get('redirectTarget') || ''
   if (!isDesktopRedirectTarget(redirectTarget)) {
+    await recordAuthAttempt(ctx, protection, false, 'VALIDATION_ERROR')
     return jsonError('VALIDATION_ERROR', 'Desktop redirect target must be moxzk://auth/callback or a loopback /auth/callback URL with a port', 422)
   }
 
+  await recordAuthAttempt(ctx, protection, true)
   return createGoogleStartResponse(ctx, clientId, redirectTarget)
 }
 
@@ -169,9 +210,15 @@ export async function googleCallback(ctx: RequestContext): Promise<Response> {
 }
 
 export async function googleDesktopClaim(ctx: RequestContext): Promise<Response> {
-  const payload = await readJson<{ ticket?: unknown }>(ctx.request)
+  const payload = await readJson<{ ticket?: unknown; turnstileToken?: unknown }>(ctx.request)
+  const protection = await enforceAuthProtection(ctx, 'google_desktop_claim', {
+    turnstileToken: typeof payload.turnstileToken === 'string' ? payload.turnstileToken : null,
+  })
   const ticket = typeof payload.ticket === 'string' ? payload.ticket.trim() : ''
-  if (!ticket) return jsonError('BAD_REQUEST', 'Desktop auth ticket is required', 400)
+  if (!ticket) {
+    await recordAuthAttempt(ctx, protection, false, 'BAD_REQUEST')
+    return jsonError('BAD_REQUEST', 'Desktop auth ticket is required', 400)
+  }
 
   const now = Date.now()
   const ticketHash = await hashToken(ticket)
@@ -180,11 +227,15 @@ export async function googleDesktopClaim(ctx: RequestContext): Promise<Response>
     .get()
 
   if (!storedTicket || storedTicket.expiresAt < now) {
+    await recordAuthAttempt(ctx, protection, false, 'BAD_REQUEST')
     return jsonError('BAD_REQUEST', 'Desktop auth ticket is invalid or expired', 400)
   }
 
   const user = await ctx.db.select().from(schema.users).where(eq(schema.users.id, storedTicket.userId)).get()
-  if (!user) return jsonError('BAD_REQUEST', 'Desktop auth ticket user no longer exists', 400)
+  if (!user) {
+    await recordAuthAttempt(ctx, protection, false, 'BAD_REQUEST')
+    return jsonError('BAD_REQUEST', 'Desktop auth ticket user no longer exists', 400)
+  }
 
   await ctx.db.update(schema.desktopAuthTickets)
     .set({ consumedAt: now })
@@ -192,6 +243,7 @@ export async function googleDesktopClaim(ctx: RequestContext): Promise<Response>
     .run()
 
   const session = await createSession(ctx, user.id)
+  await recordAuthAttempt(ctx, protection, true)
   return json({
     user: publicUser(user),
     cookie: {
@@ -375,7 +427,7 @@ async function findOrCreateGoogleUser(
   return publicUser(user)
 }
 
-function readSessionToken(ctx: RequestContext): string | null {
+export function readSessionToken(ctx: RequestContext): string | null {
   const cookie = ctx.request.headers.get('Cookie')
   if (!cookie) return null
   const parts = cookie.split(';').map((part) => part.trim())
@@ -391,7 +443,7 @@ function buildSessionCookie(ctx: RequestContext, token: string, expiresAt: numbe
   return `${sessionCookieName(ctx)}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; HttpOnly; Secure; SameSite=Lax`
 }
 
-function expireSessionCookies(ctx: RequestContext): string[] {
+export function expireSessionCookies(ctx: RequestContext): string[] {
   return sessionCookieNames(ctx).map((name) => `${name}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`)
 }
 

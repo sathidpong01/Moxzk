@@ -59,11 +59,13 @@ export default function AlbumListModal() {
     currentAlbum,
     currentPages,
     loading,
+    pendingOpenAlbumId,
     fetchAlbums,
     createAlbum,
     updateAlbum,
     deleteAlbum,
     setCurrentAlbum,
+    consumePendingOpenAlbumId,
     fetchPages,
     deletePage,
   } = useAlbumStore()
@@ -182,6 +184,20 @@ export default function AlbumListModal() {
     },
     [fetchPages, setCurrentAlbum],
   )
+
+  useEffect(() => {
+    if (!showAlbumModal || !pendingOpenAlbumId || loading) return
+    const album = albums.find((item) => item.id === pendingOpenAlbumId)
+    if (!album) {
+      if (albums.length > 0) {
+        consumePendingOpenAlbumId()
+        toast.warning('ไม่พบอัลบั้มนี้แล้ว')
+      }
+      return
+    }
+    consumePendingOpenAlbumId()
+    void handleManageAlbum(album)
+  }, [albums, consumePendingOpenAlbumId, handleManageAlbum, loading, pendingOpenAlbumId, showAlbumModal])
 
   const handleDeleteAlbum = useCallback(
     (id: string) => {
@@ -588,7 +604,7 @@ export default function AlbumListModal() {
                           <div className="mb-3 flex items-center justify-between gap-3">
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">Choose Cover</p>
-                              <p className="mt-1 text-sm text-[var(--moxzk-muted)]">เลือกจาก thumbnail ของหน้าในอัลบั้ม</p>
+                              <p className="mt-1 text-sm text-[var(--moxzk-muted)]">เลือกจากรูปตัวอย่างของหน้าในอัลบั้ม</p>
                             </div>
                             <button
                               className="moxzk-button moxzk-button-ghost moxzk-button-sm"
@@ -607,7 +623,7 @@ export default function AlbumListModal() {
                                     await useAlbumStore.getState().updateAlbum(currentAlbum.id, { cover_key: page.thumbnail_key })
                                     setShowCoverPicker(false)
                                   } else {
-                                    toast.warning('หน้านี้ยังไม่มี thumbnail')
+                                    toast.warning('หน้านี้ยังไม่มีรูปตัวอย่าง')
                                   }
                                 }}
                               >
@@ -721,7 +737,7 @@ export default function AlbumListModal() {
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--moxzk-dim)]">Page Library</p>
                       <h4 className="mt-1 text-lg font-bold text-[var(--moxzk-text)]">หน้าทั้งหมด</h4>
-                      <p className="mt-1 text-sm text-[var(--moxzk-muted)]">คลิกเพื่อเปิดหน้าเข้า editor หรือสลับเป็นโหมดแก้ไขเพื่อเรียงลำดับและลบหน้า</p>
+                      <p className="mt-1 text-sm text-[var(--moxzk-muted)]">คลิกเพื่อเปิดหน้าเข้าโหมดแก้ไข หรือสลับเป็นโหมดจัดการเพื่อเรียงลำดับและลบหน้า</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="moxzk-pill">{currentPages.length} หน้า</span>

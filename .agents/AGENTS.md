@@ -31,6 +31,7 @@ The app combines a Konva multi-artboard editor, local PanelCleaner bridge, Ollam
 - Run `npm run worker:check` only when Worker/Cloudflare files are touched.
 - Do not add secrets, local sample images, generated output, or private notes to git.
 - Preserve Thai text and project copy as UTF-8.
+- Treat Moxzk as a product for ordinary users, not a developer-facing tool. User-facing copy must avoid implementation terms such as R2, D1, metadata, Worker, object key, token hash, or session internals unless the screen is explicitly for diagnostics. Prefer plain Thai that explains user impact, such as "รูปภาพและงานที่บันทึกไว้" instead of backend storage details.
 
 ## Useful Commands
 

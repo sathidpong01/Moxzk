@@ -72,7 +72,7 @@ export async function persistSettings(settings: AppSettings): Promise<void> {
 
     const bridge = getNativeBridge()
     if (!bridge?.secureStore) {
-      throw new Error('Electron secure store bridge is not available.')
+      throw new Error('โหมดนี้ยังเก็บรหัส Ollama Cloud แบบปลอดภัยไม่ได้')
     }
 
     await writeSecretThroughBridge(settings.ollamaApiKey, bridge)
@@ -155,12 +155,12 @@ async function writeSecretThroughBridge(
   const normalized = normalizeSecret(ollamaApiKey)
   if (normalized) {
     const result = await bridge.secureStore.setSecret(OLLAMA_API_KEY_SECRET_KEY, normalized)
-    if (!result.ok) throw new Error(result.error || 'Failed to store Ollama API key securely.')
+    if (!result.ok) throw new Error(result.error || 'บันทึกรหัส Ollama Cloud แบบปลอดภัยไม่สำเร็จ')
     return
   }
 
   const result = await bridge.secureStore.deleteSecret(OLLAMA_API_KEY_SECRET_KEY)
-  if (!result.ok) throw new Error(result.error || 'Failed to delete Ollama API key from secure storage.')
+  if (!result.ok) throw new Error(result.error || 'ลบรหัส Ollama Cloud ไม่สำเร็จ')
 }
 
 function normalizeTheme(theme: string | undefined, fallback: string): string {

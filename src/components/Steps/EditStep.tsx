@@ -153,7 +153,7 @@ export default function EditStep({
             disabled={store.regions.length === 0}
           >
             <FileSearch size={14} />
-            <span className="hidden sm:inline">OCR</span>
+            <span className="hidden sm:inline">ข้อความ</span>
           </button>
 
           <button
@@ -188,7 +188,7 @@ export default function EditStep({
               </DropdownItem>
             )}
             <DropdownItem onClick={() => store.togglePanel('logs')}>
-              <ScrollText size={14} /> {store.panels.logs ? 'ซ่อนบันทึกระบบ' : 'เปิดบันทึกระบบ'}
+              <ScrollText size={14} /> {store.panels.logs ? 'ซ่อนรายงานการทำงาน' : 'เปิดรายงานการทำงาน'}
             </DropdownItem>
             <DropdownItem onClick={() => store.togglePanel('resource')}>
               <Cpu size={14} /> {store.panels.resource ? 'ซ่อนทรัพยากรเครื่อง' : 'เปิดทรัพยากรเครื่อง'}

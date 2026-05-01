@@ -74,7 +74,7 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
   })
 
   if (candidates.length === 0) {
-    options.onLog('Batch AI: ไม่มีหน้าที่ต้องประมวลผล')
+    options.onLog('AI แปลหลายหน้า: ไม่มีหน้าที่ต้องประมวลผล')
     return
   }
 
@@ -128,7 +128,7 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
         progress: Math.round((index / candidates.length) * 100),
         message: 'หยุดตามคำสั่ง',
       })
-      options.onLog('Batch AI: หยุดหลังงานปัจจุบันตามคำสั่ง')
+      options.onLog('AI แปลหลายหน้า: จะหยุดหลังงานปัจจุบันเสร็จ')
       break
     }
 
@@ -161,7 +161,7 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
         error: undefined,
         lastErrorStage: undefined,
       })
-      options.onLog(`Batch AI: หน้า ${item.entry.pageNumber ?? item.entry.id} แปลเสร็จ ${regions.length} regions`)
+      options.onLog(`AI แปลหน้า ${item.entry.pageNumber ?? item.entry.id} เสร็จ พบ ${regions.length} กล่องข้อความ`)
       options.onBatchProgress?.({
         phase: index === cleaned.length - 1 ? 'done' : 'translating',
         currentIndex: index + 1,
@@ -178,7 +178,7 @@ export async function runBatchAiQueue(options: BatchProcessOptions): Promise<voi
         lastErrorStage: 'translate',
         progress: 100,
       })
-      options.onLog(`Batch AI ERROR: หน้า ${item.entry.pageNumber ?? item.entry.id}: ${message}`)
+      options.onLog(`AI แปลหลายหน้าไม่สำเร็จ: หน้า ${item.entry.pageNumber ?? item.entry.id}: ${message}`)
       options.onBatchProgress?.({
         phase: 'error',
         currentIndex: index + 1,
@@ -205,10 +205,10 @@ async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions, s
           progress: Math.max(entry.progress ?? 0, 55),
           error: undefined,
         })
-        options.onLog(`Batch AI: ใช้ผลคลีนเดิมหน้า ${entry.pageNumber ?? entry.id}`)
+        options.onLog(`AI แปลหลายหน้า: ใช้รูปที่ลบข้อความแล้วของหน้า ${entry.pageNumber ?? entry.id}`)
         continue
       } catch (error) {
-        options.onLog(`Batch AI: โหลดผลคลีนเดิมหน้า ${entry.pageNumber ?? entry.id} ไม่ได้ (${error instanceof Error ? error.message : String(error)})`)
+        options.onLog(`AI แปลหลายหน้า: โหลดรูปที่ลบข้อความแล้วของหน้า ${entry.pageNumber ?? entry.id} ไม่ได้ (${error instanceof Error ? error.message : String(error)})`)
       }
     }
     needsClean.push(entry)
@@ -253,11 +253,11 @@ async function cleanPages(entries: ImageEntry[], options: BatchProcessOptions, s
 
     const result = byId.get(entry.id)
     if (!result?.cleanedImageBlob) {
-      const message = result?.error || 'PanelCleaner batch did not return a cleaned image'
+      const message = result?.error || 'PanelCleaner ไม่ได้ส่งรูปที่ลบข้อความแล้วกลับมา'
       options.onEntryUpdate(entry.id, { status: 'error', error: message, lastErrorStage: 'clean', progress: 100 })
       continue
     }
-    result.logs?.forEach((line) => options.onLog(`PanelCleaner batch: ${line}`))
+    result.logs?.forEach((line) => options.onLog(`PanelCleaner: ${line}`))
     const cleanedUrl = URL.createObjectURL(result.cleanedImageBlob)
     options.onEntryUpdate(entry.id, {
       cleanedImageUrl: cleanedUrl,
@@ -302,7 +302,7 @@ async function translatePage(
   try {
     boxes = await services.deriveTextBoxes(file, cleanedBlob)
   } catch (error) {
-    options.onLog(`Batch AI: cleanup diff ใช้ไม่ได้ (${error instanceof Error ? error.message : String(error)})`)
+    options.onLog(`AI แปลหลายหน้า: เทียบพื้นที่ที่ลบข้อความไม่ได้ (${error instanceof Error ? error.message : String(error)})`)
   }
 
   const resolvedSourceLang = options.sourceLang === 'auto'
@@ -310,7 +310,7 @@ async function translatePage(
     : options.sourceLang
 
   options.onLog(
-    `Batch AI: ภาษาต้นฉบับ ${options.sourceLang === 'auto'
+    `AI แปลหลายหน้า: ภาษาต้นฉบับ ${options.sourceLang === 'auto'
       ? (resolvedSourceLang === 'auto' ? 'ระบุไม่ชัด ปล่อยให้โมเดลตรวจต่อ' : `ตรวจพบ ${resolvedSourceLang}`)
       : `ผู้ใช้กำหนด ${resolvedSourceLang}`}`,
   )

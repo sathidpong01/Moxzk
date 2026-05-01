@@ -985,7 +985,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         progress: 100,
       })
     }
-    toast.success(`แปลเสร็จ! พบ ${regions.length} regions`)
+    toast.success(`แปลเสร็จ! พบ ${regions.length} กล่องข้อความ`)
   },
 
   // ── Load album pages into editor with lazy loading ──

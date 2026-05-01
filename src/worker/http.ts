@@ -64,7 +64,7 @@ export function parseEmail(value: unknown): string | null {
 }
 
 export function parsePassword(value: unknown): string | null {
-  return typeof value === 'string' && value.length >= 10 ? value : null
+  return typeof value === 'string' && value.length >= 8 ? value : null
 }
 
 export function stringifyJsonInput(value: unknown, fallback: string): string {

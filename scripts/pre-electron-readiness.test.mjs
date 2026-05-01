@@ -202,7 +202,7 @@ test('export flow exposes an explicit zip-first destination choice before Electr
   assert.match(drawerModel, /EXPORT_DESTINATION_OPTIONS/)
   assert.match(drawer, /บันทึกเป็น ZIP/)
   assert.match(drawer, /บันทึกลงโฟลเดอร์/)
-  assert.match(drawer, /Chrome จะขอสิทธิ์/)
+  assert.match(drawer, /ระบบจะขอสิทธิ์เลือกโฟลเดอร์/)
 })
 
 test('feature code uses runtime provider instead of importing webRuntime directly', () => {
@@ -483,7 +483,7 @@ test('Electron native service launcher is loopback-only and keeps external depen
   assert.match(settingsPanel, /handlePickPanelCleanerExecutable/)
   assert.match(settingsPanel, /handleStartOllama/)
   assert.match(settingsPanel, /handleStopOwnedServices/)
-  assert.match(settingsPanel, /หยุด local services ที่แอปเปิดไว้/)
+  assert.match(settingsPanel, /หยุดโปรแกรมช่วยทำงานที่แอปเปิดไว้/)
   assert.match(settingsPanel, /describeManagedStatus/)
   assert.match(settingsPanel, /appRuntime\.localServices/)
   assert.match(processingView, /autoStartRequiredLocalServices/)

@@ -28,7 +28,7 @@ export const SHORTCUT_LIST: ShortcutDef[] = [
   { key: '[', label: '[', action: 'ลด brush size' },
   { key: ']', label: ']', action: 'เพิ่ม brush size' },
   { key: 'Escape', label: 'Esc', action: 'Deselect / ปิด overlay' },
-  { key: 'Delete', label: 'Del', action: 'ลบ region ที่เลือก' },
+  { key: 'Delete', label: 'Del', action: 'ลบกล่องข้อความที่เลือก' },
 ]
 
 interface ShortcutHandlers {

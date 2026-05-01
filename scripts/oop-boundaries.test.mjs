@@ -251,7 +251,7 @@ test('PanelCleanerClient reports timeout on stalled bridge status checks', async
     })
 
     assert.equal(status.ok, false)
-    assert.match(status.error ?? '', /PanelCleaner bridge request timed out after 20ms/)
+    assert.match(status.error ?? '', /PanelCleaner request timed out after 20ms/)
   } finally {
     globalThis.fetch = originalFetch
   }

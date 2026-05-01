@@ -48,6 +48,10 @@ For the fuller project context layer, read `.agents/AGENTS.md` first, then load 
 - Preserve Thai text as UTF-8. Check for replacement characters (`U+FFFD`) after editing Thai content.
 - Windows desktop/Electron is the only supported app target. Keep Windows desktop workflows stable first and do not spend implementation effort on Linux/macOS or small-screen/mobile layouts unless the user explicitly asks for it.
 
+## Product Language
+
+Moxzk is being shaped as a product for ordinary users, not as a developer-facing tool. In user-facing UI, avoid implementation terms such as R2, D1, metadata, Worker, object key, token hash, or session internals unless the screen is explicitly a developer diagnostic view. Explain actions in plain user language, for example "รูปภาพและงานที่บันทึกไว้" instead of storage implementation details. Thai copy should read naturally for a non-technical user.
+
 ## graphify
 
 This project is configured to use a graphify knowledge graph at graphify-out/ once generated.

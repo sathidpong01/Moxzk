@@ -14,6 +14,7 @@ import {
   resetPassword,
   verifyEmail,
 } from './auth'
+import { changePassword, deleteAccount, getProfile, revokeSessions, updateProfile } from './profile'
 import * as schema from './db/schema'
 import { ApiError, json, jsonError, withCors } from './http'
 import { deleteObject, getObject, uploadObject } from './storage'
@@ -64,6 +65,12 @@ async function route(ctx: RequestContext): Promise<Response> {
   if (path === '/api/auth/google/callback' && request.method === 'GET') return googleCallback(ctx)
 
   const user = await requireUser(ctx)
+
+  if (path === '/api/profile' && request.method === 'GET') return getProfile(ctx, user)
+  if (path === '/api/profile' && request.method === 'PATCH') return updateProfile(ctx, user)
+  if (path === '/api/auth/password/change' && request.method === 'POST') return changePassword(ctx, user)
+  if (path === '/api/auth/sessions/revoke' && request.method === 'POST') return revokeSessions(ctx, user)
+  if (path === '/api/account' && request.method === 'DELETE') return deleteAccount(ctx, user)
 
   if (path === '/api/albums' && request.method === 'GET') return listAlbums(ctx, user)
   if (path === '/api/albums' && request.method === 'POST') return createAlbum(ctx, user)

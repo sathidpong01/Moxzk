@@ -70,29 +70,30 @@ button:disabled {
 }
 
 .moxzk-has-custom-chrome .moxzk-window-inglow {
-  --moxzk-inglow-strong: color-mix(in srgb, var(--moxzk-canvas) 62%, transparent);
-  --moxzk-inglow-mid: color-mix(in srgb, var(--moxzk-canvas) 32%, transparent);
-  --moxzk-inglow-top: color-mix(in srgb, var(--moxzk-canvas) 46%, transparent);
-  --moxzk-inglow-soft: color-mix(in srgb, var(--moxzk-canvas) 20%, transparent);
-  --moxzk-inglow-side: color-mix(in srgb, var(--moxzk-canvas) 50%, transparent);
-  --moxzk-inglow-edge: color-mix(in srgb, var(--moxzk-canvas) 36%, transparent);
+  --moxzk-inglow-strong: color-mix(in srgb, var(--moxzk-canvas) 76%, transparent);
+  --moxzk-inglow-mid: color-mix(in srgb, var(--moxzk-canvas) 48%, transparent);
+  --moxzk-inglow-far: color-mix(in srgb, var(--moxzk-canvas) 18%, transparent);
+  --moxzk-inglow-top: color-mix(in srgb, var(--moxzk-canvas) 58%, transparent);
+  --moxzk-inglow-soft: color-mix(in srgb, var(--moxzk-canvas) 30%, transparent);
+  --moxzk-inglow-side: color-mix(in srgb, var(--moxzk-canvas) 64%, transparent);
+  --moxzk-inglow-edge: color-mix(in srgb, var(--moxzk-canvas) 48%, transparent);
   display: block;
   position: absolute;
   inset: 0;
   z-index: 15;
   pointer-events: none;
   background:
-    radial-gradient(circle at top left, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 18px, transparent 58px),
-    radial-gradient(circle at top right, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 18px, transparent 58px),
-    radial-gradient(circle at bottom left, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 18px, transparent 58px),
-    radial-gradient(circle at bottom right, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 18px, transparent 58px),
-    linear-gradient(to bottom, var(--moxzk-inglow-top), var(--moxzk-inglow-soft) 14px, transparent 42px),
-    linear-gradient(to top, var(--moxzk-inglow-top), var(--moxzk-inglow-soft) 14px, transparent 42px),
-    linear-gradient(to right, var(--moxzk-inglow-side), var(--moxzk-inglow-soft) 16px, transparent 52px),
-    linear-gradient(to left, var(--moxzk-inglow-side), var(--moxzk-inglow-soft) 16px, transparent 52px);
+    radial-gradient(circle at top left, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 28px, var(--moxzk-inglow-far) 64px, transparent 112px),
+    radial-gradient(circle at top right, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 28px, var(--moxzk-inglow-far) 64px, transparent 112px),
+    radial-gradient(circle at bottom left, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 28px, var(--moxzk-inglow-far) 64px, transparent 112px),
+    radial-gradient(circle at bottom right, var(--moxzk-inglow-strong), var(--moxzk-inglow-mid) 28px, var(--moxzk-inglow-far) 64px, transparent 112px),
+    linear-gradient(to bottom, var(--moxzk-inglow-top), var(--moxzk-inglow-soft) 24px, var(--moxzk-inglow-far) 58px, transparent 96px),
+    linear-gradient(to top, var(--moxzk-inglow-top), var(--moxzk-inglow-soft) 24px, var(--moxzk-inglow-far) 58px, transparent 96px),
+    linear-gradient(to right, var(--moxzk-inglow-side), var(--moxzk-inglow-soft) 28px, var(--moxzk-inglow-far) 66px, transparent 112px),
+    linear-gradient(to left, var(--moxzk-inglow-side), var(--moxzk-inglow-soft) 28px, var(--moxzk-inglow-far) 66px, transparent 112px);
   box-shadow:
     inset 0 0 0 1px var(--moxzk-inglow-edge),
-    inset 0 0 34px var(--moxzk-inglow-top);
+    inset 0 0 52px var(--moxzk-inglow-top);
 }
 
 .moxzk-has-custom-chrome {
@@ -294,6 +295,147 @@ button:disabled {
   padding: 0 !important;
   overflow: hidden;
   background: color-mix(in srgb, var(--moxzk-surface-2) 96%, transparent);
+}
+
+.ProfileModal {
+  width: min(960px, calc(100vw - 3rem));
+  max-width: none !important;
+  background: color-mix(in srgb, var(--moxzk-surface-2) 96%, transparent);
+}
+
+.ProfileModalSidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.008)),
+    rgba(255, 255, 255, 0.018);
+}
+
+.ProfileModalNavItem,
+.ProfileModalLogout,
+.ProfileModalListRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--moxzk-muted);
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.ProfileModalNavItem {
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.ProfileModalNavItem:hover,
+.ProfileModalLogout:hover,
+.ProfileModalListRow:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--moxzk-text);
+}
+
+.ProfileModalNavItemActive {
+  background: rgba(37, 99, 235, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  color: #dbeafe;
+}
+
+.ProfileModalLogout {
+  min-height: 2.25rem;
+  justify-content: flex-start;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.ProfileModalSection,
+.ProfileModalDanger {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+}
+
+.ProfileModalDanger {
+  background: rgba(239, 68, 68, 0.11);
+  color: #fecaca;
+}
+
+.ProfileModalListRow {
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--moxzk-text);
+}
+
+.ProfileModalInput {
+  min-height: 2.5rem;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.AuthModal {
+  width: min(28.25rem, calc(100vw - 2rem));
+  max-width: none !important;
+  background: color-mix(in srgb, var(--moxzk-surface-2) 97%, transparent);
+}
+
+.AuthModalContent {
+  padding: 2.75rem 2.5rem 2.5rem;
+  animation: authPanelIn 180ms ease-out;
+}
+
+.AuthSocialButton {
+  display: inline-flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--moxzk-text);
+  font-size: 0.95rem;
+  font-weight: 850;
+  transition: background-color 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+
+.AuthSocialButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.AuthSocialButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.AuthInput {
+  min-height: 2.45rem;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.AuthSubmit {
+  min-height: 2.75rem;
+  width: 100%;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.AuthInlineLink {
+  border: 0;
+  background: transparent;
+  color: #7fb0ff;
+  font: inherit;
+  font-weight: 850;
+  padding: 0;
+}
+
+.AuthInlineLink:hover {
+  color: #b8d2ff;
 }
 
 .SettingsFrame {
@@ -752,5 +894,16 @@ button:disabled {
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes authPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

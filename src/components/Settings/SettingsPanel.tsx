@@ -42,9 +42,9 @@ type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup'
 
 const TABS: { id: SettingsTab; label: string; description: string; icon: typeof Settings }[] = [
   { id: 'general', label: 'ทั่วไป', description: 'ภาษาและสถานะรวม', icon: Settings },
-  { id: 'models', label: 'AI / Models', description: 'Ollama และติดตั้งโมเดล', icon: Cpu },
+  { id: 'models', label: 'AI แปลภาษา', description: 'Ollama และโมเดลที่ใช้แปล', icon: Cpu },
   { id: 'translation', label: 'แปลภาษา', description: 'บริบทและโทนคำแปล', icon: Languages },
-  { id: 'cleanup', label: 'Cleanup', description: 'PanelCleaner bridge', icon: Server },
+  { id: 'cleanup', label: 'ลบข้อความ', description: 'ตัวช่วยลบข้อความในภาพ', icon: Server },
 ]
 
 const OLLAMA_DOWNLOAD_URL = 'https://ollama.com/download/windows'
@@ -133,6 +133,10 @@ const EMPTY_MANAGED_STATUS: Record<LocalServiceName, ManagedServiceStatus> = {
   },
 }
 
+function runtimeDisplayName(kind: string): string {
+  return kind === 'web' ? 'โหมดเว็บ' : 'แอปเดสก์ท็อป'
+}
+
 function formatRemainingTime(deadlineAt: number | null): string | null {
   if (!deadlineAt) return null
   const remainingMs = Math.max(0, deadlineAt - Date.now())
@@ -159,12 +163,12 @@ function describePanelCleanerDependency(status: PanelCleanerDependencyStatus | n
   if (status.state === 'installing') return 'กำลังติดตั้ง'
   if (status.state === 'ready') {
     const source = status.source === 'managed'
-      ? 'managed venv'
+      ? 'ติดตั้งโดย Moxzk'
       : status.source === 'dev'
-        ? 'dev venv'
+        ? 'ชุดพัฒนา'
         : status.source === 'explicit'
-          ? 'path ที่เลือกเอง'
-          : 'PATH'
+          ? 'ไฟล์ที่เลือกเอง'
+          : 'ตำแหน่งในระบบ'
     return `พร้อมใช้งาน · ${source}`
   }
   if (status.state === 'broken') return 'ติดตั้งไว้แต่เสีย ต้องซ่อม'
@@ -176,10 +180,10 @@ function dependencyTone(status: PanelCleanerDependencyStatus | null): 'good' | '
 }
 
 function panelCleanerSourceText(status: PanelCleanerStatus): string {
-  if (status.source === 'managed') return 'managed venv'
-  if (status.source === 'dev') return 'dev venv'
-  if (status.source === 'explicit') return 'path ที่เลือกเอง'
-  if (status.source === 'path') return 'PATH'
+  if (status.source === 'managed') return 'ชุดที่ Moxzk ติดตั้งให้'
+  if (status.source === 'dev') return 'ชุดพัฒนาในเครื่อง'
+  if (status.source === 'explicit') return 'ไฟล์ที่เลือกเอง'
+  if (status.source === 'path') return 'ตำแหน่งที่ระบบรู้จัก'
   return 'ไม่ทราบแหล่งที่มา'
 }
 
@@ -470,7 +474,7 @@ export default function SettingsPanel({
 
   const handleRepairPanelCleaner = async () => {
     setInstallingPanelCleaner(true)
-    setPanelCleanerInstallLogs(['กำลังซ่อม PanelCleaner โดยสร้าง managed venv ใหม่'])
+    setPanelCleanerInstallLogs(['กำลังซ่อม PanelCleaner โดยติดตั้งชุดใช้งานใหม่'])
     try {
       const result = await appRuntime.localServices.repairPanelCleaner()
       if (result.logs?.length) setPanelCleanerInstallLogs(result.logs)
@@ -509,7 +513,7 @@ export default function SettingsPanel({
     try {
       const result = await appRuntime.localServices.startPanelCleanerBridge()
       if (result.ok) {
-        toast.success('เริ่ม PanelCleaner bridge แล้ว')
+        toast.success('เริ่มตัวลบข้อความแล้ว')
         await handleCheckPanelCleaner()
         await refreshManagedStatuses()
       } else {
@@ -528,9 +532,9 @@ export default function SettingsPanel({
     try {
       const result = await appRuntime.localServices.stopOwnedServices()
       if (result.ok) {
-        toast.success('หยุด local services ที่แอปเปิดไว้แล้ว')
+        toast.success('หยุดโปรแกรมช่วยทำงานที่แอปเปิดไว้แล้ว')
       } else {
-        toast.error(result.error ?? 'หยุด local services ไม่สำเร็จ')
+        toast.error(result.error ?? 'หยุดโปรแกรมช่วยทำงานไม่สำเร็จ')
       }
       await refreshManagedStatuses()
     } catch (err) {
@@ -583,7 +587,7 @@ export default function SettingsPanel({
           <div className="border-t border-[var(--settings-divider)] p-4">
             <div className="flex items-center gap-2 text-xs text-[var(--moxzk-muted)]">
               <Workflow size={14} />
-              <span>{appRuntime.kind === 'web' ? 'Web phase' : 'Electron'}</span>
+              <span>{runtimeDisplayName(appRuntime.kind)}</span>
             </div>
           </div>
         </aside>
@@ -609,7 +613,7 @@ export default function SettingsPanel({
               <SettingsSheet>
                 <SettingsRow
                   title="ภาษาต้นฉบับ"
-                  description="ใช้กับ OCR/AI ตอนแปล ถ้าไม่มั่นใจให้ปล่อยเป็นตรวจอัตโนมัติ"
+                  description="ใช้ตอนอ่านและแปลข้อความ ถ้าไม่มั่นใจให้ปล่อยเป็นตรวจอัตโนมัติ"
                 >
                   <SelectField
                     value={draft.sourceLang}
@@ -638,18 +642,18 @@ export default function SettingsPanel({
                     />
                     <StatusTile
                       icon={<Workflow size={16} />}
-                      label="Runtime"
-                      value={appRuntime.kind === 'web' ? 'Web phase' : 'Electron'}
+                      label="โหมดแอป"
+                      value={runtimeDisplayName(appRuntime.kind)}
                       tone="muted"
                     />
                   </div>
                 </SettingsRow>
-                <SettingsRow title="บริการ local ที่แอปควบคุม" description="แอปจะหยุดเฉพาะ service ที่ตัวเองเป็นคนเปิดไว้ และจะไม่แตะ process ที่เปิดจากภายนอก">
+                <SettingsRow title="โปรแกรมช่วยทำงานในเครื่อง" description="แอปจะหยุดเฉพาะโปรแกรมที่ตัวเองเปิดไว้ และจะไม่แตะโปรแกรมที่คุณเปิดเอง">
                   <div className="space-y-3">
                     <div className="moxzk-notice">
                       <Workflow size={14} />
                       <span>
-                        Ollama: {describeManagedStatus(localServiceStatus.ollama)} | PanelCleaner: {describeManagedStatus(localServiceStatus.panelcleaner)}
+                        Ollama: {describeManagedStatus(localServiceStatus.ollama)} | ตัวลบข้อความ: {describeManagedStatus(localServiceStatus.panelcleaner)}
                       </span>
                     </div>
                     <Button
@@ -659,29 +663,29 @@ export default function SettingsPanel({
                       disabled={!hasOwnedServices || stoppingOwnedServices}
                     >
                       {stoppingOwnedServices ? <Loader2 size={12} className="animate-spin" /> : <Server size={12} />}
-                      หยุด local services ที่แอปเปิดไว้
+                      หยุดโปรแกรมช่วยทำงานที่แอปเปิดไว้
                     </Button>
                   </div>
                 </SettingsRow>
-                <SettingsRow title="Desktop diagnostics" description="ดู runtime จริง เปิดโฟลเดอร์สำคัญ และเช็ค auth callback ที่เครื่องนี้รองรับ">
+                <SettingsRow title="ข้อมูลแอปและการแก้ปัญหา" description="ดูเวอร์ชัน เปิดโฟลเดอร์สำคัญ และตรวจช่องทางเข้าสู่ระบบของเครื่องนี้">
                   <div className="space-y-4">
                     <div className="grid gap-3 md:grid-cols-3">
                       <StatusTile
                         icon={<Cpu size={16} />}
-                        label="App version"
+                        label="เวอร์ชันแอป"
                         value={appVersion}
                         tone="muted"
                       />
                       <StatusTile
                         icon={<Workflow size={16} />}
-                        label="Runtime kind"
-                        value={appRuntime.kind}
+                        label="โหมดแอป"
+                        value={runtimeDisplayName(appRuntime.kind)}
                         tone="muted"
                       />
                       <StatusTile
                         icon={<Globe size={16} />}
-                        label="Auth callback"
-                        value={authCallbackUrl ?? 'loopback fallback'}
+                        label="ช่องทางเข้าสู่ระบบ"
+                        value={authCallbackUrl ?? 'ใช้ช่องทางสำรอง'}
                         tone={authCallbackUrl ? 'good' : 'muted'}
                       />
                     </div>
@@ -689,31 +693,31 @@ export default function SettingsPanel({
                       <Button
                         variant="soft"
                         size="sm"
-                        onClick={() => handleOpenRuntimePath(appRuntime.app.openSettingsFolder, 'เปิดโฟลเดอร์ settings แล้ว')}
+                        onClick={() => handleOpenRuntimePath(appRuntime.app.openSettingsFolder, 'เปิดโฟลเดอร์ตั้งค่าแล้ว')}
                       >
-                        <FolderOpen size={12} /> เปิด settings
+                        <FolderOpen size={12} /> เปิดโฟลเดอร์ตั้งค่า
                       </Button>
                       <Button
                         variant="soft"
                         size="sm"
-                        onClick={() => handleOpenRuntimePath(appRuntime.app.openDraftsFolder, 'เปิดโฟลเดอร์ drafts แล้ว')}
+                        onClick={() => handleOpenRuntimePath(appRuntime.app.openDraftsFolder, 'เปิดโฟลเดอร์งานร่างแล้ว')}
                       >
-                        <FolderOpen size={12} /> เปิด drafts
+                        <FolderOpen size={12} /> เปิดงานร่าง
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleOpenRuntimePath(appRuntime.app.openLogs, 'เปิด app logs แล้ว')}
+                        onClick={() => handleOpenRuntimePath(appRuntime.app.openLogs, 'เปิดบันทึกปัญหาแล้ว')}
                       >
-                        <Terminal size={12} /> เปิด logs
+                        <Terminal size={12} /> เปิดบันทึกปัญหา
                       </Button>
                     </div>
                     <div className="moxzk-notice">
                       <Key size={14} />
                       <span>
                         {appRuntime.capabilities.canSecureStoreSecrets
-                          ? 'Electron จะเก็บ Ollama Cloud API key ไว้ใน secure store ของระบบ ไม่เก็บเป็น plain text ใน settings JSON'
-                          : 'Runtime นี้ยังไม่มี secure secret storage'}
+                          ? 'Moxzk จะเก็บรหัส Ollama Cloud ไว้ในพื้นที่ปลอดภัยของระบบ ไม่บันทึกลงไฟล์ตั้งค่าทั่วไป'
+                          : 'โหมดนี้ยังเก็บรหัสลับแบบปลอดภัยไม่ได้'}
                       </span>
                     </div>
                   </div>
@@ -724,11 +728,11 @@ export default function SettingsPanel({
             {tab === 'models' && (
               <SettingsSheet>
                 <SettingsRow
-                  title="Ollama endpoint"
-                  description="Local endpoint ปกติคือ localhost ส่วน Cloud ใช้ ollama.com พร้อม API key"
+                  title="ที่อยู่ Ollama"
+                  description="ใช้ Ollama ในเครื่องเป็นค่าเริ่มต้น หรือใช้ Ollama Cloud พร้อมรหัสส่วนตัว"
                 >
                   <div className="space-y-4">
-                    <Field label="Endpoint" hint="Local: http://localhost:11434, Cloud: https://ollama.com">
+                    <Field label="ที่อยู่บริการ" hint="ในเครื่อง: http://localhost:11434, Cloud: https://ollama.com">
                       <TextInput
                         type="url"
                         placeholder="http://localhost:11434"
@@ -736,7 +740,7 @@ export default function SettingsPanel({
                         onChange={(e) => setDraft({ ...draft, ollamaUrl: e.target.value })}
                       />
                     </Field>
-                    <Field label={<span className="flex items-center gap-1"><Key size={12} /> Ollama Cloud API Key</span>}>
+                    <Field label={<span className="flex items-center gap-1"><Key size={12} /> รหัส Ollama Cloud</span>}>
                       <TextInput
                         type="password"
                         placeholder="ใส่เฉพาะเมื่อใช้ https://ollama.com"
@@ -767,12 +771,12 @@ export default function SettingsPanel({
                     </div>
                     <div className="moxzk-notice">
                       <Workflow size={14} />
-                      <span>สถานะที่แอปจัดการ: {describeManagedStatus(localServiceStatus.ollama)}</span>
+                      <span>สถานะในเครื่อง: {describeManagedStatus(localServiceStatus.ollama)}</span>
                     </div>
                     {localServiceStatus.ollama.command && (
                       <div className="moxzk-notice">
                         <Terminal size={14} />
-                        <span>คำสั่งที่ตรวจพบ: {localServiceStatus.ollama.command}</span>
+                        <span>พบโปรแกรมที่ตำแหน่ง: {localServiceStatus.ollama.command}</span>
                       </div>
                     )}
                     {localServiceStatus.ollama.lastError && (
@@ -795,7 +799,7 @@ export default function SettingsPanel({
                       <div className="moxzk-notice">
                         <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
                         <span>
-                          ยังหา `ollama.exe` ไม่เจอใน PATH หรือโฟลเดอร์ติดตั้งมาตรฐาน
+                          ยังไม่พบโปรแกรม Ollama ในตำแหน่งที่ใช้กันทั่วไป
                           {' '}
                           <button className="font-bold text-[var(--moxzk-text)] underline" type="button" onClick={() => handleOpenLink(OLLAMA_DOWNLOAD_URL)}>
                             เปิดหน้าโหลด Ollama
@@ -840,7 +844,7 @@ export default function SettingsPanel({
                   <div className="space-y-4">
                     <div className="moxzk-notice">
                       <Globe size={14} />
-                      <span>{canStartLocalServices ? 'Electron เริ่ม local Ollama ได้เมื่อ endpoint เป็น localhost; installer และ cloud key ยังต้องจัดการเอง' : 'Web runtime เปิด installer, start service หรือสั่ง CLI แทนผู้ใช้ไม่ได้'}</span>
+                      <span>{canStartLocalServices ? 'แอปเดสก์ท็อปเริ่ม Ollama ในเครื่องให้ได้ แต่การติดตั้งโปรแกรมและรหัส Cloud ยังต้องตั้งค่าเอง' : 'โหมดเว็บเปิดโปรแกรมในเครื่องหรือติดตั้งแทนคุณไม่ได้'}</span>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <StepCard
@@ -861,7 +865,7 @@ export default function SettingsPanel({
                         description="เปิดแอป Ollama หรือรัน ollama serve"
                         action={(
                           <Button variant="ghost" size="sm" onClick={() => handleOpenLink(OLLAMA_API_DOC_URL)}>
-                            <BookOpenText size={12} /> อ่าน API
+                            <BookOpenText size={12} /> อ่านคู่มือ
                           </Button>
                         )}
                       />
@@ -883,7 +887,7 @@ export default function SettingsPanel({
                         description="กดติดตั้งหรือคัดลอกคำสั่งไป PowerShell"
                         action={(
                           <Button variant="ghost" size="sm" onClick={() => handleOpenLink(OLLAMA_PULL_DOC_URL)}>
-                            <BookOpenText size={12} /> Pull API
+                            <BookOpenText size={12} /> วิธีติดตั้ง
                           </Button>
                         )}
                       />
@@ -1002,27 +1006,27 @@ export default function SettingsPanel({
 
             {tab === 'cleanup' && (
               <SettingsSheet>
-                <SettingsRow title="PanelCleaner bridge" description={canStartLocalServices ? 'Electron เริ่ม bridge บนเครื่องนี้ได้ โดยยังใช้ PanelCleaner เป็น external CLI' : 'Web phase ต้องใช้ local bridge เพราะ browser เรียก Python/CLI โดยตรงไม่ได้'}>
+                <SettingsRow title="ตัวลบข้อความในภาพ" description={canStartLocalServices ? 'แอปเดสก์ท็อปเริ่มตัวช่วยลบข้อความบนเครื่องนี้ได้' : 'โหมดเว็บต้องให้คุณเปิดตัวช่วยลบข้อความในเครื่องเอง'}>
                   <div className="space-y-4">
                     <div className="moxzk-notice">
                       <Server size={14} />
-                      <span>{canStartPanelCleaner ? 'กดติดตั้งหรือซ่อมจากหน้านี้ได้ แอปจะเก็บ PanelCleaner ไว้ใน managed venv ของ Moxzk' : 'ให้รัน bridge เองก่อนเริ่มประมวลผล'}</span>
+                      <span>{canStartPanelCleaner ? 'กดติดตั้งหรือซ่อมจากหน้านี้ได้ แอปจะเก็บชุดใช้งานไว้ในพื้นที่ของ Moxzk' : 'เปิดตัวช่วยลบข้อความในเครื่องก่อนเริ่มประมวลผล'}</span>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <StatusTile
                         icon={checkingPanelCleanerDependency || installingPanelCleaner ? <Loader2 size={16} className="animate-spin" /> : <HardDriveDownload size={16} />}
-                        label="PanelCleaner dependency"
+                        label="ชุดตัวลบข้อความ"
                         value={describePanelCleanerDependency(panelCleanerDependency)}
                         tone={dependencyTone(panelCleanerDependency)}
                       />
                       <StatusTile
                         icon={<Workflow size={16} />}
-                        label="Bridge process"
+                        label="สถานะการทำงาน"
                         value={describeManagedStatus(localServiceStatus.panelcleaner)}
                         tone={localServiceStatus.panelcleaner.running ? 'good' : 'muted'}
                       />
                     </div>
-                    <Field label="PanelCleaner Bridge URL" hint="ค่าเริ่มต้น: http://localhost:5055">
+                    <Field label="ที่อยู่ตัวช่วยลบข้อความ" hint="ค่าเริ่มต้น: http://localhost:5055">
                       <TextInput
                         type="url"
                         placeholder="http://localhost:5055"
@@ -1030,10 +1034,10 @@ export default function SettingsPanel({
                         onChange={(e) => setDraft({ ...draft, panelCleanerBridgeUrl: e.target.value })}
                       />
                     </Field>
-                    <Field label="ตำแหน่งไฟล์ PanelCleaner" hint="เว้นว่างเพื่อใช้ managed venv ก่อน แล้วค่อย fallback เป็น dev venv หรือ PATH">
+                    <Field label="ตำแหน่งไฟล์ PanelCleaner" hint="เว้นว่างเพื่อใช้ชุดที่ Moxzk ติดตั้งให้ หรือเลือกไฟล์เองเมื่อจำเป็น">
                       <TextInput
                         type="text"
-                        placeholder="เว้นว่างเพื่อใช้ managed venv"
+                        placeholder="เว้นว่างเพื่อให้ Moxzk จัดการให้"
                         value={draft.panelCleanerExecutablePath}
                         onChange={(e) => setDraft({ ...draft, panelCleanerExecutablePath: e.target.value })}
                       />
@@ -1106,7 +1110,7 @@ export default function SettingsPanel({
                       <div className="rounded-[8px] border border-white/10 bg-black/20 p-3">
                         <div className="mb-2 flex items-center gap-2 text-xs font-bold text-[var(--moxzk-muted)]">
                           <Terminal size={13} />
-                          Installation log
+                          รายละเอียดการติดตั้ง
                         </div>
                         <pre className="max-h-36 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-[var(--moxzk-muted)]">{panelCleanerInstallLogs.slice(-12).join('\n')}</pre>
                       </div>
@@ -1114,10 +1118,10 @@ export default function SettingsPanel({
                     <div className="moxzk-notice">
                       <ExternalLink size={14} />
                       <span>
-                        PanelCleaner เป็น external dependency ({panelCleanerDependency?.packageName ?? 'pcleaner-cli'} {panelCleanerDependency?.packageVersion ?? '2.11.9'}, {panelCleanerDependency?.licenseName ?? 'GPLv3'})
+                        PanelCleaner เป็นชุดช่วยลบข้อความที่ติดตั้งแยกจากตัวแอป ({panelCleanerDependency?.packageName ?? 'pcleaner-cli'} {panelCleanerDependency?.packageVersion ?? '2.11.9'}, {panelCleanerDependency?.licenseName ?? 'GPLv3'})
                         {' '}
                         <button className="font-bold text-[var(--moxzk-text)] underline" type="button" onClick={() => handleOpenLink(panelCleanerDependency?.projectUrl ?? PANELCLEANER_PACKAGE_URL)}>
-                          เปิดหน้า package
+                          เปิดหน้ารายละเอียด
                         </button>
                       </span>
                     </div>

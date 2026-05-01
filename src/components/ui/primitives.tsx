@@ -377,16 +377,22 @@ export function Tabs<T extends string>({
   options,
   onChange,
   children,
+  className,
+  listClassName,
+  panelsClassName,
 }: {
   value: T
   options: Array<OptionItem<T>>
   onChange: (value: T) => void
   children: ReactNode
+  className?: string
+  listClassName?: string
+  panelsClassName?: string
 }) {
   const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value))
   return (
-    <TabGroup selectedIndex={selectedIndex} onChange={(index) => onChange(options[index].value)}>
-      <TabList className="inline-flex rounded-[8px] bg-white/5 p-1">
+    <TabGroup selectedIndex={selectedIndex} onChange={(index) => onChange(options[index].value)} className={className}>
+      <TabList className={cn('inline-flex rounded-[8px] bg-white/5 p-1', listClassName)}>
         {options.map((option) => (
           <Tab
             key={option.value}
@@ -396,7 +402,7 @@ export function Tabs<T extends string>({
           </Tab>
         ))}
       </TabList>
-      <TabPanels>{children}</TabPanels>
+      <TabPanels className={panelsClassName}>{children}</TabPanels>
     </TabGroup>
   )
 }
