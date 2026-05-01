@@ -71,7 +71,7 @@ export function parseApiError(raw: string): ParsedError {
     } else if (lower.includes('panelcleaner') || lower.includes('5055')) {
       result.shortMessage = lower.includes('timed out') || lower.includes('timeout')
         ? 'ตัวลบข้อความตอบช้าเกินเวลา — อาจกำลังเปิดหรือยังไม่พร้อม'
-        : 'เชื่อมต่อตัวลบข้อความไม่ได้ — เปิด Settings > ลบข้อความ แล้วลองติดตั้งหรือเริ่มใหม่'
+        : 'เชื่อมต่อตัวลบข้อความไม่ได้ — กดเริ่มตัวช่วย หรือกดติดตั้งถ้ายังไม่มีชุดใช้งาน'
     } else {
       result.shortMessage = 'เชื่อมต่อไม่ได้ — ตรวจสอบตัวช่วยลบข้อความ'
     }

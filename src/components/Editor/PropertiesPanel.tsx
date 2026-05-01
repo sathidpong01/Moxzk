@@ -143,7 +143,11 @@ export default function PropertiesPanel({
                     ? convertBalloonRegionToArtistic(region)
                     : {}),
                   ...(layoutMode === 'artistic' && nextMode === 'balloon_fit'
-                    ? convertArtisticRegionToBalloon(region)
+                    ? convertArtisticRegionToBalloon(region, {
+                        fontFamily: regionFont.family,
+                        fontWeight: regionFont.weight,
+                        fontStyle: regionFont.style,
+                      })
                     : {}),
                 })
               }}

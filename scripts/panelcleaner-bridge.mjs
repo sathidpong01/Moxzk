@@ -228,7 +228,7 @@ async function getPanelCleanerStatus(executablePath) {
     return {
       ok: false,
       error: toSafeErrorMessage(err),
-      installHint: 'Open Settings > Cleanup and install PanelCleaner, or run pip install pcleaner-cli.',
+      installHint: 'กดติดตั้ง PanelCleaner หรือเลือกไฟล์ PanelCleaner เอง',
     }
   }
 }

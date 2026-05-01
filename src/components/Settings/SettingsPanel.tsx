@@ -7,15 +7,14 @@ import { getAppRuntime } from '../../runtime'
 import type { LocalServiceName, ManagedServiceStatus, PanelCleanerDependencyStatus } from '../../runtime'
 import {
   AlertCircle,
-  BookOpenText,
   CheckCircle2,
   Copy,
   Cpu,
-  Download,
   ExternalLink,
   FolderOpen,
   Globe,
   HardDriveDownload,
+  Info,
   Key,
   Languages,
   Loader2,
@@ -38,19 +37,20 @@ interface SettingsPanelProps {
   onClose: () => void
 }
 
-type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup'
+type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup' | 'about'
 
 const TABS: { id: SettingsTab; label: string; description: string; icon: typeof Settings }[] = [
   { id: 'general', label: 'ทั่วไป', description: 'ภาษาและสถานะรวม', icon: Settings },
   { id: 'models', label: 'AI แปลภาษา', description: 'Ollama และโมเดลที่ใช้แปล', icon: Cpu },
   { id: 'translation', label: 'แปลภาษา', description: 'บริบทและโทนคำแปล', icon: Languages },
   { id: 'cleanup', label: 'ลบข้อความ', description: 'ตัวช่วยลบข้อความในภาพ', icon: Server },
+  { id: 'about', label: 'เกี่ยวกับ', description: 'เวอร์ชัน สิทธิ์ใช้งาน และเครื่องมือภายนอก', icon: Info },
 ]
 
+const APP_LICENSE_NAME = 'MIT'
+const MAGGA_URL = 'https://magga.vercel.app'
 const OLLAMA_DOWNLOAD_URL = 'https://ollama.com/download/windows'
 const OLLAMA_API_DOC_URL = 'https://docs.ollama.com/api/introduction'
-const OLLAMA_PULL_DOC_URL = 'https://docs.ollama.com/api/pull'
-const GEMMA3_DOC_URL = 'https://ollama.com/library/gemma3'
 const PANELCLEANER_PACKAGE_URL = 'https://pypi.org/project/pcleaner-cli/'
 const OLLAMA_STATUS_TIMEOUT_MS = 8000
 const OLLAMA_MODELS_TIMEOUT_MS = 15000
@@ -89,6 +89,14 @@ function modelCommand(model: string): string {
   return `ollama pull ${model}`
 }
 
+function isOllamaCloudEndpoint(url: string): boolean {
+  try {
+    return new URL(url.trim()).hostname === 'ollama.com'
+  } catch {
+    return false
+  }
+}
+
 function formatBytes(value?: number): string {
   if (!value || value <= 0) return '-'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -104,6 +112,35 @@ function formatBytes(value?: number): string {
 function getPullPercent(progress: OllamaPullProgress | null): number | null {
   if (!progress?.total || !progress.completed) return null
   return Math.max(0, Math.min(100, Math.round((progress.completed / progress.total) * 100)))
+}
+
+function ModelPullProgress({
+  model,
+  percent,
+  progress,
+}: {
+  model: string
+  percent: number | null
+  progress: OllamaPullProgress | null
+}) {
+  const statusText = progress?.status ?? 'กำลังดาวน์โหลด'
+  const byteText = percent != null ? ` - ${percent}% (${formatBytes(progress?.completed)} / ${formatBytes(progress?.total)})` : ''
+
+  return (
+    <div className="settings-model-progress">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="min-w-0 truncate font-bold text-[var(--moxzk-text)]">กำลังโหลด {model} เข้า Ollama</span>
+        <span className="shrink-0 text-[var(--moxzk-muted)]">{percent != null ? `${percent}%` : 'เริ่มต้น'}</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-white/8">
+        <div
+          className="h-full rounded-full bg-[var(--moxzk-accent)] transition-all"
+          style={{ width: `${percent ?? 8}%` }}
+        />
+      </div>
+      <p className="text-xs text-[var(--moxzk-muted)]">{statusText}{byteText}</p>
+    </div>
+  )
 }
 
 function toFriendlyServiceError(service: 'ollama' | 'panelcleaner', raw?: string): string {
@@ -158,6 +195,22 @@ function describeManagedStatus(status: ManagedServiceStatus): string {
   return 'ยังไม่ทำงาน'
 }
 
+function describeOllamaSummary(
+  status: OllamaStatus | null,
+  serviceStatus: ManagedServiceStatus,
+  isCloudEndpoint: boolean,
+): string {
+  if (status?.ok) {
+    const version = status.version && status.version !== 'cloud' ? ` · ${status.version}` : ''
+    return `${isCloudEndpoint ? 'Ollama Cloud' : 'Ollama'} พร้อมใช้งาน${version}`
+  }
+
+  if (serviceStatus.running) return `Ollama เปิดอยู่ · ${describeManagedStatus(serviceStatus)}`
+  if (serviceStatus.command) return 'พบ Ollama ในเครื่อง · ยังไม่ได้เริ่ม'
+  if (isCloudEndpoint) return 'Ollama Cloud ต้องใช้รหัส Cloud'
+  return 'ยังไม่พบ Ollama ในตำแหน่งที่ใช้กันทั่วไป'
+}
+
 function describePanelCleanerDependency(status: PanelCleanerDependencyStatus | null): string {
   if (!status) return 'ยังไม่ได้ตรวจ'
   if (status.state === 'installing') return 'กำลังติดตั้ง'
@@ -175,8 +228,41 @@ function describePanelCleanerDependency(status: PanelCleanerDependencyStatus | n
   return 'ยังไม่ได้ติดตั้ง'
 }
 
-function dependencyTone(status: PanelCleanerDependencyStatus | null): 'good' | 'muted' {
-  return status?.state === 'ready' ? 'good' : 'muted'
+function describePanelCleanerSummary(
+  dependency: PanelCleanerDependencyStatus | null,
+  bridgeStatus: PanelCleanerStatus | null,
+  serviceStatus: ManagedServiceStatus,
+): string {
+  const serviceText = describeManagedStatus(serviceStatus)
+
+  if (bridgeStatus?.ok) {
+    return `พร้อมใช้งานจาก${panelCleanerSourceText(bridgeStatus)} · ${serviceText}`
+  }
+
+  if (dependency?.state === 'ready') {
+    return `${describePanelCleanerDependency(dependency)} · ${serviceText}`
+  }
+
+  if (serviceStatus.running) {
+    return `ตัวช่วยเปิดอยู่ · ${bridgeStatus ? 'ตรวจไม่ผ่าน' : 'ยังไม่ได้ตรวจชุดลบข้อความ'} · ${serviceText}`
+  }
+
+  return `${describePanelCleanerDependency(dependency)} · ${serviceText}`
+}
+
+function describePanelCleanerFailure(status: PanelCleanerStatus, serviceStatus: ManagedServiceStatus): string {
+  const lower = `${status.error ?? ''} ${status.installHint ?? ''}`.toLowerCase()
+
+  if (!serviceStatus.running && (lower.includes('fetch') || lower.includes('econnrefused') || lower.includes('5055'))) {
+    return 'ตัวช่วยยังไม่เปิด · กดเริ่ม PanelCleaner ก่อน'
+  }
+
+  if (lower.includes('executable not found') || lower.includes('install panelcleaner') || lower.includes('pcleaner-cli')) {
+    return 'ยังไม่พบชุด PanelCleaner ที่ใช้งานได้ · กดติดตั้ง PanelCleaner หรือเลือกไฟล์เอง'
+  }
+
+  const friendly = toFriendlyServiceError('panelcleaner', status.error)
+  return status.installHint ? `${friendly} · ${status.installHint}` : friendly
 }
 
 function panelCleanerSourceText(status: PanelCleanerStatus): string {
@@ -218,12 +304,29 @@ export default function SettingsPanel({
   const [authCallbackUrl, setAuthCallbackUrl] = useState<string | null>(null)
 
   const installedModels = useMemo(() => new Set(modelNames), [modelNames])
+  const selectedModelName = draft.ollamaModel.trim()
+  const visibleModelNames = useMemo(() => {
+    if (!selectedModelName || installedModels.has(selectedModelName)) return modelNames
+    return [selectedModelName, ...modelNames]
+  }, [installedModels, modelNames, selectedModelName])
   const pullPercent = getPullPercent(pullProgress)
+  const selectedModelKnown = Boolean(selectedModelName) && installedModels.has(selectedModelName)
+  const selectedModelHasPreset = MODEL_PRESETS.some((preset) => preset.name === selectedModelName)
+  const selectedModelIsPulling = Boolean(selectedModelName) && pullingModel === selectedModelName && !selectedModelHasPreset
+  const showModelNotListedHint = Boolean(selectedModelName) && modelNames.length > 0 && !selectedModelKnown && !selectedModelIsPulling
   const currentTab = TABS.find((item) => item.id === tab) ?? TABS[0]
   const canStartLocalServices = appRuntime.capabilities.canStartLocalServices
   const canStartOllama = canStartLocalServices && isLocalServiceUrl(draft.ollamaUrl)
+  const isOllamaCloud = isOllamaCloudEndpoint(draft.ollamaUrl)
+  const ollamaReady = Boolean(ollamaStatus?.ok)
+  const canStartOllamaService = canStartOllama && !ollamaReady && !localServiceStatus.ollama.running
+  const canPullOllamaModel = !isOllamaCloud && Boolean(selectedModelName) && !pullingModel
   const canStartPanelCleaner = canStartLocalServices && isLocalServiceUrl(draft.panelCleanerBridgeUrl)
   const hasOwnedServices = localServiceStatus.ollama.ownedByApp || localServiceStatus.panelcleaner.ownedByApp
+  const panelCleanerReady = panelCleanerStatus?.ok || panelCleanerDependency?.state === 'ready'
+  const canInstallPanelCleaner = canStartPanelCleaner && !panelCleanerReady && panelCleanerDependency?.state !== 'installing'
+  const canRepairPanelCleaner = canStartPanelCleaner && panelCleanerDependency?.state === 'broken'
+  const canStartPanelCleanerBridge = canStartPanelCleaner && !localServiceStatus.panelcleaner.running
 
   const refreshManagedStatuses = useCallback(async () => {
     if (!canStartLocalServices) {
@@ -253,6 +356,27 @@ export default function SettingsPanel({
       setCheckingPanelCleanerDependency(false)
     }
   }, [appRuntime.localServices, canStartLocalServices])
+
+  const refreshOllamaModels = useCallback(async ({ notify = false }: { notify?: boolean } = {}) => {
+    setLoadingModels(true)
+    try {
+      const models = await appRuntime.ollama.listModels({
+        ollamaUrl: draft.ollamaUrl,
+        ollamaApiKey: draft.ollamaApiKey,
+        timeoutMs: OLLAMA_MODELS_TIMEOUT_MS,
+      })
+      const names = models.map((model) => model.name || model.model || '').filter(Boolean)
+      setModelNames(names)
+      if (notify) toast.success(`รีเฟรชแล้ว พบ ${models.length} โมเดล`)
+    } catch (err) {
+      if (notify) {
+        const message = err instanceof Error ? err.message : String(err)
+        toast.error(`รีเฟรชรายชื่อโมเดลไม่สำเร็จ: ${toFriendlyServiceError('ollama', message)}`)
+      }
+    } finally {
+      setLoadingModels(false)
+    }
+  }, [appRuntime.ollama, draft.ollamaApiKey, draft.ollamaUrl])
 
   useEffect(() => {
     if (isOpen) {
@@ -285,6 +409,11 @@ export default function SettingsPanel({
     }, LOCAL_SERVICE_STATUS_POLL_MS)
     return () => window.clearInterval(timer)
   }, [canStartLocalServices, isOpen, refreshManagedStatuses])
+
+  useEffect(() => {
+    if (!isOpen || tab !== 'models') return
+    void refreshOllamaModels()
+  }, [isOpen, refreshOllamaModels, tab])
 
   const handleSave = async () => {
     setSavingSettings(true)
@@ -327,23 +456,7 @@ export default function SettingsPanel({
     }
   }
 
-  const handleLoadModels = async () => {
-    setLoadingModels(true)
-    try {
-      const models = await appRuntime.ollama.listModels({
-        ollamaUrl: draft.ollamaUrl,
-        ollamaApiKey: draft.ollamaApiKey,
-        timeoutMs: OLLAMA_MODELS_TIMEOUT_MS,
-      })
-      setModelNames(models.map((model) => model.name || model.model || '').filter(Boolean))
-      toast.success(`พบ ${models.length} โมเดล`)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      toast.error(`โหลดรายการโมเดลไม่สำเร็จ: ${toFriendlyServiceError('ollama', message)}`)
-    } finally {
-      setLoadingModels(false)
-    }
-  }
+  const handleLoadModels = () => refreshOllamaModels({ notify: true })
 
   const handleStartOllama = async () => {
     setStartingOllama(true)
@@ -365,23 +478,28 @@ export default function SettingsPanel({
   }
 
   const handlePullModel = async (model: string) => {
-    setPullingModel(model)
+    const targetModel = model.trim()
+    if (!targetModel) {
+      toast.error('กรุณาระบุชื่อโมเดล Ollama')
+      return
+    }
+    setPullingModel(targetModel)
     setPullProgress({ status: 'เตรียมดาวน์โหลด' })
     setPullError(null)
     try {
       const result = await appRuntime.ollama.pullModel({
         ollamaUrl: draft.ollamaUrl,
         ollamaApiKey: draft.ollamaApiKey,
-        model,
+        model: targetModel,
         onProgress: setPullProgress,
       })
       setPullProgress(result)
-      setModelNames((current) => current.includes(model) ? current : [...current, model])
-      toast.success(`ติดตั้ง ${model} เสร็จแล้ว`)
+      setModelNames((current) => current.includes(targetModel) ? current : [...current, targetModel])
+      toast.success(`โหลด ${targetModel} เข้า Ollama แล้ว`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setPullError(message)
-      toast.error(`ติดตั้งโมเดลไม่สำเร็จ: ${message}`)
+      toast.error(`โหลดเข้า Ollama ไม่สำเร็จ: ${message}`)
     } finally {
       setPullingModel(null)
     }
@@ -398,6 +516,7 @@ export default function SettingsPanel({
   }
 
   const handleUseModel = (model: string) => {
+    setPullError(null)
     setDraft((current) => ({ ...current, ollamaModel: model }))
     toast.success(`เลือก ${model} เป็นโมเดลใช้งานแล้ว กดบันทึกเพื่อเก็บค่า`)
   }
@@ -573,6 +692,7 @@ export default function SettingsPanel({
                   tab === id ? 'settings-nav-active' : 'settings-nav-idle'
                 }`}
                 onClick={() => setTab(id)}
+                aria-current={tab === id ? 'page' : undefined}
               >
                 <Icon
                   size={15}
@@ -593,7 +713,7 @@ export default function SettingsPanel({
         </aside>
 
         <main className="SettingsMain flex min-w-0 flex-1 flex-col">
-          <header className="SettingsHeader flex shrink-0 items-center justify-between gap-4 border-b border-[var(--settings-divider)] px-8 py-6">
+          <header className="SettingsHeader flex shrink-0 items-center justify-between gap-4 border-b border-[var(--settings-divider)] px-7 py-5">
             <div className="min-w-0">
               <h2 className="text-2xl font-bold text-[var(--moxzk-text)]">{currentTab.label}</h2>
               <p className="mt-1 text-sm text-[var(--moxzk-muted)]">{currentTab.description}</p>
@@ -608,12 +728,12 @@ export default function SettingsPanel({
             </div>
           </header>
 
-          <section className="min-h-0 flex-1 overflow-y-auto px-8">
+          <section className="min-h-0 flex-1 overflow-y-auto px-7">
             {tab === 'general' && (
               <SettingsSheet>
                 <SettingsRow
                   title="ภาษาต้นฉบับ"
-                  description="ใช้ตอนอ่านและแปลข้อความ ถ้าไม่มั่นใจให้ปล่อยเป็นตรวจอัตโนมัติ"
+                  description="ค่าเริ่มต้นสำหรับ OCR และคำแปล"
                 >
                   <SelectField
                     value={draft.sourceLang}
@@ -626,68 +746,11 @@ export default function SettingsPanel({
                     ]}
                   />
                 </SettingsRow>
-                <SettingsRow title="สถานะระบบ" description="เช็คบริการสำคัญก่อนเริ่มงาน">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <StatusTile
-                      icon={<Cpu size={16} />}
-                      label="Ollama"
-                      value={describeManagedStatus(localServiceStatus.ollama)}
-                      tone={localServiceStatus.ollama.running ? 'good' : 'muted'}
-                    />
-                    <StatusTile
-                      icon={<Server size={16} />}
-                      label="PanelCleaner"
-                      value={describeManagedStatus(localServiceStatus.panelcleaner)}
-                      tone={localServiceStatus.panelcleaner.running ? 'good' : 'muted'}
-                    />
-                    <StatusTile
-                      icon={<Workflow size={16} />}
-                      label="โหมดแอป"
-                      value={runtimeDisplayName(appRuntime.kind)}
-                      tone="muted"
-                    />
-                  </div>
-                </SettingsRow>
-                <SettingsRow title="โปรแกรมช่วยทำงานในเครื่อง" description="แอปจะหยุดเฉพาะโปรแกรมที่ตัวเองเปิดไว้ และจะไม่แตะโปรแกรมที่คุณเปิดเอง">
-                  <div className="space-y-3">
+                <SettingsRow title="แอปนี้" description="ข้อมูลสั้น ๆ และทางลัดที่ใช้จริง">
+                  <div className="space-y-4">
                     <div className="moxzk-notice">
                       <Workflow size={14} />
-                      <span>
-                        Ollama: {describeManagedStatus(localServiceStatus.ollama)} | ตัวลบข้อความ: {describeManagedStatus(localServiceStatus.panelcleaner)}
-                      </span>
-                    </div>
-                    <Button
-                      variant="soft"
-                      size="sm"
-                      onClick={handleStopOwnedServices}
-                      disabled={!hasOwnedServices || stoppingOwnedServices}
-                    >
-                      {stoppingOwnedServices ? <Loader2 size={12} className="animate-spin" /> : <Server size={12} />}
-                      หยุดโปรแกรมช่วยทำงานที่แอปเปิดไว้
-                    </Button>
-                  </div>
-                </SettingsRow>
-                <SettingsRow title="ข้อมูลแอปและการแก้ปัญหา" description="ดูเวอร์ชัน เปิดโฟลเดอร์สำคัญ และตรวจช่องทางเข้าสู่ระบบของเครื่องนี้">
-                  <div className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <StatusTile
-                        icon={<Cpu size={16} />}
-                        label="เวอร์ชันแอป"
-                        value={appVersion}
-                        tone="muted"
-                      />
-                      <StatusTile
-                        icon={<Workflow size={16} />}
-                        label="โหมดแอป"
-                        value={runtimeDisplayName(appRuntime.kind)}
-                        tone="muted"
-                      />
-                      <StatusTile
-                        icon={<Globe size={16} />}
-                        label="ช่องทางเข้าสู่ระบบ"
-                        value={authCallbackUrl ?? 'ใช้ช่องทางสำรอง'}
-                        tone={authCallbackUrl ? 'good' : 'muted'}
-                      />
+                      <span>เวอร์ชัน {appVersion} · {runtimeDisplayName(appRuntime.kind)}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -711,6 +774,17 @@ export default function SettingsPanel({
                       >
                         <Terminal size={12} /> เปิดบันทึกปัญหา
                       </Button>
+                      {(hasOwnedServices || stoppingOwnedServices) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleStopOwnedServices}
+                          disabled={stoppingOwnedServices}
+                        >
+                          {stoppingOwnedServices ? <Loader2 size={12} className="animate-spin" /> : <Server size={12} />}
+                          หยุดโปรแกรมช่วยทำงาน
+                        </Button>
+                      )}
                     </div>
                     <div className="moxzk-notice">
                       <Key size={14} />
@@ -720,6 +794,12 @@ export default function SettingsPanel({
                           : 'โหมดนี้ยังเก็บรหัสลับแบบปลอดภัยไม่ได้'}
                       </span>
                     </div>
+                    {authCallbackUrl && (
+                      <div className="moxzk-notice">
+                        <Globe size={14} />
+                        <span>เข้าสู่ระบบผ่าน {authCallbackUrl}</span>
+                      </div>
+                    )}
                   </div>
                 </SettingsRow>
               </SettingsSheet>
@@ -728,28 +808,30 @@ export default function SettingsPanel({
             {tab === 'models' && (
               <SettingsSheet>
                 <SettingsRow
-                  title="ที่อยู่ Ollama"
-                  description="ใช้ Ollama ในเครื่องเป็นค่าเริ่มต้น หรือใช้ Ollama Cloud พร้อมรหัสส่วนตัว"
+                  title="Ollama"
+                  description="ตั้งค่าที่อยู่และรหัส Cloud"
                 >
-                  <div className="space-y-4">
-                    <Field label="ที่อยู่บริการ" hint="ในเครื่อง: http://localhost:11434, Cloud: https://ollama.com">
-                      <TextInput
-                        type="url"
-                        placeholder="http://localhost:11434"
-                        value={draft.ollamaUrl}
-                        onChange={(e) => setDraft({ ...draft, ollamaUrl: e.target.value })}
-                      />
-                    </Field>
-                    <Field label={<span className="flex items-center gap-1"><Key size={12} /> รหัส Ollama Cloud</span>}>
-                      <TextInput
-                        type="password"
-                        placeholder="ใส่เฉพาะเมื่อใช้ https://ollama.com"
-                        value={draft.ollamaApiKey}
-                        onChange={(e) => setDraft({ ...draft, ollamaApiKey: e.target.value })}
-                      />
-                    </Field>
+                  <div className="grid gap-3">
+                    <div className="grid gap-3 md:grid-cols-[1.15fr_0.85fr]">
+                      <Field label="ที่อยู่บริการ" hint="ในเครื่อง: http://localhost:11434">
+                        <TextInput
+                          type="url"
+                          placeholder="http://localhost:11434"
+                          value={draft.ollamaUrl}
+                          onChange={(e) => setDraft({ ...draft, ollamaUrl: e.target.value })}
+                        />
+                      </Field>
+                      <Field label={<span className="flex items-center gap-1"><Key size={12} /> รหัส Cloud</span>} hint="ใช้เฉพาะ https://ollama.com">
+                        <TextInput
+                          type="password"
+                          placeholder="ไม่จำเป็นถ้าใช้ในเครื่อง"
+                          value={draft.ollamaApiKey}
+                          onChange={(e) => setDraft({ ...draft, ollamaApiKey: e.target.value })}
+                        />
+                      </Field>
+                    </div>
                     <div className="flex flex-wrap gap-2">
-                      {canStartOllama && (
+                      {canStartOllamaService && (
                         <Button
                           variant="primary"
                           size="sm"
@@ -766,36 +848,31 @@ export default function SettingsPanel({
                       </Button>
                       <Button variant="ghost" size="sm" onClick={handleLoadModels} disabled={loadingModels}>
                         {loadingModels ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
-                        โหลดโมเดล
+                        รีเฟรชรายชื่อ
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenLink(OLLAMA_DOWNLOAD_URL)}>
+                        <ExternalLink size={12} /> ดาวน์โหลด
                       </Button>
                     </div>
                     <div className="moxzk-notice">
-                      <Workflow size={14} />
-                      <span>สถานะในเครื่อง: {describeManagedStatus(localServiceStatus.ollama)}</span>
+                      {ollamaReady ? <CheckCircle2 size={14} className="text-[var(--moxzk-success)]" /> : <Terminal size={14} />}
+                      <span>{describeOllamaSummary(ollamaStatus, localServiceStatus.ollama, isOllamaCloud)}</span>
                     </div>
-                    {localServiceStatus.ollama.command && (
-                      <div className="moxzk-notice">
-                        <Terminal size={14} />
-                        <span>พบโปรแกรมที่ตำแหน่ง: {localServiceStatus.ollama.command}</span>
-                      </div>
-                    )}
                     {localServiceStatus.ollama.lastError && (
                       <div className="moxzk-notice">
                         <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
                         <span>เริ่ม Ollama ครั้งล่าสุดไม่สำเร็จ: {localServiceStatus.ollama.lastError}</span>
                       </div>
                     )}
-                    {ollamaStatus && (
+                    {ollamaStatus && !ollamaStatus.ok && (
                       <div className="moxzk-notice">
-                        {ollamaStatus.ok ? <CheckCircle2 size={14} className="text-[var(--moxzk-success)]" /> : <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />}
+                        <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
                         <span>
-                          {ollamaStatus.ok
-                            ? `เชื่อมต่อ ${ollamaStatus.url} สำเร็จ${ollamaStatus.version ? ` (${ollamaStatus.version})` : ''}`
-                            : `${ollamaStatus.url}: ${toFriendlyServiceError('ollama', ollamaStatus.error)}`}
+                          {ollamaStatus.url}: {toFriendlyServiceError('ollama', ollamaStatus.error)}
                         </span>
                       </div>
                     )}
-                    {!localServiceStatus.ollama.command && (
+                    {!localServiceStatus.ollama.command && !isOllamaCloud && (
                       <div className="moxzk-notice">
                         <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
                         <span>
@@ -810,104 +887,87 @@ export default function SettingsPanel({
                   </div>
                 </SettingsRow>
 
-                <SettingsRow title="โมเดลที่ใช้แปล" description="เลือกจากรายการที่โหลดได้ หรือพิมพ์ชื่อโมเดลเอง">
-                  <Field label="โมเดล Ollama" hint="ค่าเดิมจะไม่ถูกเปลี่ยนจนกว่าจะกดบันทึก">
-                    <TextInput
-                      type="text"
-                      placeholder="gemma3:4b"
-                      value={draft.ollamaModel}
-                      onChange={(e) => setDraft({ ...draft, ollamaModel: e.target.value })}
-                      list={modelNames.length > 0 ? 'ollama-models' : undefined}
-                    />
-                    {modelNames.length > 0 && (
-                      <datalist id="ollama-models">
-                        {modelNames.map((name) => <option key={name} value={name} />)}
-                      </datalist>
-                    )}
-                  </Field>
-                  {modelNames.length > 0 && (
-                    <div className="mt-3 grid gap-2 md:grid-cols-2">
-                      {modelNames.slice(0, 6).map((name) => (
-                        <button
-                          key={name}
-                          className="settings-choice-row"
-                          onClick={() => handleUseModel(name)}
+                <SettingsRow title="โมเดล" description="ชื่อโมเดลที่ใช้แปล">
+                  <div className="space-y-3">
+                    <Field label="โมเดล Ollama" hint="Moxzk สั่ง Ollama ให้โหลด โมเดลจะอยู่ในที่เก็บของ Ollama ไม่อยู่ในโฟลเดอร์ Moxzk">
+                      <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                        <TextInput
+                          type="text"
+                          placeholder="gemma3:4b"
+                          value={draft.ollamaModel}
+                          onChange={(e) => {
+                            setPullError(null)
+                            setDraft({ ...draft, ollamaModel: e.target.value })
+                          }}
+                          list={visibleModelNames.length > 0 ? 'ollama-models' : undefined}
+                        />
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handlePullModel(selectedModelName)}
+                          disabled={!canPullOllamaModel}
                         >
-                          {name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </SettingsRow>
-
-                <SettingsRow title="คู่มือเริ่มต้น" description="สำหรับคนที่ยังไม่เคยติดตั้ง Ollama หรือโมเดลมาก่อน">
-                  <div className="space-y-4">
+                          {pullingModel === selectedModelName ? <Loader2 size={12} className="animate-spin" /> : <HardDriveDownload size={12} />}
+                          โหลดเข้า Ollama
+                        </Button>
+                      </div>
+                      {visibleModelNames.length > 0 && (
+                        <datalist id="ollama-models">
+                          {visibleModelNames.map((name) => <option key={name} value={name} />)}
+                        </datalist>
+                      )}
+                    </Field>
                     <div className="moxzk-notice">
-                      <Globe size={14} />
-                      <span>{canStartLocalServices ? 'แอปเดสก์ท็อปเริ่ม Ollama ในเครื่องให้ได้ แต่การติดตั้งโปรแกรมและรหัส Cloud ยังต้องตั้งค่าเอง' : 'โหมดเว็บเปิดโปรแกรมในเครื่องหรือติดตั้งแทนคุณไม่ได้'}</span>
+                      <HardDriveDownload size={14} />
+                      <span>{isOllamaCloud ? 'Ollama Cloud ไม่ต้องโหลดไฟล์ในเครื่อง' : 'การโหลดใช้ Ollama API เหมือนคำสั่ง ollama pull และให้ Ollama จัดการตำแหน่งไฟล์เอง'}</span>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      <StepCard
-                        step="1"
-                        icon={<Download size={16} />}
-                        title="ดาวน์โหลด Ollama"
-                        description="เปิดหน้า official แล้วติดตั้งบน Windows"
-                        action={(
-                          <Button variant="soft" size="sm" onClick={() => handleOpenLink(OLLAMA_DOWNLOAD_URL)}>
-                            <ExternalLink size={12} /> เปิดลิงก์
-                          </Button>
-                        )}
-                      />
-                      <StepCard
-                        step="2"
-                        icon={<Terminal size={16} />}
-                        title="เปิด Ollama"
-                        description="เปิดแอป Ollama หรือรัน ollama serve"
-                        action={(
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenLink(OLLAMA_API_DOC_URL)}>
-                            <BookOpenText size={12} /> อ่านคู่มือ
-                          </Button>
-                        )}
-                      />
-                      <StepCard
-                        step="3"
-                        icon={<Cpu size={16} />}
-                        title="เลือกโมเดล"
-                        description="เริ่มจาก 4B ก่อน ถ้าเครื่องแรงค่อยไป 12B"
-                        action={(
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenLink(GEMMA3_DOC_URL)}>
-                            <ExternalLink size={12} /> ดูโมเดล
-                          </Button>
-                        )}
-                      />
-                      <StepCard
-                        step="4"
-                        icon={<HardDriveDownload size={16} />}
-                        title="ติดตั้งในเครื่อง"
-                        description="กดติดตั้งหรือคัดลอกคำสั่งไป PowerShell"
-                        action={(
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenLink(OLLAMA_PULL_DOC_URL)}>
-                            <BookOpenText size={12} /> วิธีติดตั้ง
-                          </Button>
-                        )}
-                      />
-                    </div>
-                    <div className="grid gap-3 lg:grid-cols-2">
+                    {selectedModelIsPulling && (
+                      <ModelPullProgress model={selectedModelName} percent={pullPercent} progress={pullProgress} />
+                    )}
+                    {showModelNotListedHint && (
+                      <div className="moxzk-notice">
+                        <Info size={14} />
+                        <span>โมเดลนี้ยังไม่อยู่ในรายชื่อที่รีเฟรชล่าสุด ถ้าชื่อถูกต้องให้กดโหลดเข้า Ollama เพื่อดาวน์โหลดหรือให้ Ollama ลงทะเบียนโมเดลนี้</span>
+                      </div>
+                    )}
+                    {visibleModelNames.length > 0 && (
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {visibleModelNames.slice(0, 4).map((name) => {
+                          const active = selectedModelName === name
+                          const isSavedOnly = active && !selectedModelKnown
+                          return (
+                            <button
+                              key={name}
+                              type="button"
+                              aria-pressed={active}
+                              className={`settings-choice-row ${active ? 'settings-choice-active' : ''}`}
+                              onClick={() => handleUseModel(name)}
+                            >
+                              <span className="min-w-0 truncate">{name}</span>
+                              {isSavedOnly && <span className="settings-pill">ค่าที่บันทึกไว้</span>}
+                              {active && <CheckCircle2 size={14} className="settings-choice-check" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <div className="grid gap-2 lg:grid-cols-2">
                       {MODEL_PRESETS.map((preset) => {
                         const isPulling = pullingModel === preset.name
                         const isInstalled = installedModels.has(preset.name)
+                        const isSelected = selectedModelName === preset.name
                         return (
-                          <div key={preset.name} className="settings-model-preset">
+                          <div key={preset.name} className={`settings-model-preset ${isSelected ? 'settings-model-preset-active' : ''}`}>
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h4 className="text-sm font-bold text-[var(--moxzk-text)]">{preset.title}</h4>
                                 <span className="settings-pill">{preset.badge}</span>
                                 {isInstalled && <span className="settings-pill-success">ติดตั้งแล้ว</span>}
+                                {isSelected && <CheckCircle2 size={14} className="settings-choice-check" />}
                               </div>
-                              <p className="mt-2 text-xs leading-relaxed text-[var(--moxzk-muted)]">{preset.description}</p>
-                              <code className="settings-command">{modelCommand(preset.name)}</code>
+                              <p className="mt-1 text-xs leading-relaxed text-[var(--moxzk-muted)]">{preset.description}</p>
                             </div>
-                            <div className="mt-4 flex flex-wrap gap-2">
+                            <div className="mt-3 flex flex-wrap gap-2">
                               <Button
                                 variant="primary"
                                 size="sm"
@@ -915,28 +975,13 @@ export default function SettingsPanel({
                                 disabled={Boolean(pullingModel)}
                               >
                                 {isPulling ? <Loader2 size={12} className="animate-spin" /> : <HardDriveDownload size={12} />}
-                                ติดตั้งในเครื่องนี้
+                                โหลดเข้า Ollama
                               </Button>
                               <Button variant="ghost" size="sm" onClick={() => handleCopyCommand(preset.name)}>
                                 <Copy size={12} /> คัดลอกคำสั่ง
                               </Button>
-                              <Button variant="soft" size="sm" onClick={() => handleUseModel(preset.name)}>
-                                <CheckCircle2 size={12} /> ใช้โมเดลนี้
-                              </Button>
                             </div>
-                            {isPulling && (
-                              <div className="mt-4 space-y-2">
-                                <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                                  <div
-                                    className="h-full rounded-full bg-[var(--moxzk-accent)] transition-all"
-                                    style={{ width: `${pullPercent ?? 8}%` }}
-                                  />
-                                </div>
-                                <p className="text-xs text-[var(--moxzk-muted)]">
-                                  {pullProgress?.status ?? 'กำลังดาวน์โหลด'}{pullPercent != null ? ` - ${pullPercent}% (${formatBytes(pullProgress?.completed)} / ${formatBytes(pullProgress?.total)})` : ''}
-                                </p>
-                              </div>
-                            )}
+                            {isPulling && <ModelPullProgress model={preset.name} percent={pullPercent} progress={pullProgress} />}
                           </div>
                         )
                       })}
@@ -944,7 +989,7 @@ export default function SettingsPanel({
                     {pullError && (
                       <div className="moxzk-notice">
                         <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
-                        <span>ติดตั้งผ่านแอปไม่สำเร็จ: {pullError} ให้คัดลอกคำสั่งแล้ววางใน PowerShell หรือเปิด Ollama ให้พร้อมก่อนลองใหม่</span>
+                        <span>โหลดเข้า Ollama ไม่สำเร็จ: {pullError} ถ้าชื่อโมเดลผิดให้แก้ชื่อ หรือคัดลอกคำสั่งแล้ววางใน PowerShell เพื่อตรวจจาก Ollama โดยตรง</span>
                       </div>
                     )}
                   </div>
@@ -954,7 +999,7 @@ export default function SettingsPanel({
 
             {tab === 'translation' && (
               <SettingsSheet>
-                <SettingsRow title="บริบทข้ามหน้า" description="รักษาคำเรียก ความสัมพันธ์ และสำนวนให้ต่อเนื่องตอนแปลหลายหน้า">
+                <SettingsRow title="บริบทข้ามหน้า" description="ช่วยให้คำเรียกและความสัมพันธ์ต่อเนื่อง">
                   <label className="settings-toggle-row">
                     <input
                       type="checkbox"
@@ -964,12 +1009,12 @@ export default function SettingsPanel({
                     <span>
                       <span className="block font-bold text-[var(--moxzk-text)]">ใช้บริบทข้ามหน้า</span>
                       <span className="mt-1 block text-xs leading-relaxed text-[var(--moxzk-muted)]">
-                        ส่งบทพูดหน้าก่อน ๆ เข้า Ollama ตอนแปลหลายหน้า
+                        ส่งบทพูดหน้าก่อนเข้า Ollama ตอนแปลหลายหน้า
                       </span>
                     </span>
                   </label>
                 </SettingsRow>
-                <SettingsRow title="โหมดคำแปล" description="เลือกสมดุลระหว่างความกระชับในบับเบิลกับความตรงตามต้นฉบับ">
+                <SettingsRow title="โหมดคำแปล" description="เลือกแนวแปลหลัก">
                   <div className="grid gap-2 sm:grid-cols-2">
                     {TRANSLATION_MODES.map((mode) => {
                       const active = (draft.translationMode ?? 'concise') === mode.value
@@ -993,9 +1038,9 @@ export default function SettingsPanel({
                     })}
                   </div>
                 </SettingsRow>
-                <SettingsRow title="ไกด์โทนคำแปล" description="กำกับชื่อ ความสัมพันธ์ คำเรียกแทนตัว และโทนภาษาไทยทั้งอัลบั้ม">
+                <SettingsRow title="ไกด์โทนคำแปล" description="ชื่อ ความสัมพันธ์ คำเรียก และโทนภาษาไทย">
                   <TextareaField
-                    rows={14}
+                    rows={9}
                     className="resize-none font-mono text-xs leading-relaxed"
                     value={draft.translationStyleGuide}
                     onChange={(e) => setDraft({ ...draft, translationStyleGuide: e.target.value })}
@@ -1006,75 +1051,65 @@ export default function SettingsPanel({
 
             {tab === 'cleanup' && (
               <SettingsSheet>
-                <SettingsRow title="ตัวลบข้อความในภาพ" description={canStartLocalServices ? 'แอปเดสก์ท็อปเริ่มตัวช่วยลบข้อความบนเครื่องนี้ได้' : 'โหมดเว็บต้องให้คุณเปิดตัวช่วยลบข้อความในเครื่องเอง'}>
-                  <div className="space-y-4">
+                <SettingsRow title="PanelCleaner" description="ตัวช่วยลบข้อความในภาพ">
+                  <div className="space-y-3">
                     <div className="moxzk-notice">
-                      <Server size={14} />
-                      <span>{canStartPanelCleaner ? 'กดติดตั้งหรือซ่อมจากหน้านี้ได้ แอปจะเก็บชุดใช้งานไว้ในพื้นที่ของ Moxzk' : 'เปิดตัวช่วยลบข้อความในเครื่องก่อนเริ่มประมวลผล'}</span>
+                      {panelCleanerReady ? <CheckCircle2 size={14} className="text-[var(--moxzk-success)]" /> : <Server size={14} />}
+                      <span>{describePanelCleanerSummary(panelCleanerDependency, panelCleanerStatus, localServiceStatus.panelcleaner)}</span>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
-                      <StatusTile
-                        icon={checkingPanelCleanerDependency || installingPanelCleaner ? <Loader2 size={16} className="animate-spin" /> : <HardDriveDownload size={16} />}
-                        label="ชุดตัวลบข้อความ"
-                        value={describePanelCleanerDependency(panelCleanerDependency)}
-                        tone={dependencyTone(panelCleanerDependency)}
-                      />
-                      <StatusTile
-                        icon={<Workflow size={16} />}
-                        label="สถานะการทำงาน"
-                        value={describeManagedStatus(localServiceStatus.panelcleaner)}
-                        tone={localServiceStatus.panelcleaner.running ? 'good' : 'muted'}
-                      />
+                      <Field label="ที่อยู่บริการ" hint="ค่าเริ่มต้น: http://localhost:5055">
+                        <TextInput
+                          type="url"
+                          placeholder="http://localhost:5055"
+                          value={draft.panelCleanerBridgeUrl}
+                          onChange={(e) => setDraft({ ...draft, panelCleanerBridgeUrl: e.target.value })}
+                        />
+                      </Field>
+                      <Field label="ไฟล์ PanelCleaner" hint="เว้นว่างเพื่อให้ Moxzk จัดการ">
+                        <TextInput
+                          type="text"
+                          placeholder="ไม่ต้องใส่ถ้าใช้ชุดที่ติดตั้งจากแอป"
+                          value={draft.panelCleanerExecutablePath}
+                          onChange={(e) => setDraft({ ...draft, panelCleanerExecutablePath: e.target.value })}
+                        />
+                      </Field>
                     </div>
-                    <Field label="ที่อยู่ตัวช่วยลบข้อความ" hint="ค่าเริ่มต้น: http://localhost:5055">
-                      <TextInput
-                        type="url"
-                        placeholder="http://localhost:5055"
-                        value={draft.panelCleanerBridgeUrl}
-                        onChange={(e) => setDraft({ ...draft, panelCleanerBridgeUrl: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="ตำแหน่งไฟล์ PanelCleaner" hint="เว้นว่างเพื่อใช้ชุดที่ Moxzk ติดตั้งให้ หรือเลือกไฟล์เองเมื่อจำเป็น">
-                      <TextInput
-                        type="text"
-                        placeholder="เว้นว่างเพื่อให้ Moxzk จัดการให้"
-                        value={draft.panelCleanerExecutablePath}
-                        onChange={(e) => setDraft({ ...draft, panelCleanerExecutablePath: e.target.value })}
-                      />
-                    </Field>
                     <div className="flex flex-wrap gap-2">
-                      {canStartPanelCleaner && (
-                        <>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={handleInstallPanelCleaner}
-                            disabled={installingPanelCleaner || checkingPanelCleaner}
-                          >
-                            {installingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <HardDriveDownload size={12} />}
-                            ติดตั้ง PanelCleaner
-                          </Button>
-                          <Button
-                            variant="soft"
-                            size="sm"
-                            onClick={handleRepairPanelCleaner}
-                            disabled={installingPanelCleaner || checkingPanelCleaner}
-                          >
-                            {installingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <Workflow size={12} />}
-                            ซ่อม PanelCleaner
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handlePickPanelCleanerExecutable}
-                            disabled={installingPanelCleaner}
-                          >
-                            <HardDriveDownload size={12} />
-                            เลือกไฟล์เอง
-                          </Button>
-                        </>
+                      {canInstallPanelCleaner && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleInstallPanelCleaner}
+                          disabled={installingPanelCleaner || checkingPanelCleaner}
+                        >
+                          {installingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <HardDriveDownload size={12} />}
+                          ติดตั้ง PanelCleaner
+                        </Button>
+                      )}
+                      {canRepairPanelCleaner && (
+                        <Button
+                          variant="soft"
+                          size="sm"
+                          onClick={handleRepairPanelCleaner}
+                          disabled={installingPanelCleaner || checkingPanelCleaner}
+                        >
+                          {installingPanelCleaner ? <Loader2 size={12} className="animate-spin" /> : <Workflow size={12} />}
+                          ซ่อม PanelCleaner
+                        </Button>
                       )}
                       {canStartPanelCleaner && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handlePickPanelCleanerExecutable}
+                          disabled={installingPanelCleaner}
+                        >
+                          <HardDriveDownload size={12} />
+                          เลือกไฟล์เอง
+                        </Button>
+                      )}
+                      {canStartPanelCleanerBridge && (
                         <Button
                           variant="soft"
                           size="sm"
@@ -1090,20 +1125,20 @@ export default function SettingsPanel({
                         ตรวจ PanelCleaner
                       </Button>
                     </div>
+                    {checkingPanelCleanerDependency && (
+                      <div className="moxzk-notice">
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>กำลังตรวจ PanelCleaner</span>
+                      </div>
+                    )}
                     {panelCleanerStatus && (
                       <div className="moxzk-notice">
                         {panelCleanerStatus.ok ? <CheckCircle2 size={14} className="text-[var(--moxzk-success)]" /> : <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />}
                         <span>
                           {panelCleanerStatus.ok
                             ? `PanelCleaner พร้อมใช้งานจาก ${panelCleanerSourceText(panelCleanerStatus)}${panelCleanerStatus.version ? ` (${panelCleanerStatus.version})` : ''}${panelCleanerStatus.command ? ` - ${panelCleanerStatus.command}` : ''}`
-                            : `${toFriendlyServiceError('panelcleaner', panelCleanerStatus.error)}${panelCleanerStatus.installHint ? ` - ${panelCleanerStatus.installHint}` : ''}`}
+                            : describePanelCleanerFailure(panelCleanerStatus, localServiceStatus.panelcleaner)}
                         </span>
-                      </div>
-                    )}
-                    {panelCleanerDependency && panelCleanerDependency.state !== 'ready' && (
-                      <div className="moxzk-notice">
-                        <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
-                        <span>{panelCleanerDependency.actionHint ?? 'กดติดตั้ง PanelCleaner เพื่อให้ Cleanup ใช้งานได้'}</span>
                       </div>
                     )}
                     {panelCleanerInstallLogs.length > 0 && (
@@ -1118,12 +1153,60 @@ export default function SettingsPanel({
                     <div className="moxzk-notice">
                       <ExternalLink size={14} />
                       <span>
-                        PanelCleaner เป็นชุดช่วยลบข้อความที่ติดตั้งแยกจากตัวแอป ({panelCleanerDependency?.packageName ?? 'pcleaner-cli'} {panelCleanerDependency?.packageVersion ?? '2.11.9'}, {panelCleanerDependency?.licenseName ?? 'GPLv3'})
+                        {panelCleanerDependency?.packageName ?? 'pcleaner-cli'} {panelCleanerDependency?.packageVersion ?? '2.11.9'} · {panelCleanerDependency?.licenseName ?? 'GPLv3'}
                         {' '}
                         <button className="font-bold text-[var(--moxzk-text)] underline" type="button" onClick={() => handleOpenLink(panelCleanerDependency?.projectUrl ?? PANELCLEANER_PACKAGE_URL)}>
-                          เปิดหน้ารายละเอียด
+                          รายละเอียด
                         </button>
                       </span>
+                    </div>
+                  </div>
+                </SettingsRow>
+              </SettingsSheet>
+            )}
+
+            {tab === 'about' && (
+              <SettingsSheet>
+                <SettingsRow title="Moxzk" description="ข้อมูลแอปและสิทธิ์ใช้งาน">
+                  <div className="settings-about-summary">
+                    <div className="settings-about-meta">
+                      <span>เวอร์ชัน {appVersion}</span>
+                      <span>ใช้สิทธิ์ {APP_LICENSE_NAME}</span>
+                      <span>{runtimeDisplayName(appRuntime.kind)}</span>
+                    </div>
+                    <p>
+                      Moxzk เปิดให้ใช้และปรับแก้ตัวโปรแกรมได้ภายใต้ MIT แต่สิทธิ์นี้ไม่รวมชื่อ โลโก้ ไฟล์ของผู้ใช้
+                      งานมังงะ งานแปล หรือข้อมูลจาก Magga
+                    </p>
+                    <Button variant="soft" size="sm" onClick={() => handleOpenLink(MAGGA_URL)}>
+                      <ExternalLink size={12} /> เปิด Magga
+                    </Button>
+                  </div>
+                </SettingsRow>
+
+                <SettingsRow title="สิ่งที่ใช้ร่วมกัน" description="แต่ละส่วนมีเงื่อนไขของเจ้าของเดิม">
+                  <div className="space-y-3">
+                    <ul className="settings-about-list">
+                      <li>
+                        <Server size={14} />
+                        <span>ตัวช่วยลบข้อความใช้ PanelCleaner แยกจากตัวโปรแกรมหลัก</span>
+                      </li>
+                      <li>
+                        <Cpu size={14} />
+                        <span>Ollama, Ollama Cloud และโมเดลที่เลือกใช้ มีเงื่อนไขจากผู้ให้บริการนั้นเอง</span>
+                      </li>
+                      <li>
+                        <Info size={14} />
+                        <span>รูปภาพ อัลบั้ม งานร่าง ไฟล์ที่นำเข้า และไฟล์ที่ส่งออก ยังเป็นของคุณตามสิทธิ์เดิม</span>
+                      </li>
+                    </ul>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenLink(panelCleanerDependency?.projectUrl ?? PANELCLEANER_PACKAGE_URL)}>
+                        <ExternalLink size={12} /> รายละเอียด PanelCleaner
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenLink(OLLAMA_API_DOC_URL)}>
+                        <ExternalLink size={12} /> รายละเอียด Ollama
+                      </Button>
                     </div>
                   </div>
                 </SettingsRow>
@@ -1158,51 +1241,5 @@ function SettingsRow({
       </div>
       <div className="settings-row-control">{children}</div>
     </section>
-  )
-}
-
-function StatusTile({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: ReactNode
-  label: string
-  value: string
-  tone: 'good' | 'muted'
-}) {
-  return (
-    <div className="settings-status-tile">
-      <div className={tone === 'good' ? 'text-[var(--moxzk-success)]' : 'text-[var(--moxzk-muted)]'}>{icon}</div>
-      <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-[var(--moxzk-dim)]">{label}</p>
-      <p className="mt-1 text-sm font-bold text-[var(--moxzk-text)]">{value}</p>
-    </div>
-  )
-}
-
-function StepCard({
-  step,
-  icon,
-  title,
-  description,
-  action,
-}: {
-  step: string
-  icon: ReactNode
-  title: string
-  description: string
-  action: ReactNode
-}) {
-  return (
-    <div className="settings-step">
-      <div className="flex items-center justify-between gap-3">
-        <span className="grid size-7 place-items-center rounded-full bg-white/10 text-xs font-bold text-[var(--moxzk-text)]">{step}</span>
-        <span className="text-[var(--moxzk-muted)]">{icon}</span>
-      </div>
-      <h4 className="mt-4 text-sm font-bold text-[var(--moxzk-text)]">{title}</h4>
-      <p className="mt-2 flex-1 text-xs leading-relaxed text-[var(--moxzk-muted)]">{description}</p>
-      <div className="mt-4">{action}</div>
-    </div>
   )
 }

@@ -124,22 +124,216 @@ test('text transformer corner resize keeps ratio without a modifier key', () => 
 
 test('balloon to artistic conversion keeps the visible text box centered', async () => {
   const { convertBalloonRegionToArtistic } = await loadViteModule('/src/services/textRegionMode.ts')
-  const converted = convertBalloonRegionToArtistic(region({
+  const { getRegionTextLayout } = await loadViteModule('/src/utils/textLayout.ts')
+  const source = region({
     bbox: { x: 10, y: 20, width: 220, height: 100 },
-    translatedText: 'หนึ่ง สอง สาม สี่',
+    translatedText: 'หนึ่ง\nสอง\nสาม',
     fontSize: 36,
-  }))
+    textLayoutMode: 'balloon_fit',
+    balloonShape: 'round',
+  })
+  const converted = convertBalloonRegionToArtistic(source)
+  const artisticLayout = getRegionTextLayout(
+    { ...source, ...converted, textLayoutMode: 'artistic' },
+    source.translatedText || ' ',
+  )
+  const sourceCenterX = source.bbox.x + source.bbox.width / 2
+  const sourceCenterY = source.bbox.y + source.bbox.height / 2
+  const artisticCenterX = converted.bbox.x + artisticLayout.innerWidth / 2
+  const artisticCenterY = converted.bbox.y + artisticLayout.contentHeight / 2
 
+  assert.ok(Math.abs(artisticCenterX - sourceCenterX) <= 1)
+  assert.ok(Math.abs(artisticCenterY - sourceCenterY) <= 1)
   assert.equal(converted.textScaleX, 1)
   assert.equal(converted.textScaleY, 1)
   assert.equal(converted.textAlign, 'center')
   assert.ok(converted.fontSize <= 36)
-  assert.ok(converted.bbox.width < 220)
-  assert.ok(converted.bbox.width >= 220 - 2 * 24)
-  assert.ok(converted.bbox.height < 100)
-  assert.ok(converted.bbox.x > 10)
-  assert.ok(converted.bbox.y > 20)
+  assert.ok(converted.bbox.width > 0)
+  assert.ok(converted.bbox.height > 0)
+  assert.equal(converted.artisticFit, 'free')
   assert.equal('translatedText' in converted, false)
+})
+
+test('balloon to artistic conversion preserves center on tall manga bubbles', async () => {
+  const { convertBalloonRegionToArtistic } = await loadViteModule('/src/services/textRegionMode.ts')
+  const { getRegionTextLayout } = await loadViteModule('/src/utils/textLayout.ts')
+  const source = region({
+    bbox: { x: 259, y: 76, width: 530, height: 428 },
+    translatedText: 'เรากำลังจะไปไหน\nกันครับพ่อ?\nที่นี่มันไม่ปรากฏ\nในแผนที่เลยนะ',
+    fontSize: 36,
+    textLayoutMode: 'balloon_fit',
+    balloonShape: 'round',
+  })
+  const converted = convertBalloonRegionToArtistic(source)
+  const artisticLayout = getRegionTextLayout(
+    { ...source, ...converted, textLayoutMode: 'artistic' },
+    source.translatedText || ' ',
+  )
+  const sourceCenterY = source.bbox.y + source.bbox.height / 2
+  const artisticCenterY = converted.bbox.y + artisticLayout.contentHeight / 2
+
+  assert.ok(Math.abs(artisticCenterY - sourceCenterY) <= 1)
+  assert.ok(converted.bbox.y > source.bbox.y)
+  assert.ok(converted.bbox.y < source.bbox.y + source.bbox.height / 2)
+})
+
+test('balloon to artistic and back restores the original balloon frame', async () => {
+  const { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } = await loadViteModule('/src/services/textRegionMode.ts')
+  const source = region({
+    bbox: { x: 259, y: 76, width: 530, height: 428 },
+    translatedText: 'เรากำลังจะไปไหน\nกันครับพ่อ?\nที่นี่มันไม่ปรากฏ\nในแผนที่เลยนะ',
+    fontSize: 36,
+    textLayoutMode: 'balloon_fit',
+    balloonShape: 'round',
+  })
+  const artistic = convertBalloonRegionToArtistic(source)
+  const restored = convertArtisticRegionToBalloon({
+    ...source,
+    ...artistic,
+    textLayoutMode: 'artistic',
+  })
+
+  assert.deepEqual(restored.bbox, source.bbox)
+  // Clean round-trip (text/font unchanged) must restore exact fontSize
+  assert.equal(restored.fontSize, source.fontSize)
+  assert.equal(restored.textScaleX, 1)
+  assert.equal(restored.textScaleY, 1)
+  assert.equal(restored.balloonFitBbox, undefined)
+  assert.equal(restored.balloonFitFontSize, undefined)
+  assert.equal(restored.balloonFitTextHash, undefined)
+})
+
+
+test('balloon restore keeps the moved artistic center but reuses original balloon size', async () => {
+  const { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } = await loadViteModule('/src/services/textRegionMode.ts')
+  const source = region({
+    bbox: { x: 100, y: 80, width: 300, height: 180 },
+    translatedText: 'หนึ่ง\nสอง\nสาม',
+    fontSize: 32,
+    textLayoutMode: 'balloon_fit',
+    balloonShape: 'round',
+  })
+  const artistic = convertBalloonRegionToArtistic(source)
+  const movedArtisticBbox = {
+    ...artistic.bbox,
+    x: artistic.bbox.x + 40,
+    y: artistic.bbox.y + 30,
+  }
+  const restored = convertArtisticRegionToBalloon({
+    ...source,
+    ...artistic,
+    bbox: movedArtisticBbox,
+    textLayoutMode: 'artistic',
+  })
+  const movedCenterX = movedArtisticBbox.x + movedArtisticBbox.width / 2
+  const movedCenterY = movedArtisticBbox.y + movedArtisticBbox.height / 2
+
+  assert.equal(restored.bbox.width, source.bbox.width)
+  assert.equal(restored.bbox.height, source.bbox.height)
+  assert.equal(restored.bbox.x + restored.bbox.width / 2, movedCenterX)
+  assert.equal(restored.bbox.y + restored.bbox.height / 2, movedCenterY)
+  // Clean round-trip (only position changed) — must restore exact fontSize
+  assert.equal(restored.fontSize, source.fontSize)
+})
+
+test('balloon restore re-fits fontSize when text changed during artistic mode', async () => {
+  const { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } = await loadViteModule('/src/services/textRegionMode.ts')
+  const source = region({
+    bbox: { x: 0, y: 0, width: 400, height: 200 },
+    translatedText: 'สั้น',
+    fontSize: 36,
+    textLayoutMode: 'balloon_fit',
+    balloonShape: 'round',
+  })
+  const artistic = convertBalloonRegionToArtistic(source)
+  // Simulate user editing text while in artistic mode
+  const editedArtistic = { ...source, ...artistic, textLayoutMode: 'artistic', translatedText: 'ยาวมากขึ้นเรื่อยๆ ยาวมากขึ้นเรื่อยๆ ยาวมากขึ้นเรื่อยๆ ยาวมากขึ้นเรื่อยๆ' }
+  const restored = convertArtisticRegionToBalloon(editedArtistic)
+
+  // Bbox size should still come from original balloon frame
+  assert.equal(restored.bbox.width, source.bbox.width)
+  assert.equal(restored.bbox.height, source.bbox.height)
+  // fontSize must have been re-fitted (not the original 36) — could be smaller
+  assert.ok(typeof restored.fontSize === 'number' && restored.fontSize > 0)
+  assert.notEqual(restored.fontSize, source.fontSize)
+  // Snapshot fields must be cleared
+  assert.equal(restored.balloonFitBbox, undefined)
+  assert.equal(restored.balloonFitFontSize, undefined)
+  assert.equal(restored.balloonFitTextHash, undefined)
+})
+
+test('balloon restore re-fits fontSize when font size changed during artistic mode', async () => {
+  const { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } = await loadViteModule('/src/services/textRegionMode.ts')
+  const source = region({
+    bbox: { x: 0, y: 0, width: 300, height: 180 },
+    translatedText: 'หนึ่ง\nสอง\nสาม',
+    fontSize: 32,
+    textLayoutMode: 'balloon_fit',
+    balloonShape: 'round',
+  })
+  const artistic = convertBalloonRegionToArtistic(source)
+  const editedArtistic = {
+    ...source,
+    ...artistic,
+    textLayoutMode: 'artistic',
+    fontSize: 18,
+  }
+  const restored = convertArtisticRegionToBalloon(editedArtistic)
+
+  assert.equal(restored.bbox.width, source.bbox.width)
+  assert.equal(restored.bbox.height, source.bbox.height)
+  assert.ok(typeof restored.fontSize === 'number' && restored.fontSize > 0)
+  assert.notEqual(restored.fontSize, source.fontSize)
+  assert.equal(restored.balloonFitBbox, undefined)
+  assert.equal(restored.balloonFitFontSize, undefined)
+  assert.equal(restored.balloonFitTextHash, undefined)
+})
+
+test('balloon restore re-fits fontSize when font changed during artistic mode', async () => {
+  const { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } = await loadViteModule('/src/services/textRegionMode.ts')
+  const source = region({
+    bbox: { x: 0, y: 0, width: 300, height: 180 },
+    translatedText: 'หนึ่ง\nสอง',
+    fontSize: 32,
+    fontId: 'normal',
+    textLayoutMode: 'balloon_fit',
+    balloonShape: 'round',
+  })
+  const artistic = convertBalloonRegionToArtistic(source)
+  // Simulate user changing font while in artistic mode
+  const changedFontArtistic = { ...source, ...artistic, textLayoutMode: 'artistic', fontId: 'comedy' }
+  const restored = convertArtisticRegionToBalloon(changedFontArtistic)
+
+  // Bbox size from original balloon frame
+  assert.equal(restored.bbox.width, source.bbox.width)
+  assert.equal(restored.bbox.height, source.bbox.height)
+  // fontSize must be re-fitted (dirty path), not exact snapshot
+  assert.ok(typeof restored.fontSize === 'number' && restored.fontSize > 0)
+  assert.equal(restored.balloonFitTextHash, undefined)
+})
+
+test('balloon restore exact when only position moved (clean round-trip)', async () => {
+  const { convertBalloonRegionToArtistic, convertArtisticRegionToBalloon } = await loadViteModule('/src/services/textRegionMode.ts')
+  const source = region({
+    bbox: { x: 50, y: 50, width: 300, height: 180 },
+    translatedText: 'หนึ่ง\nสอง\nสาม',
+    fontSize: 28,
+    textLayoutMode: 'balloon_fit',
+    balloonShape: 'round',
+  })
+  const artistic = convertBalloonRegionToArtistic(source)
+  // Move box, but don't change text or font
+  const movedArtistic = {
+    ...source,
+    ...artistic,
+    bbox: { ...artistic.bbox, x: artistic.bbox.x + 100, y: artistic.bbox.y + 50 },
+    textLayoutMode: 'artistic',
+  }
+  const restored = convertArtisticRegionToBalloon(movedArtistic)
+
+  // Must be exact restore — not re-fitted
+  assert.equal(restored.fontSize, source.fontSize)
+  assert.equal(restored.balloonFitTextHash, undefined)
 })
 
 test('balloon to artistic conversion keeps enough width to avoid Konva rewrapping old album text', async () => {

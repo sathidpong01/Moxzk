@@ -20,6 +20,7 @@ import WorkspaceBackdrop from './components/Layout/WorkspaceBackdrop'
 import { Button, DropdownItem, DropdownMenu, IconButton, Modal, SelectField } from './components/ui/primitives'
 import { getAppRuntime } from './runtime'
 import { Toaster } from 'sonner'
+import { createPortal } from 'react-dom'
 import { BookOpen, ChevronDown, Download, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
 import type { ProcessingMode } from './types'
 
@@ -393,21 +394,31 @@ function App() {
           </div>
         </div>
       </Modal>
-      <Toaster
-        position="top-right"
-        theme="dark"
-        closeButton
-        toastOptions={{
-          className: 'mt-12',
-          style: {
-            background: 'var(--moxzk-surface-2)',
-            borderColor: 'var(--moxzk-border)',
-            color: 'var(--moxzk-text)',
-            boxShadow: '0 12px 28px rgba(0, 0, 0, 0.3)',
-          },
-        }}
-      />
+      <AppToaster />
     </div>
+  )
+}
+
+function AppToaster() {
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
+    <Toaster
+      position="bottom-right"
+      theme="dark"
+      closeButton
+      className="moxzk-toaster"
+      style={{ zIndex: 1000 }}
+      toastOptions={{
+        style: {
+          background: 'var(--moxzk-surface-2)',
+          borderColor: 'var(--moxzk-border)',
+          color: 'var(--moxzk-text)',
+          boxShadow: '0 12px 28px rgba(0, 0, 0, 0.3)',
+        },
+      }}
+    />,
+    document.body,
   )
 }
 

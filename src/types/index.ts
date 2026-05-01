@@ -38,6 +38,9 @@ export interface TextRegion {
   textAlign?: TextAlign;
   balloonShape?: TextBalloonShape;
   artisticFit?: TextArtisticFit;
+  balloonFitBbox?: BoundingBox;
+  balloonFitFontSize?: number;
+  balloonFitTextHash?: string;
   textScaleX?: number;
   textScaleY?: number;
   confidence?: number;

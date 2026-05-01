@@ -197,7 +197,7 @@ export async function getPanelCleanerStatus(options: PanelCleanerOptions = {}): 
     return {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
-      installHint: 'เปิด Settings > ลบข้อความ แล้วกดติดตั้ง PanelCleaner หรือซ่อม PanelCleaner',
+      installHint: 'กดเริ่ม PanelCleaner ก่อน ถ้ายังไม่พบชุดใช้งานให้กดติดตั้ง PanelCleaner',
     }
   }
 }

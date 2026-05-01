@@ -354,7 +354,14 @@ export default function ContextualTextHud({
                     onClick={() => {
                       onUpdate({
                         textLayoutMode: 'balloon_fit',
-                        ...(layoutMode === 'artistic' ? convertArtisticRegionToBalloon(region) : {}),
+                        ...(layoutMode === 'artistic'
+                          ? convertArtisticRegionToBalloon(
+                              region,
+                              regionFont
+                                ? { fontFamily: regionFont.family, fontWeight: regionFont.weight, fontStyle: regionFont.style }
+                                : undefined,
+                            )
+                          : {}),
                       }, { historyKey: `hud:layout:${region.id}` })
                       setTextBoxMenuOpen(false)
                     }}
