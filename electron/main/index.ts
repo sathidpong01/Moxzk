@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { registerRuntimeIpcHandlers } from './ipc'
 import { consumeDesktopProtocolCallback, registerDesktopProtocol } from './desktopAuth'
 import { shutdownOwnedServices } from './localServices'
+import { isUpdateQuitInProgress, scheduleUpdateChecks } from './updater'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import { APP_DISPLAY_NAME } from '../../src/config/appIdentity'
 
@@ -83,9 +84,11 @@ void app.whenReady().then(() => {
   registerDesktopProtocol()
   createWindow()
   handleProtocolLaunch(process.argv)
+  scheduleUpdateChecks()
 })
 
 app.on('before-quit', (event) => {
+  if (isUpdateQuitInProgress()) return
   if (isShuttingDownOwnedServices) return
   isShuttingDownOwnedServices = true
   event.preventDefault()

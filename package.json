@@ -1,6 +1,8 @@
 {
   "name": "moxzk",
   "private": true,
+  "description": "Windows desktop editor for manga cleanup and Thai translation.",
+  "author": "sathidpong01",
   "version": "0.2.0",
   "license": "MIT",
   "type": "module",
@@ -9,6 +11,10 @@
     "dev": "vite",
     "electron:dev": "node scripts/electron-dev.mjs",
     "electron:build": "tsc -b && electron-vite build",
+    "electron:package": "npm run electron:build && electron-builder --win nsis",
+    "release:build": "npm run electron:package",
+    "release:checksums": "node scripts/release-checksums.mjs",
+    "release:publish": "npm run electron:build && electron-builder --win nsis --publish always",
     "electron:preview": "electron-vite preview",
     "backend:panelcleaner": "node scripts/panelcleaner-bridge.mjs",
     "build": "tsc -b && vite build",
@@ -29,13 +35,14 @@
     "test:cleanup": "node --test scripts/panelcleaner-csv.test.mjs scripts/batch-processing.test.mjs",
     "test:editor": "node --test scripts/editor-*.test.mjs scripts/inline-text-editor.test.mjs scripts/text-*.test.mjs scripts/viewer-zoom.test.mjs scripts/workspace-viewport.test.mjs",
     "test:export": "node --test scripts/export-*.test.mjs scripts/exporter.test.mjs",
-    "test:runtime": "node --test scripts/oop-boundaries.test.mjs scripts/pre-electron-readiness.test.mjs scripts/desktop-oauth.test.mjs scripts/desktop-secure-store.test.mjs",
+    "test:runtime": "node --test scripts/oop-boundaries.test.mjs scripts/pre-electron-readiness.test.mjs scripts/desktop-oauth.test.mjs scripts/desktop-secure-store.test.mjs scripts/desktop-updater.test.mjs",
     "test:settings": "node --test scripts/oop-boundaries.test.mjs scripts/settings-model-guide.test.mjs scripts/ollama-tutorial.test.mjs scripts/desktop-secure-store.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
     "drizzle-orm": "^0.45.2",
+    "electron-updater": "^6.8.3",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "konva": "^10.2.5",
@@ -59,6 +66,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "drizzle-kit": "^0.31.10",
     "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
@@ -67,5 +75,52 @@
   },
   "overrides": {
     "minimatch": "^10.2.5"
+  },
+  "build": {
+    "appId": "com.sathidpong01.moxzk",
+    "productName": "Moxzk",
+    "directories": {
+      "output": "output/electron"
+    },
+    "files": [
+      "out/**/*",
+      "package.json",
+      "LICENSE",
+      "NOTICE.md"
+    ],
+    "asar": true,
+    "compression": "normal",
+    "detectUpdateChannel": false,
+    "generateUpdatesFilesForAllChannels": false,
+    "forceCodeSigning": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-Windows-${arch}.${ext}",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Moxzk"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "sathidpong01",
+        "repo": "Moxzk",
+        "releaseType": "release"
+      }
+    ]
   }
 }

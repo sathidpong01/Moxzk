@@ -1,0 +1,87 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+test('Electron updater is wired through main process and typed runtime IPC', () => {
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+  const channels = fs.readFileSync('electron/shared/ipcChannels.ts', 'utf8')
+  const updater = fs.readFileSync('electron/main/updater.ts', 'utf8')
+  const main = fs.readFileSync('electron/main/index.ts', 'utf8')
+  const ipc = fs.readFileSync('electron/main/ipc.ts', 'utf8')
+  const preload = fs.readFileSync('electron/preload/index.ts', 'utf8')
+  const bridge = fs.readFileSync('src/runtime/electronBridge.ts', 'utf8')
+  const contract = fs.readFileSync('src/runtime/types.ts', 'utf8')
+  const electronRuntime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
+  const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
+
+  assert.equal(Boolean(packageJson.dependencies?.['electron-updater']), true)
+  assert.equal(Boolean(packageJson.devDependencies?.['electron-builder']), true)
+  assert.equal(packageJson.scripts?.['release:build'], 'npm run electron:package')
+  assert.equal(packageJson.scripts?.['release:checksums'], 'node scripts/release-checksums.mjs')
+  assert.equal(packageJson.build?.publish?.[0]?.provider, 'github')
+  assert.equal(packageJson.build?.publish?.[0]?.owner, 'sathidpong01')
+  assert.equal(packageJson.build?.publish?.[0]?.repo, 'Moxzk')
+  assert.equal(packageJson.build?.win?.verifyUpdateCodeSignature, false)
+  assert.equal(packageJson.build?.nsis?.oneClick, false)
+
+  for (const channel of [
+    'runtime:updates.getStatus',
+    'runtime:updates.checkForUpdates',
+    'runtime:updates.installDownloaded',
+    'runtime:updates.openReleases',
+    'runtime:updates.statusChanged',
+  ]) {
+    assert.match(channels, new RegExp(channel.replace('.', '\\.')))
+  }
+
+  assert.match(updater, /electron-updater/)
+  assert.match(updater, /autoDownload\s*=\s*true/)
+  assert.match(updater, /autoInstallOnAppQuit\s*=\s*false/)
+  assert.match(updater, /https:\/\/github\.com\/sathidpong01\/Moxzk\/releases/)
+  assert.match(updater, /shutdownOwnedServices/)
+  assert.match(updater, /quitAndInstall\(false,\s*true\)/)
+  assert.match(main, /scheduleUpdateChecks/)
+  assert.match(main, /isUpdateQuitInProgress/)
+  assert.match(ipc, /updatesCheckForUpdates/)
+  assert.match(ipc, /updatesInstallDownloaded/)
+  assert.match(preload, /updates:/)
+  assert.match(preload, /updatesStatusChanged/)
+  assert.match(preload, /removeListener/)
+  assert.match(bridge, /NativeUpdateStatus/)
+  assert.match(contract, /RuntimeUpdateStatus/)
+  assert.match(electronRuntime, /bridge\.updates\.checkForUpdates/)
+  assert.match(electronRuntime, /bridge\.updates\.installDownloadedUpdate/)
+  assert.match(webRuntime, /Desktop updates are available only in the Windows app/)
+})
+
+test('Updater UI and docs use user-facing release language', () => {
+  const app = fs.readFileSync('src/App.tsx', 'utf8')
+  const prompt = fs.readFileSync('src/components/Layout/UpdateRestartPrompt.tsx', 'utf8')
+  const settings = fs.readFileSync('src/components/Settings/SettingsPanel.tsx', 'utf8')
+  const css = fs.readFileSync('src/index.css', 'utf8')
+  const docs = fs.readFileSync('docs/electron/release-and-updates.md', 'utf8')
+  const readme = fs.readFileSync('README.md', 'utf8')
+  const checksums = fs.readFileSync('scripts/release-checksums.mjs', 'utf8')
+
+  assert.match(app, /UpdateRestartPrompt/)
+  assert.match(prompt, /มี Moxzk เวอร์ชันใหม่/)
+  assert.match(prompt, /ดาวน์โหลดเสร็จแล้ว/)
+  assert.match(prompt, /รีสตาร์ท/)
+  assert.match(prompt, /busy/)
+  assert.match(settings, /อัปเดตโปรแกรม/)
+  assert.match(settings, /ตรวจอัปเดต/)
+  assert.match(settings, /รีสตาร์ทเพื่อติดตั้ง/)
+  assert.match(settings, /SmartScreen/)
+  assert.match(settings, /GitHub Releases/)
+  assert.match(css, /moxzk-update-prompt/)
+  assert.match(css, /settings-update-progress/)
+  assert.match(docs, /GitHub Releases/)
+  assert.match(docs, /SHA256/)
+  assert.match(docs, /release:checksums/)
+  assert.match(docs, /SmartScreen/)
+  assert.match(docs, /unsigned indie Windows app/)
+  assert.match(readme, /release:publish/)
+  assert.match(checksums, /createHash\('sha256'\)/)
+  assert.match(checksums, /SHA256SUMS\.txt/)
+  assert.match(readme, /Release And Updates/)
+})

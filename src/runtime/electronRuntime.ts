@@ -13,6 +13,7 @@ import type {
   RuntimePathPickResult,
   RuntimeProjectDraft,
   RuntimeSaveExportOptions,
+  RuntimeUpdateStatus,
   RuntimeWindowState,
 } from './types'
 import { setAppRuntime } from './index'
@@ -151,6 +152,23 @@ export class ElectronRuntime implements AppRuntime {
       const result = await this.bridge.app.openDraftsFolder()
       if (!result.ok) return { ok: false, error: result.error }
       return result.data ?? { ok: true }
+    },
+  }
+
+  readonly updates = {
+    getStatus: async (): Promise<RuntimeUpdateStatus> => unwrapNativeResult(await this.bridge.updates.getStatus()),
+    checkForUpdates: async (): Promise<RuntimeUpdateStatus> => unwrapNativeResult(await this.bridge.updates.checkForUpdates()),
+    installDownloadedUpdate: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.updates.installDownloadedUpdate()
+      return result.ok ? { ok: true } : { ok: false, error: result.error }
+    },
+    openReleases: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.updates.openReleases()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
+    onStatusChange: (callback: (status: RuntimeUpdateStatus) => void) => {
+      return this.bridge.updates.onStatusChange(callback)
     },
   }
 

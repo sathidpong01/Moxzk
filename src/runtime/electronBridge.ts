@@ -83,6 +83,34 @@ export interface NativeWindowState {
   isMaximized: boolean
 }
 
+export type NativeUpdateState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'not-available'
+  | 'disabled'
+  | 'error'
+
+export interface NativeUpdateStatus {
+  state: NativeUpdateState
+  currentVersion: string
+  version?: string
+  releaseName?: string | null
+  releaseDate?: string
+  releaseNotes?: string | null
+  percent?: number
+  transferred?: number
+  total?: number
+  bytesPerSecond?: number
+  error?: string
+  checkedAt?: number
+  downloadedAt?: number
+  canInstall: boolean
+  manualUrl: string
+}
+
 export interface MoxzkRuntimeBridge {
   files: {
     saveFile(file: NativeFilePayload): Promise<NativeResult<string>>
@@ -119,6 +147,13 @@ export interface MoxzkRuntimeBridge {
     openLogs(): Promise<NativeResult<NativeServiceActionResult>>
     openSettingsFolder(): Promise<NativeResult<NativeServiceActionResult>>
     openDraftsFolder(): Promise<NativeResult<NativeServiceActionResult>>
+  }
+  updates: {
+    getStatus(): Promise<NativeResult<NativeUpdateStatus>>
+    checkForUpdates(): Promise<NativeResult<NativeUpdateStatus>>
+    installDownloadedUpdate(): Promise<NativeResult<void>>
+    openReleases(): Promise<NativeResult<NativeServiceActionResult>>
+    onStatusChange(callback: (status: NativeUpdateStatus) => void): () => void
   }
   secureStore: {
     getSecret(key: string): Promise<NativeResult<string | null>>

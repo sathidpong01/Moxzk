@@ -22,5 +22,7 @@ export type {
   RuntimeExportResult,
   RuntimeProjectDraft,
   RuntimeSaveExportOptions,
+  RuntimeUpdateStatus,
+  RuntimeUpdateState,
   RuntimeWindowState,
 } from './types'
