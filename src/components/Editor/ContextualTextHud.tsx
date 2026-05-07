@@ -18,7 +18,7 @@ import {
   Trash2,
   Type,
 } from 'lucide-react'
-import { FONT_ID_MAP, resolveRegionFont, restoreCustomFont } from '../../config/fonts'
+import { FONT_ID_MAP, MOOD_LABELS, resolveRegionFont, restoreCustomFont } from '../../config/fonts'
 import { getAllFonts } from '../../services/fontStorage'
 import { convertArtisticRegionToBalloon, convertBalloonRegionToArtistic, expandTextRegionBox } from '../../services/textRegionMode'
 import { computeTextHudPosition, type TextHudPlacement } from '../../services/textHudPosition'
@@ -74,6 +74,39 @@ const ARTISTIC_FIT_OPTIONS: Array<{ value: TextArtisticFit; label: string }> = [
   { value: 'free', label: 'อิสระ' },
   { value: 'bubble_guided', label: 'อิงบับเบิล' },
 ]
+
+// ─── Emotion tag data for bundled fonts ─────────────────────
+const FONT_MOOD_TAGS: Record<string, string> = {
+  normal: 'normal',
+  normal_bold: 'normal',
+  normal_italic: 'narration',
+  shouting: 'shouting',
+  comedy: 'comedy',
+  comedy_bold: 'comedy',
+  whisper: 'whisper',
+  narration: 'narration',
+  sfx: 'sfx',
+  cute: 'comedy',
+}
+
+type MoodGroupDef = { mood: string; label: string; fontIds: string[] }
+const MOOD_GROUPS: MoodGroupDef[] = [
+  { mood: 'normal', label: 'สนทนาทั่วไป', fontIds: ['normal', 'normal_bold', 'normal_italic'] },
+  { mood: 'shouting', label: 'ตะโกน / โกรธ', fontIds: ['shouting'] },
+  { mood: 'whisper', label: 'กระซิบ / นุ่มนวล', fontIds: ['whisper'] },
+  { mood: 'comedy', label: 'ตลก / สนุกสนาน', fontIds: ['comedy', 'comedy_bold', 'cute'] },
+  { mood: 'narration', label: 'บรรยาย / เล่าเรื่อง', fontIds: ['narration'] },
+  { mood: 'sfx', label: 'เสียงเอฟเฟกต์', fontIds: ['sfx'] },
+]
+
+const MOOD_TAG_COLOR: Record<string, string> = {
+  normal: 'bg-white/[0.06] text-[var(--moxzk-muted)]',
+  shouting: 'bg-[rgba(239,68,68,0.12)] text-[#fca5a5]',
+  whisper: 'bg-[rgba(147,197,253,0.1)] text-[#93c5fd]',
+  comedy: 'bg-[rgba(250,204,21,0.1)] text-[#fde047]',
+  narration: 'bg-[rgba(167,139,250,0.1)] text-[#c4b5fd]',
+  sfx: 'bg-[rgba(52,211,153,0.1)] text-[#6ee7b7]',
+}
 
 function isBoldWeight(weight: number): boolean {
   return weight >= 700
@@ -449,54 +482,140 @@ export default function ContextualTextHud({
           </div>
 
           <div ref={fontMenuRef} className="relative">
-            <TooltipSurface label="ฟอนต์">
-              <button
-                type="button"
-                className="flex h-9 min-w-[12rem] max-w-[12rem] items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 text-left text-sm text-[var(--moxzk-text)] transition hover:bg-white/[0.08]"
-                onClick={() => setFontMenuOpen((value) => !value)}
+            <label
+              className="flex h-9 min-w-[12rem] max-w-[12rem] cursor-text items-center gap-2 rounded-[12px] bg-white/[0.04] px-3 text-left text-sm text-[var(--moxzk-text)] transition hover:bg-white/[0.08]"
+              aria-label="เลือกฟอนต์"
+            >
+              <Type size={14} className="shrink-0 text-[var(--moxzk-muted)]" aria-hidden="true" />
+              <input
+                type="text"
+                value={fontMenuOpen ? fontQuery : currentFont.name}
+                placeholder={currentFont.name}
+                className="min-w-0 flex-1 truncate bg-transparent text-sm leading-none text-[var(--moxzk-text)] outline-none placeholder:text-[var(--moxzk-muted)]"
+                style={fontMenuOpen ? undefined : { fontFamily: `"${currentFont.family}", sans-serif` }}
                 aria-expanded={fontMenuOpen}
-                aria-label="ฟอนต์"
-              >
-                <Type size={14} className="shrink-0 text-[var(--moxzk-muted)]" />
-                <span
-                  className="truncate"
-                  style={{ fontFamily: `"${currentFont.family}", sans-serif` }}
-                >
-                  {currentFont.name}
-                </span>
-              </button>
-            </TooltipSurface>
+                aria-haspopup="listbox"
+                onFocus={() => {
+                  setFontQuery('')
+                  setFontMenuOpen(true)
+                }}
+                onChange={(e) => {
+                  setFontQuery(e.target.value)
+                  if (!fontMenuOpen) setFontMenuOpen(true)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') { setFontMenuOpen(false); e.currentTarget.blur() }
+                }}
+                readOnly={!fontMenuOpen}
+              />
+            </label>
             {fontMenuOpen && (
-              <div className="absolute left-0 top-full mt-2 w-64 rounded-[16px] bg-[rgba(11,11,12,0.98)] p-2 shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
-                <input
-                  type="search"
-                  value={fontQuery}
-                  onChange={(event) => setFontQuery(event.target.value)}
-                  placeholder="ค้นหาฟอนต์"
-                  className="h-9 w-full rounded-[10px] border-0 bg-white/[0.04] px-3 text-sm text-[var(--moxzk-text)] outline-none placeholder:text-[var(--moxzk-dim)]"
-                  aria-label="ค้นหาฟอนต์"
-                />
-                <div className="mt-2 max-h-64 overflow-y-auto pr-1">
-                  {filteredFonts.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      className={cn(
-                        'flex w-full items-center justify-between rounded-[10px] px-3 py-2 text-left text-sm transition hover:bg-white/[0.08]',
-                        currentFont.id === option.id && 'bg-white/[0.08]',
-                      )}
-                      onClick={() => {
-                        onUpdate({ fontId: option.id }, { historyKey: `hud:font:${region.id}` })
-                        setFontMenuOpen(false)
-                        setFontQuery('')
-                      }}
-                    >
-                      <span style={{ fontFamily: `"${option.family}", sans-serif` }}>{option.name}</span>
-                      {currentFont.id === option.id && <span className="text-xs font-bold text-[var(--moxzk-accent)]">ใช้แล้ว</span>}
-                    </button>
-                  ))}
+              <div className="absolute left-0 top-full z-20 mt-1.5 w-64 overflow-hidden rounded-[16px] bg-[rgba(11,11,12,0.98)] shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
+                <div className="[&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 max-h-72 overflow-y-auto p-1.5 space-y-0.5">
                   {filteredFonts.length === 0 && (
                     <div className="px-3 py-4 text-sm text-[var(--moxzk-muted)]">ไม่พบฟอนต์</div>
+                  )}
+                  {fontQuery.trim() ? (
+                    // Flat search results
+                    filteredFonts.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={cn(
+                          'flex w-full items-center justify-between gap-2 rounded-[8px] px-2 py-1.5 text-left text-[13px] transition',
+                          currentFont.id === option.id
+                            ? 'bg-[var(--moxzk-accent)] text-white'
+                            : 'text-[var(--moxzk-muted)] hover:bg-white/[0.06] hover:text-[var(--moxzk-text)]',
+                        )}
+                        onClick={() => {
+                          onUpdate({ fontId: option.id }, { historyKey: `hud:font:${region.id}` })
+                          setFontMenuOpen(false)
+                          setFontQuery('')
+                        }}
+                      >
+                        <span
+                          className="truncate font-medium"
+                          style={{ fontFamily: `"${option.family}", sans-serif`, fontWeight: option.weight }}
+                        >
+                          {option.name}
+                        </span>
+                        {FONT_MOOD_TAGS[option.id] && currentFont.id !== option.id && (
+                          <span className={`shrink-0 rounded-[4px] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${MOOD_TAG_COLOR[FONT_MOOD_TAGS[option.id]] ?? MOOD_TAG_COLOR.normal}`}>
+                            {MOOD_LABELS[FONT_MOOD_TAGS[option.id] as keyof typeof MOOD_LABELS] ?? FONT_MOOD_TAGS[option.id]}
+                          </span>
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    // Categorized view
+                    <>
+                      {MOOD_GROUPS.map((group) => {
+                        const groupFonts = fontOptions.filter((opt) => group.fontIds.includes(opt.id))
+                        if (groupFonts.length === 0) return null
+                        return (
+                          <div key={group.mood}>
+                            <div className="px-2 pb-1 pt-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--moxzk-dim)]">
+                              {group.label}
+                            </div>
+                            <div className="space-y-0.5">
+                              {groupFonts.map((option) => (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  className={cn(
+                                    'flex w-full items-center justify-between gap-2 rounded-[8px] px-2 py-1.5 text-left text-[13px] transition',
+                                    currentFont.id === option.id
+                                      ? 'bg-[var(--moxzk-accent)] text-white'
+                                      : 'text-[var(--moxzk-muted)] hover:bg-white/[0.06] hover:text-[var(--moxzk-text)]',
+                                  )}
+                                  onClick={() => {
+                                    onUpdate({ fontId: option.id }, { historyKey: `hud:font:${region.id}` })
+                                    setFontMenuOpen(false)
+                                    setFontQuery('')
+                                  }}
+                                >
+                                  <span
+                                    className="truncate font-medium"
+                                    style={{ fontFamily: `"${option.family}", sans-serif`, fontWeight: option.weight }}
+                                  >
+                                    {option.name}
+                                  </span>
+                                  {currentFont.id !== option.id && (
+                                    <span className={`shrink-0 rounded-[4px] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${MOOD_TAG_COLOR[group.mood] ?? MOOD_TAG_COLOR.normal}`}>
+                                      {group.label}
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {/* Custom fonts */}
+                      {fontOptions.filter((opt) => !FONT_MOOD_TAGS[opt.id]).map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center justify-between gap-2 rounded-[8px] px-2 py-1.5 text-left text-[13px] transition',
+                            currentFont.id === option.id
+                              ? 'bg-[var(--moxzk-accent)] text-white'
+                              : 'text-[var(--moxzk-muted)] hover:bg-white/[0.06] hover:text-[var(--moxzk-text)]',
+                          )}
+                          onClick={() => {
+                            onUpdate({ fontId: option.id }, { historyKey: `hud:font:${region.id}` })
+                            setFontMenuOpen(false)
+                          }}
+                        >
+                          <span className="truncate font-medium" style={{ fontFamily: `"${option.family}", sans-serif` }}>
+                            {option.name}
+                          </span>
+                          <span className="shrink-0 rounded-[4px] bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--moxzk-dim)]">
+                            custom
+                          </span>
+                        </button>
+                      ))}
+                    </>
                   )}
                 </div>
               </div>

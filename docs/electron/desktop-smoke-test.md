@@ -17,7 +17,9 @@ Use this Windows-only checklist as the acceptance path for Electron V1 and later
 11. Confirm Google OAuth opens in the system browser, prefers `moxzk://auth/callback` when available, falls back to the loopback callback otherwise, and Electron refreshes into a signed-in state.
 12. Open Settings > Cleanup, click `เริ่ม PanelCleaner`, then confirm PanelCleaner status becomes ready or returns a clear external dependency error.
 13. Open Settings > AI / Models with a localhost endpoint, click `เริ่ม Ollama`, then confirm Ollama status becomes ready or returns a clear install/PATH error plus the detected command/last error details.
-14. Save an Ollama Cloud API key in Settings, relaunch the app, and confirm the key still works while `localStorage['moxzk-settings']` does not contain the plain-text secret.
+14. In Settings > AI / Models, open `วิธีติดตั้ง Ollama` and confirm the nested tutorial modal shows six steps, screenshots, next/back controls, and still lets the Settings modal recover cleanly after closing.
+15. On a fresh profile, confirm the first-run setup modal appears once, can open the Ollama tutorial, and can be skipped without blocking the editor.
+16. Save an Ollama Cloud API key in Settings, relaunch the app, and confirm the key still works while `localStorage['moxzk-settings']` does not contain the plain-text secret.
 
 ## Core Workflow
 
@@ -39,6 +41,7 @@ Use this Windows-only checklist as the acceptance path for Electron V1 and later
 - Toolbar, Settings, Export drawer, modals, and editor canvas do not overlap the title bar.
 - PanelCleaner bridge starts through Electron IPC or reports a clear external dependency error.
 - Ollama starts through Electron IPC or reports a clear install/PATH error.
+- Ollama install guidance stays inside Moxzk as a user-facing tutorial modal and links only to official Ollama pages.
 - Google OAuth never renders `accounts.google.com` inside the Electron window.
 - Secure secrets are not stored in browser localStorage, and desktop settings can open logs/settings/drafts folders through the diagnostics actions.
 - The renderer never imports Electron modules or raw ipcRenderer.

@@ -7,12 +7,14 @@ import {
   beginUsage,
   endUsage,
   getManagedStatus,
+  installOllama,
   startOllama,
   startPanelCleanerBridge,
   stopOwnedServices,
 } from './localServices'
 import {
   getPanelCleanerDependencyStatus,
+  installPython,
   installPanelCleaner,
   repairPanelCleaner,
 } from './panelCleanerDependency'
@@ -88,6 +90,14 @@ export function registerRuntimeIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.localServicesPanelCleanerDependencyStatus, async () => {
     return nativeActionResult(getPanelCleanerDependencyStatus)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesInstallPython, async () => {
+    return nativeActionResult(installPython)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesInstallOllama, async () => {
+    return nativeActionResult(installOllama)
   })
 
   ipcMain.handle(IPC_CHANNELS.localServicesInstallPanelCleaner, async () => {

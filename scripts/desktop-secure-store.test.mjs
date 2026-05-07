@@ -46,6 +46,18 @@ function createDefaultSettings() {
   }
 }
 
+function createDefaultFontMoodMap() {
+  const normal = { name: 'Sarabun', family: 'Sarabun', weight: 400, style: 'normal', isCustom: false }
+  return {
+    normal,
+    shouting: { name: 'Kanit Bold', family: 'Kanit', weight: 700, style: 'normal', isCustom: false },
+    whisper: { name: 'Prompt Light', family: 'Prompt', weight: 300, style: 'normal', isCustom: false },
+    comedy: { name: 'K2D', family: 'K2D', weight: 400, style: 'normal', isCustom: false },
+    narration: { name: 'Sarabun Italic', family: 'Sarabun', weight: 400, style: 'italic', isCustom: false },
+    sfx: { name: 'Bai Jamjuree Bold', family: 'Bai Jamjuree', weight: 700, style: 'normal', isCustom: false },
+  }
+}
+
 test('secure store manager encrypts, loads, and deletes secrets', async () => {
   const { createSecureStoreManager } = await loadViteModule('/electron/main/secureStoreCore.ts')
   const files = new Map()
@@ -146,6 +158,44 @@ test('settings storage migrates legacy Ollama API keys into Electron secure stor
     assert.equal(JSON.parse(globalThis.localStorage.getItem('moxzk-settings')).ollamaApiKey, undefined)
   } finally {
     globalThis.window = originalWindow
+    globalThis.localStorage = originalLocalStorage
+  }
+})
+
+test('settings storage fills partial font mood maps from defaults', async () => {
+  const originalLocalStorage = globalThis.localStorage
+  const defaults = {
+    ...createDefaultSettings(),
+    fontMoodMap: createDefaultFontMoodMap(),
+  }
+  globalThis.localStorage = createLocalStorageMock({
+    'moxzk-settings': JSON.stringify({
+      ...defaults,
+      fontMoodMap: {
+        normal: {
+          name: 'Custom Normal',
+          family: 'Custom Normal',
+          weight: 500,
+          style: 'normal',
+          isCustom: true,
+        },
+        shouting: {
+          name: 'Broken Font',
+        },
+      },
+    }),
+  })
+
+  try {
+    const { loadStoredSettingsSnapshot } = await loadViteModule('/src/services/settingsStorage.ts')
+    const snapshot = loadStoredSettingsSnapshot(defaults)
+
+    assert.equal(snapshot.settings.fontMoodMap.normal.name, 'Custom Normal')
+    assert.equal(snapshot.settings.fontMoodMap.normal.isCustom, true)
+    assert.equal(snapshot.settings.fontMoodMap.shouting.name, defaults.fontMoodMap.shouting.name)
+    assert.equal(snapshot.settings.fontMoodMap.whisper.name, defaults.fontMoodMap.whisper.name)
+    assert.equal(snapshot.settings.fontMoodMap.sfx.name, defaults.fontMoodMap.sfx.name)
+  } finally {
     globalThis.localStorage = originalLocalStorage
   }
 })

@@ -1,4 +1,4 @@
-import type { AppSettings, FontMoodMap, TranslationMode } from '../types'
+import type { AppSettings, FontDefinition, FontMoodMap, MoodType, TranslationMode } from '../types'
 import { LEGACY_FATHER_SON_STYLE_GUIDE } from './story-context'
 
 const SETTINGS_KEY = 'moxzk-settings'
@@ -8,7 +8,7 @@ interface SerializedSettings {
   panelCleanerBridgeUrl?: string
   panelCleanerExecutablePath?: string
   sourceLang: string
-  fontMoodMap: FontMoodMap
+  fontMoodMap?: unknown
   theme?: string
   ollamaUrl?: string
   ollamaModel?: string
@@ -43,7 +43,7 @@ export function loadStoredSettingsSnapshot(defaults: AppSettings): StoredSetting
         panelCleanerBridgeUrl: parsed.panelCleanerBridgeUrl || defaults.panelCleanerBridgeUrl,
         panelCleanerExecutablePath: parsed.panelCleanerExecutablePath || defaults.panelCleanerExecutablePath,
         sourceLang: (parsed.sourceLang as AppSettings['sourceLang']) || defaults.sourceLang,
-        fontMoodMap: parsed.fontMoodMap || defaults.fontMoodMap,
+        fontMoodMap: normalizeFontMoodMap(parsed.fontMoodMap, defaults.fontMoodMap),
         theme: normalizeTheme(parsed.theme, defaults.theme),
         ollamaUrl: parsed.ollamaUrl || defaults.ollamaUrl,
         ollamaModel: parsed.ollamaModel || defaults.ollamaModel,
@@ -174,6 +174,30 @@ function normalizeTranslationStyleGuide(value: string | undefined, fallback: str
 
 function normalizeTranslationMode(value: string | undefined, fallback: TranslationMode): TranslationMode {
   return value === 'faithful' || value === 'concise' ? value : fallback
+}
+
+function normalizeFontMoodMap(value: unknown, fallback: FontMoodMap): FontMoodMap {
+  const source = value && typeof value === 'object' ? value as Partial<Record<MoodType, unknown>> : {}
+  const normalized = { ...fallback }
+  for (const mood of Object.keys(fallback) as MoodType[]) {
+    normalized[mood] = normalizeFontDefinition(source[mood], fallback[mood])
+  }
+  return normalized
+}
+
+function normalizeFontDefinition(value: unknown, fallback: FontDefinition): FontDefinition {
+  if (!value || typeof value !== 'object') return fallback
+  const candidate = value as Partial<FontDefinition>
+  if (typeof candidate.name !== 'string' || typeof candidate.family !== 'string') return fallback
+
+  return {
+    name: candidate.name,
+    family: candidate.family,
+    weight: typeof candidate.weight === 'number' ? candidate.weight : fallback.weight,
+    style: candidate.style === 'italic' || candidate.style === 'normal' ? candidate.style : fallback.style,
+    isCustom: typeof candidate.isCustom === 'boolean' ? candidate.isCustom : fallback.isCustom,
+    ...(typeof candidate.url === 'string' ? { url: candidate.url } : {}),
+  }
 }
 
 function normalizeSecret(value: string | undefined | null): string | null {

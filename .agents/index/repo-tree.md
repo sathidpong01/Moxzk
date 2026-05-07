@@ -37,6 +37,9 @@ Root: `Moxzk`
 |   |   `-- ipc-contract.md
 |   |-- llm/
 |   |   `-- konva.md
+|   |-- prototypes/
+|   |   `-- first-run-setup-ui-options.html
+|   |-- auth-profile-security.md
 |   |-- cloudflare-d1-schema.md
 |   `-- codex-cloud-environment.md
 |-- drizzle/
@@ -49,7 +52,8 @@ Root: `Moxzk`
 |   |-- 0000_parallel_stranger.sql
 |   |-- 0001_artboard_layout.sql
 |   |-- 0002_bizarre_zodiak.sql
-|   `-- 0003_gray_lucky_pierre.sql
+|   |-- 0003_gray_lucky_pierre.sql
+|   `-- 0004_auth_profile_security.sql
 |-- electron/
 |   |-- main/
 |   |   |-- appPaths.ts
@@ -71,16 +75,35 @@ Root: `Moxzk`
 |   |   `-- index.cjs
 |   `-- renderer/
 |       |-- assets/
-|       |   |-- index-BQl9r3Nx.css
-|       |   `-- index-InHCoBtk.js
+|       |   |-- index-BIkPIQxk.css
+|       |   `-- index-wxvOKI4c.js
 |       |-- index.html
 |       `-- vite.svg
 |-- public/
+|   |-- setup-icons/
+|   |   |-- account-albums.svg
+|   |   |-- model.svg
+|   |   |-- moxzk.svg
+|   |   |-- ollama.svg
+|   |   |-- panelcleaner.svg
+|   |   |-- python.svg
+|   |   |-- translation.svg
+|   |   `-- workspace.svg
+|   |-- tutorial/
+|   |   `-- ollama/
+|   |       |-- download.webp
+|   |       |-- gemma-model.webp
+|   |       |-- installer-file.webp
+|   |       |-- moxzk-check-status.webp
+|   |       |-- moxzk-save-settings.webp
+|   |       `-- ollama-running.webp
 |   `-- vite.svg
 |-- scripts/
 |   |-- album-modal.test.mjs
 |   |-- album-open.test.mjs
 |   |-- album-save-plan.test.mjs
+|   |-- auth-modal-flow.test.mjs
+|   |-- auth-password-policy.test.mjs
 |   |-- auth-smoke-user.mjs
 |   |-- auth-smoke-user.test.mjs
 |   |-- batch-processing.test.mjs
@@ -104,11 +127,13 @@ Root: `Moxzk`
 |   |-- local-service-autostart.test.mjs
 |   |-- local-services-manager.test.mjs
 |   |-- ollama-prompt.test.mjs
+|   |-- ollama-tutorial.test.mjs
 |   |-- oop-boundaries.test.mjs
 |   |-- panelcleaner-bridge.mjs
 |   |-- panelcleaner-csv.mjs
 |   |-- panelcleaner-csv.test.mjs
 |   |-- pre-electron-readiness.test.mjs
+|   |-- profile-security.test.mjs
 |   |-- rename-compat.test.mjs
 |   |-- settings-model-guide.test.mjs
 |   |-- smoke-env.mjs
@@ -129,6 +154,7 @@ Root: `Moxzk`
 |   |   |   `-- ConfirmModal.tsx
 |   |   |-- Auth/
 |   |   |   |-- AuthModal.tsx
+|   |   |   |-- ProfileDialog.tsx
 |   |   |   `-- UserMenu.tsx
 |   |   |-- Comparison/
 |   |   |   `-- SplitView.tsx
@@ -151,6 +177,10 @@ Root: `Moxzk`
 |   |   |   |-- LogPanel.tsx
 |   |   |   |-- PanelToggleBar.tsx
 |   |   |   `-- WorkspaceBackdrop.tsx
+|   |   |-- Onboarding/
+|   |   |   |-- FirstRunSetupView.tsx
+|   |   |   |-- OllamaInstallTutorialModal.tsx
+|   |   |   `-- ollamaTutorial.ts
 |   |   |-- Processing/
 |   |   |   |-- ProcessingView.tsx
 |   |   |   `-- ResourceMonitor.tsx
@@ -206,6 +236,7 @@ Root: `Moxzk`
 |   |   |-- localServiceAutoStart.ts
 |   |   |-- localServiceUsage.ts
 |   |   |-- ollama.ts
+|   |   |-- onboardingStorage.ts
 |   |   |-- panelcleaner-api.ts
 |   |   |-- projectDraftStorage.ts
 |   |   |-- request-timeout.ts
@@ -241,6 +272,8 @@ Root: `Moxzk`
 |   |   |-- env.d.ts
 |   |   |-- http.ts
 |   |   |-- index.ts
+|   |   |-- profile.ts
+|   |   |-- security.ts
 |   |   |-- storage.ts
 |   |   `-- types.ts
 |   |-- App.tsx
@@ -259,9 +292,12 @@ Root: `Moxzk`
 |-- drizzle.config.ts
 |-- electron.vite.config.ts
 |-- index.html
+|-- LICENSE
 |-- llms.txt
 |-- new.md
+|-- NOTICE.md
 |-- package.json
+|-- PRODUCT.md
 |-- README.md
 |-- skills-lock.json
 |-- tsconfig.app.json

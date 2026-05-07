@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAlbumStore } from '../../store/albumStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../store/appStore'
 import { useAuthStore } from '../../store/authStore'
 import type { AppSettings } from '../../types'
@@ -68,7 +69,24 @@ export default function AlbumListModal() {
     consumePendingOpenAlbumId,
     fetchPages,
     deletePage,
-  } = useAlbumStore()
+  } = useAlbumStore(useShallow((state) => ({
+    showAlbumModal: state.showAlbumModal,
+    setShowAlbumModal: state.setShowAlbumModal,
+    saveMode: state.saveMode,
+    albums: state.albums,
+    currentAlbum: state.currentAlbum,
+    currentPages: state.currentPages,
+    loading: state.loading,
+    pendingOpenAlbumId: state.pendingOpenAlbumId,
+    fetchAlbums: state.fetchAlbums,
+    createAlbum: state.createAlbum,
+    updateAlbum: state.updateAlbum,
+    deleteAlbum: state.deleteAlbum,
+    setCurrentAlbum: state.setCurrentAlbum,
+    consumePendingOpenAlbumId: state.consumePendingOpenAlbumId,
+    fetchPages: state.fetchPages,
+    deletePage: state.deletePage,
+  })))
 
   const [view, setView] = useState<ModalView>('list')
   const [newTitle, setNewTitle] = useState('')

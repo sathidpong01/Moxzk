@@ -36,6 +36,16 @@ export type NativeLocalServiceName = 'panelcleaner' | 'ollama'
 
 export type NativePanelCleanerDependencyState = 'missing' | 'ready' | 'broken' | 'installing'
 export type NativePanelCleanerDependencySource = 'explicit' | 'managed' | 'dev' | 'path'
+export type NativePythonDependencyState = 'missing' | 'ready' | 'unsupported'
+
+export interface NativePythonDependencyStatus {
+  state: NativePythonDependencyState
+  version?: string
+  command?: string
+  downloadUrl: string
+  error?: string
+  actionHint?: string
+}
 
 export interface NativePanelCleanerDependencyStatus {
   state: NativePanelCleanerDependencyState
@@ -50,6 +60,7 @@ export interface NativePanelCleanerDependencyStatus {
   error?: string
   actionHint?: string
   logs?: string[]
+  python: NativePythonDependencyStatus
 }
 
 export interface NativePathPickResult {
@@ -91,6 +102,8 @@ export interface MoxzkRuntimeBridge {
     endUsage(service: NativeLocalServiceName): Promise<NativeResult<void>>
     getManagedStatus(): Promise<NativeResult<Record<NativeLocalServiceName, NativeManagedServiceStatus>>>
     getPanelCleanerDependencyStatus(): Promise<NativeResult<NativePanelCleanerDependencyStatus>>
+    installPython(): Promise<NativeResult<NativeServiceActionResult>>
+    installOllama(): Promise<NativeResult<NativeServiceActionResult>>
     installPanelCleaner(): Promise<NativeResult<NativeServiceActionResult>>
     repairPanelCleaner(): Promise<NativeResult<NativeServiceActionResult>>
     pickPanelCleanerExecutable(): Promise<NativeResult<NativePathPickResult>>

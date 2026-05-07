@@ -10,6 +10,7 @@ export type LocalServiceName = 'panelcleaner' | 'ollama'
 export interface NativeServiceActionResult {
   ok: boolean
   error?: string
+  logs?: string[]
 }
 
 export interface ManagedServiceStatus {
@@ -70,6 +71,10 @@ const PANELCLEANER_IDLE_TIMEOUT_MS = 5 * 60_000
 const OLLAMA_IDLE_TIMEOUT_MS = 15 * 60_000
 const SERVICE_READY_TIMEOUT_MS = 10_000
 const SERVICE_POLL_INTERVAL_MS = 300
+const OLLAMA_WINGET_PACKAGE_ID = 'Ollama.Ollama'
+const INSTALL_TIMEOUT_MS = 10 * 60_000
+
+let ollamaInstallPromise: Promise<NativeServiceActionResult> | null = null
 
 const SERVICE_CONFIGS: Record<LocalServiceName, LocalServiceConfig> = {
   panelcleaner: {
@@ -371,6 +376,16 @@ export function startOllama(): Promise<NativeServiceActionResult> {
   return localServiceManager.start('ollama')
 }
 
+export async function installOllama(): Promise<NativeServiceActionResult> {
+  if (ollamaInstallPromise) return ollamaInstallPromise
+  ollamaInstallPromise = installOllamaWithWinget()
+  try {
+    return await ollamaInstallPromise
+  } finally {
+    ollamaInstallPromise = null
+  }
+}
+
 export function beginUsage(name: LocalServiceName): void {
   localServiceManager.beginUsage(name)
 }
@@ -465,6 +480,105 @@ function runProcess(command: string, args: string[]): Promise<void> {
       reject(new Error(`Command failed with code ${code}: ${command} ${args.join(' ')}`))
     })
   })
+}
+
+async function installOllamaWithWinget(): Promise<NativeServiceActionResult> {
+  const logs: string[] = []
+  try {
+    if (process.platform !== 'win32') {
+      return {
+        ok: false,
+        error: 'ติดตั้ง Ollama อัตโนมัติรองรับเฉพาะ Windows',
+        logs,
+      }
+    }
+
+    logs.push('ติดตั้ง Ollama: ตรวจ winget')
+    await runLoggedProcess('winget.exe', ['--version'], {
+      logAs: 'winget --version',
+      logs,
+      timeoutMs: 30_000,
+    })
+
+    logs.push(`ติดตั้ง Ollama: ${OLLAMA_WINGET_PACKAGE_ID}`)
+    await runLoggedProcess('winget.exe', [
+      'install',
+      '-e',
+      '--id',
+      OLLAMA_WINGET_PACKAGE_ID,
+      '--scope',
+      'user',
+      '--accept-package-agreements',
+      '--accept-source-agreements',
+      '--disable-interactivity',
+    ], {
+      logAs: `winget install ${OLLAMA_WINGET_PACKAGE_ID}`,
+      logs,
+      timeoutMs: INSTALL_TIMEOUT_MS,
+    })
+
+    logs.push('ติดตั้ง Ollama เสร็จแล้ว กดเริ่ม Ollama หรือตรวจสถานะอีกครั้ง')
+    return { ok: true, logs }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    logs.push(`ติดตั้ง Ollama ไม่สำเร็จ: ${message}`)
+    return { ok: false, error: message, logs }
+  }
+}
+
+function runLoggedProcess(
+  command: string,
+  args: string[],
+  options: { logAs: string; logs: string[]; timeoutMs: number },
+): Promise<void> {
+  const label = options.logAs
+  options.logs.push(`> ${label}`)
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => {
+      child.kill()
+      reject(new Error(`${label} timed out`))
+    }, options.timeoutMs)
+
+    child.stdout.setEncoding('utf8')
+    child.stderr.setEncoding('utf8')
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk
+    })
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk
+    })
+    child.once('error', (error) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+    child.once('exit', (code) => {
+      clearTimeout(timer)
+      const output = compactProcessOutput(stdout, stderr)
+      if (output) options.logs.push(output)
+      if (code === 0) {
+        resolve()
+        return
+      }
+      reject(new Error(`${label} failed with code ${code}: ${output || 'no output'}`))
+    })
+  })
+}
+
+function compactProcessOutput(stdout: string, stderr: string): string {
+  return [stdout, stderr]
+    .join('\n')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-12)
+    .join('\n')
 }
 
 function resolveProjectRoot(): string {

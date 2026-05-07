@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">PanelCleaner</title>
+  <path fill="#F5F7FB" d="M18 18h43c9.4 0 17 7.6 17 17v26c0 9.4-7.6 17-17 17H18V18Z"/>
+  <path fill="#111827" d="M28 29h28c5.5 0 10 4.5 10 10v18c0 5.5-4.5 10-10 10H28V29Z"/>
+  <path fill="#2563EB" d="M35 37h20v6H35v-6Zm0 13h15v6H35v-6Zm43-17 7 7-21 21-7-7 21-21Z"/>
+</svg>

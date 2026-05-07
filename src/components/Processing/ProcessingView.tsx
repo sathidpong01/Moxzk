@@ -323,7 +323,7 @@ export default function ProcessingView({
 
         {state.status === 'done' && (
           <div className="flex items-center justify-center pointer-events-none">
-            <div className="animate-bounce rounded-full bg-green-500/20 p-4 backdrop-blur">
+            <div className="animate-pulse rounded-full bg-green-500/20 p-4 backdrop-blur">
               <CheckCircle2 className="h-10 w-10 text-[var(--moxzk-success)]" />
             </div>
           </div>

@@ -61,3 +61,13 @@ Rules:
 - Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+
+## Design Context (from PRODUCT.md)
+
+When making UI/UX changes, strictly follow these product principles:
+- **Register**: Product (app UI, editor), not a marketing brand.
+- **Keyboard-Centric Flow**: Focus on speed and support keyboard shortcuts.
+- **Content-Focused Glassmorphism**: Tool backgrounds should be translucent/blurred to maintain focus on the manga image.
+- **Desktop-Native Focus**: Interaction should feel like a native desktop application, not a mobile app.
+- **Clear Affordances**: Clearly distinguish between clickable and non-clickable elements.
+- **Accessibility**: Use Dark Mode as the standard to reduce eye strain, and ensure high contrast between text and glass backgrounds.

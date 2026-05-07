@@ -1,3 +1,86 @@
+/* ─── Bundled Thai Fonts ──────────────────────────────────── */
+@font-face {
+  font-family: 'Sarabun';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Sarabun-Regular.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'Sarabun';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Sarabun-Bold.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'Sarabun';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('/fonts/Sarabun-Italic.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'Kanit';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Kanit-Bold.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'K2D';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/K2D-Regular.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'K2D';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/K2D-Bold.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'Prompt';
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Prompt-Light.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'Prompt';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Prompt-Regular.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'Bai Jamjuree';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/BaiJamjuree-Bold.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+@font-face {
+  font-family: 'Mitr';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/Mitr-Regular.woff2') format('woff2');
+  unicode-range: U+0E00-U+0E7F, U+0020-U+007E;
+}
+/* ──────────────────────────────────────────────────────────── */
+
 :root {
   color-scheme: dark;
   --moxzk-bg: #101010;
@@ -283,7 +366,8 @@ button:disabled {
 .moxzk-panel,
 .floating-panel,
 .floating-panel-sm {
-  background: color-mix(in srgb, var(--moxzk-surface-2) 94%, transparent);
+  background: color-mix(in srgb, var(--moxzk-surface-2) 76%, transparent);
+  backdrop-filter: blur(24px) saturate(150%);
   border-radius: 8px;
   box-shadow: var(--moxzk-shadow);
   color: var(--moxzk-text);
@@ -294,7 +378,8 @@ button:disabled {
   max-width: min(72rem, calc(100vw - 3rem)) !important;
   padding: 0 !important;
   overflow: hidden;
-  background: color-mix(in srgb, var(--moxzk-surface-2) 96%, transparent);
+  background: color-mix(in srgb, var(--moxzk-surface-2) 80%, transparent);
+  backdrop-filter: blur(32px) saturate(150%);
 }
 
 .ProfileModal {
@@ -436,6 +521,805 @@ button:disabled {
 
 .AuthInlineLink:hover {
   color: #b8d2ff;
+}
+
+.FirstRunSetupShell {
+  position: relative;
+  display: grid;
+  grid-template-rows: 5.5rem minmax(0, 1fr) auto;
+  min-height: min(680px, calc(100vh - 6rem));
+  width: 100%;
+  max-width: 58rem;
+  padding: 1.5rem 2rem;
+}
+
+.FirstRunSetupBrand {
+  align-self: start;
+  color: var(--moxzk-dim);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.FirstRunSetupPageCount {
+  position: absolute;
+  left: 50%;
+  top: 1.8rem;
+  transform: translateX(-50%);
+  color: var(--moxzk-muted);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.FirstRunSetupTopSkip {
+  position: absolute;
+  right: 1.5rem;
+  top: 1.35rem;
+  border: 0;
+  background: transparent;
+  color: var(--moxzk-dim);
+  font-size: 0.88rem;
+  font-weight: 800;
+  padding: 0.45rem 0.25rem;
+}
+
+.FirstRunSetupTopSkip:hover,
+.FirstRunSetupIntroSkip:hover {
+  color: var(--moxzk-muted);
+}
+
+.FirstRunSetupIcon {
+  height: 4.75rem;
+  width: 4.75rem;
+  object-fit: contain;
+}
+
+.FirstRunSetupMain {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  text-align: center;
+}
+
+.FirstRunSetupFocusedPage {
+  display: grid;
+  justify-items: center;
+  gap: 1.15rem;
+  width: min(42rem, 100%);
+  transform: translateY(-0.4rem);
+}
+
+.FirstRunSetupStepPage-account {
+  width: min(54rem, 100%);
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.58fr);
+  column-gap: 2rem;
+  justify-items: start;
+  text-align: left;
+}
+
+.FirstRunSetupStepPage-account .FirstRunSetupIcon,
+.FirstRunSetupStepPage-account > div:not(.FirstRunSetupAccountPreview) {
+  grid-column: 1;
+}
+
+.FirstRunSetupStepPage-account h2,
+.FirstRunSetupStepPage-account p {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.FirstRunSetupStepPage-account h2 {
+  font-size: clamp(2.25rem, 4.4vw, 3.5rem);
+}
+
+.FirstRunSetupStepPage-account .FirstRunSetupStatusLine {
+  justify-content: flex-start;
+}
+
+.FirstRunSetupStepPage-account .FirstRunSetupActionList {
+  justify-items: start;
+}
+
+.FirstRunSetupMain h2 {
+  color: var(--moxzk-text);
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 900;
+  line-height: 1.12;
+}
+
+.FirstRunSetupMain p {
+  width: min(34rem, 100%);
+  margin: 0.6rem auto 0;
+  color: var(--moxzk-muted);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.FirstRunSetupStatusLine {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 2.1rem;
+  color: var(--moxzk-muted);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.FirstRunSetupStatusLine span {
+  display: block;
+  height: 0.62rem;
+  width: 0.62rem;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 0.34rem rgba(239, 68, 68, 0.13);
+}
+
+.FirstRunSetupStatus-ready span {
+  background: #22c55e;
+  box-shadow: 0 0 0 0.34rem rgba(34, 197, 94, 0.13);
+}
+
+.FirstRunSetupStatus-skipped span,
+.FirstRunSetupStatusIntro span {
+  background: #f59e0b;
+  box-shadow: 0 0 0 0.34rem rgba(245, 158, 11, 0.14);
+}
+
+.FirstRunSetupActionList {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  width: min(34rem, 100%);
+}
+
+.FirstRunSetupIntroActions {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+  width: min(20rem, 100%);
+}
+
+.FirstRunSetupAction {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  color: var(--moxzk-text);
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.FirstRunSetupAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.FirstRunSetupActionPrimary {
+  min-width: min(20rem, 100%);
+  border-color: rgba(37, 99, 235, 0.58);
+  background: var(--moxzk-accent);
+  color: #fff;
+  box-shadow: 0 18px 38px rgba(37, 99, 235, 0.22);
+}
+
+.FirstRunSetupActionPrimary:hover:not(:disabled) {
+  background: #2f6df6;
+}
+
+.FirstRunSetupHeroAction {
+  min-width: min(20rem, 100%);
+}
+
+.FirstRunSetupActionSecondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--moxzk-muted);
+}
+
+.FirstRunSetupActionSecondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--moxzk-text);
+}
+
+.FirstRunSetupActionCheck {
+  min-width: 9.5rem;
+}
+
+.FirstRunSetupActionCheck-missing {
+  border-color: rgba(239, 68, 68, 0.48);
+  background: rgba(239, 68, 68, 0.13);
+  color: #fecaca;
+}
+
+.FirstRunSetupActionCheck-ready {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.13);
+  color: #bbf7d0;
+}
+
+.FirstRunSetupActionCheck-skipped {
+  border-color: rgba(245, 158, 11, 0.52);
+  background: rgba(245, 158, 11, 0.14);
+  color: #fde68a;
+}
+
+.FirstRunSetupUtilityActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: 2rem;
+}
+
+.FirstRunSetupUtilityAction {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--moxzk-dim);
+  padding: 0.2rem 0.3rem;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.FirstRunSetupUtilityAction:hover:not(:disabled) {
+  color: var(--moxzk-text);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.FirstRunSetupUtilityAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.FirstRunSetupUtilityCheck-missing {
+  color: #fca5a5;
+}
+
+.FirstRunSetupUtilityCheck-ready {
+  color: #86efac;
+}
+
+.FirstRunSetupUtilityCheck-skipped {
+  color: #fde68a;
+}
+
+.FirstRunSetupReadyPanel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: min(20rem, 100%);
+  border: 1px solid rgba(34, 197, 94, 0.24);
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.1);
+  color: #bbf7d0;
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+}
+
+.FirstRunSetupReadyPanel svg {
+  flex-shrink: 0;
+  color: var(--moxzk-success);
+}
+
+.FirstRunSetupReadyPanel span {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.FirstRunSetupReadyPanel strong {
+  color: #dcfce7;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.FirstRunSetupReadyPanel small {
+  color: #86efac;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.FirstRunSetupStepExtras {
+  width: min(42rem, 100%);
+}
+
+.FirstRunSetupModelExtras {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.FirstRunSetupModelChoices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  text-align: left;
+}
+
+.FirstRunSetupModelChoice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem 0.6rem;
+  align-items: start;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--moxzk-text);
+  padding: 0.8rem;
+  text-align: left;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.FirstRunSetupModelChoice:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.FirstRunSetupModelChoiceActive {
+  border-color: rgba(37, 99, 235, 0.62);
+  background: rgba(37, 99, 235, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.24);
+}
+
+.FirstRunSetupModelChoice strong,
+.FirstRunSetupChoiceTile strong {
+  display: block;
+  color: var(--moxzk-text);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.FirstRunSetupModelChoice small {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--moxzk-dim);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.FirstRunSetupModelChoice p {
+  grid-column: 1 / -1;
+  width: auto;
+  margin: 0;
+  color: var(--moxzk-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.FirstRunSetupModelBadge {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.075);
+  color: var(--moxzk-muted);
+  padding: 0.14rem 0.42rem;
+  font-size: 0.66rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.FirstRunSetupModelProgress {
+  display: grid;
+  gap: 0.45rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.FirstRunSetupModelProgressHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--moxzk-text);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.FirstRunSetupModelProgressHeader span,
+.FirstRunSetupModelProgress p {
+  color: var(--moxzk-muted);
+}
+
+.FirstRunSetupModelProgressTrack {
+  height: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.FirstRunSetupModelProgressTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--moxzk-accent);
+  transition: transform 180ms ease;
+  transform-origin: left;
+}
+
+.FirstRunSetupModelProgress p {
+  width: auto;
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.FirstRunSetupTranslationExtras {
+  display: grid;
+  gap: 0.85rem;
+  text-align: left;
+}
+
+.FirstRunSetupChoiceGroup {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.FirstRunSetupChoiceGroup h3 {
+  color: var(--moxzk-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.FirstRunSetupChoiceGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.FirstRunSetupChoiceGridTwo {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.FirstRunSetupChoiceTile {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 5.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--moxzk-muted);
+  padding: 0.7rem;
+  text-align: left;
+}
+
+.FirstRunSetupChoiceTile:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.FirstRunSetupChoiceTileActive {
+  border-color: rgba(37, 99, 235, 0.62);
+  background: rgba(37, 99, 235, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.24);
+}
+
+.FirstRunSetupChoiceTile span {
+  font-size: 0.76rem;
+  line-height: 1.42;
+}
+
+.FirstRunSetupAccountPreview {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1 / span 5;
+  align-self: center;
+  display: grid;
+  width: min(16rem, 28vw);
+  min-height: 15rem;
+  pointer-events: none;
+}
+
+.FirstRunSetupAlbumCard {
+  position: absolute;
+  display: grid;
+  gap: 0.25rem;
+  width: 13.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 0.85rem;
+  text-align: left;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+  animation: setupAlbumFloat 4.8s ease-in-out infinite;
+}
+
+.FirstRunSetupAlbumCard span,
+.FirstRunSetupAlbumCard small {
+  color: var(--moxzk-dim);
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.FirstRunSetupAlbumCard strong {
+  color: var(--moxzk-text);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.FirstRunSetupAlbumCardOne {
+  right: 1.5rem;
+  top: 0;
+}
+
+.FirstRunSetupAlbumCardTwo {
+  right: 0;
+  top: 5.2rem;
+  animation-delay: -1.5s;
+}
+
+.FirstRunSetupAlbumCardThree {
+  right: 2rem;
+  top: 10.4rem;
+  animation-delay: -3s;
+}
+
+@media (max-width: 980px) {
+  .FirstRunSetupAccountPreview {
+    display: none;
+  }
+
+  .FirstRunSetupStepPage-account {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .FirstRunSetupStepPage-account .FirstRunSetupIcon,
+  .FirstRunSetupStepPage-account > div:not(.FirstRunSetupAccountPreview) {
+    grid-column: 1;
+  }
+
+  .FirstRunSetupStepPage-account h2,
+  .FirstRunSetupStepPage-account p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .FirstRunSetupStepPage-account .FirstRunSetupStatusLine {
+    justify-content: center;
+  }
+
+  .FirstRunSetupStepPage-account .FirstRunSetupActionList {
+    justify-items: center;
+  }
+
+  .FirstRunSetupModelChoices,
+  .FirstRunSetupChoiceGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.FirstRunSetupIntroSkip {
+  min-height: 2rem;
+  border: 0;
+  background: transparent;
+  color: var(--moxzk-dim);
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+}
+
+.FirstRunSetupSkippedSummary {
+  width: min(34rem, 100%);
+  color: #fde68a;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.FirstRunSetupFooter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 1rem;
+}
+
+.FirstRunSetupProgress {
+  display: flex;
+  grid-column: 2;
+  justify-self: center;
+  gap: 0.35rem;
+  width: min(22rem, 100%);
+}
+
+.FirstRunSetupProgress span {
+  height: 0.3rem;
+  flex: 1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.FirstRunSetupProgressDone {
+  background: var(--moxzk-accent) !important;
+}
+
+.FirstRunSetupNavActions {
+  display: flex;
+  grid-column: 3;
+  justify-self: end;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.FirstRunSetupNavActions .FirstRunSetupActionPrimary {
+  min-width: 8rem;
+  box-shadow: none;
+}
+
+.FirstRunSetupNextAction {
+  min-width: 8rem;
+}
+
+.FirstRunSetupBackAction {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--moxzk-muted);
+  padding: 0.7rem 0.7rem;
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.FirstRunSetupBackAction:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--moxzk-text);
+}
+
+.OllamaTutorialClose {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--moxzk-muted);
+  font-weight: 800;
+}
+
+.OllamaTutorialClose:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--moxzk-text);
+}
+
+.OllamaTutorialModal {
+  width: min(68rem, calc(100vw - 2rem));
+  max-width: none !important;
+  background: color-mix(in srgb, var(--moxzk-surface-2) 97%, transparent);
+}
+
+.OllamaTutorialShell {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.45fr) minmax(0, 1fr);
+  min-height: min(760px, calc(100vh - 3rem));
+}
+
+.OllamaTutorialSidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 1.5rem;
+}
+
+.OllamaTutorialSteps {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.OllamaTutorialStep {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--moxzk-muted);
+  padding: 0.55rem;
+  text-align: left;
+}
+
+.OllamaTutorialStep span:first-child {
+  display: grid;
+  height: 1.45rem;
+  width: 1.45rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--moxzk-text);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.OllamaTutorialStep:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--moxzk-text);
+}
+
+.OllamaTutorialStepActive {
+  background: rgba(37, 99, 235, 0.18);
+  color: var(--moxzk-text);
+}
+
+.OllamaTutorialStepActive span:first-child {
+  background: var(--moxzk-accent);
+}
+
+.OllamaTutorialMain {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.OllamaTutorialHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.OllamaTutorialClose {
+  min-height: 2rem;
+  padding: 0 0.75rem;
+}
+
+.OllamaTutorialImageFrame {
+  display: grid;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  aspect-ratio: 16 / 9;
+}
+
+.OllamaTutorialImageFrame img {
+  width: 100%;
+  min-height: 0;
+  max-height: min(455px, 52vh);
+  object-fit: contain;
+  background: #0f0f0f;
+}
+
+.OllamaTutorialActions {
+  min-height: 2.25rem;
+}
+
+.OllamaTutorialFooter {
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.OllamaTutorialProgress {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.OllamaTutorialProgress span {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.OllamaTutorialProgressDone {
+  background: var(--moxzk-accent) !important;
 }
 
 .SettingsFrame {
@@ -701,6 +1585,7 @@ button:disabled {
 
 .moxzk-icon-button,
 .moxzk-tool {
+  position: relative;
   width: 2rem;
   height: 2rem;
   align-items: center;
@@ -713,6 +1598,13 @@ button:disabled {
     background-color 120ms ease,
     border-color 120ms ease,
     color 120ms ease;
+}
+
+.moxzk-icon-button::after,
+.moxzk-tool::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 
 .moxzk-icon-button:not(.hidden),
@@ -957,5 +1849,15 @@ button:disabled {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes setupAlbumFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.45rem);
   }
 }

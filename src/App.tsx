@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import Konva from 'konva'
 import { useAppStore } from './store/appStore'
 import { useAutoSave } from './hooks/useAutoSave'
@@ -15,10 +16,22 @@ import UploadStep from './components/Steps/UploadStep'
 import EditStep from './components/Steps/EditStep'
 import SettingsPanel from './components/Settings/SettingsPanel'
 import FontConfigPage from './components/Settings/FontConfigPage'
+import FirstRunSetupView from './components/Onboarding/FirstRunSetupView'
+import OllamaInstallTutorialModal from './components/Onboarding/OllamaInstallTutorialModal'
 import AppChromeBar from './components/Layout/AppChromeBar'
 import WorkspaceBackdrop from './components/Layout/WorkspaceBackdrop'
 import { Button, DropdownItem, DropdownMenu, IconButton, Modal, SelectField } from './components/ui/primitives'
 import { getAppRuntime } from './runtime'
+import {
+  completeFirstRunSetup,
+  loadOnboardingState,
+  markOllamaTutorialSeen,
+  markOnboardingSetupItemComplete,
+  setCurrentOnboardingSetupStep,
+  skipOnboardingSetupItem,
+  type OnboardingSetupItem,
+  type OnboardingState,
+} from './services/onboardingStorage'
 import { Toaster } from 'sonner'
 import { createPortal } from 'react-dom'
 import { BookOpen, ChevronDown, Download, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
@@ -31,9 +44,41 @@ const AI_MODE_OPTIONS: Array<{ value: ProcessingMode; label: string }> = [
   { value: 'clean_only', label: 'คลีนอย่างเดียว' },
 ]
 
+const REQUIRED_FIRST_RUN_STEPS: OnboardingSetupItem[] = ['python', 'panelcleaner', 'ollama', 'model', 'translation']
+
+function getFirstSetupStepToReview(state: OnboardingState): OnboardingSetupItem {
+  const completed = new Set(state.completedSetupItems)
+  const skipped = new Set(state.skippedSetupItems)
+  return REQUIRED_FIRST_RUN_STEPS.find((item) => skipped.has(item) || !completed.has(item)) ?? REQUIRED_FIRST_RUN_STEPS[0]
+}
+
 function App() {
-  const store = useAppStore()
-  const albumStore = useAlbumStore()
+  const store = useAppStore(
+    useShallow((state) => ({
+      currentStep: state.currentStep,
+      images: state.images,
+      imageEntries: state.imageEntries,
+      activeImageId: state.activeImageId,
+      regions: state.regions,
+      brushStrokes: state.brushStrokes,
+      isProcessing: state.isProcessing,
+      exportFormat: state.exportFormat,
+      exportQuality: state.exportQuality,
+      settings: state.settings,
+      showSettings: state.showSettings,
+      showFontConfig: state.showFontConfig,
+      init: state.init,
+      addImageEntries: state.addImageEntries,
+      toggleSettings: state.toggleSettings,
+      toggleFontConfig: state.toggleFontConfig,
+      setImages: state.setImages,
+      setSettings: state.setSettings,
+      setExportFormat: state.setExportFormat,
+      setExportQuality: state.setExportQuality,
+      resetToUpload: state.resetToUpload,
+    }))
+  )
+  const currentAlbumTitle = useAlbumStore(useShallow((state) => state.currentAlbum?.title))
   const stageRef = useRef<Konva.Stage>(null)
   const editorRef = useRef<CanvasEditorHandle>(null)
   const addImagesInputRef = useRef<HTMLInputElement>(null)
@@ -42,9 +87,13 @@ function App() {
   const [batchStopConfirmOpen, setBatchStopConfirmOpen] = useState(false)
   const [clearProjectConfirmOpen, setClearProjectConfirmOpen] = useState(false)
   const [exportDrawerOpen, setExportDrawerOpen] = useState(false)
+  const [onboarding, setOnboarding] = useState<OnboardingState>(() => loadOnboardingState())
+  const [firstRunSetupOpen, setFirstRunSetupOpen] = useState(false)
+  const [ollamaTutorialOpen, setOllamaTutorialOpen] = useState(false)
   const appRuntime = getAppRuntime()
+  const authUser = useAuthStore((state) => state.user)
   const hasCustomChrome = appRuntime.kind === 'electron' && appRuntime.capabilities.canUseCustomWindowControls
-  const albumTitle = albumStore.currentAlbum?.title?.trim() || 'โปรเจกต์ใหม่'
+  const albumTitle = currentAlbumTitle?.trim() || 'โปรเจกต์ใหม่'
   const activePageIndex = Math.max(0, store.imageEntries.findIndex((entry) => entry.id === store.activeImageId))
   const headerStatus = getHeaderStatus({
     step: store.currentStep,
@@ -57,6 +106,9 @@ function App() {
 
   // Init: restore custom fonts + auth
   useEffect(() => { store.init() }, [])
+  useEffect(() => {
+    if (!onboarding.firstRunCompleted) setFirstRunSetupOpen(true)
+  }, [])
   useEffect(() => {
     const cleanup = useAuthStore.getState().init()
     return () => { cleanup.then((unsub) => unsub()) }
@@ -131,22 +183,66 @@ function App() {
     setAiConfirmTarget(null)
   }
 
+  const finishFirstRun = useCallback((suppressReminder: boolean) => {
+    setOnboarding((current) => completeFirstRunSetup(current, { suppressReminder }))
+    setFirstRunSetupOpen(false)
+  }, [])
+
+  const openFirstRunTutorial = useCallback(() => {
+    setOllamaTutorialOpen(true)
+  }, [])
+
+  const openSettingsFromFirstRun = useCallback(() => {
+    store.toggleSettings(true)
+  }, [store])
+
+  const openFirstRunFromSettings = useCallback(() => {
+    store.toggleSettings(false)
+    setOnboarding((current) => setCurrentOnboardingSetupStep(getFirstSetupStepToReview(current), current))
+    setFirstRunSetupOpen(true)
+  }, [store])
+
+  const openAuthFromFirstRun = useCallback(() => {
+    useAuthStore.getState().setShowAuthModal(true)
+  }, [])
+
+  const markFirstRunSetupItem = useCallback((item: OnboardingSetupItem) => {
+    setOnboarding((current) => markOnboardingSetupItemComplete(item, current))
+  }, [])
+
+  const skipFirstRunSetupItem = useCallback((item: OnboardingSetupItem) => {
+    setOnboarding((current) => skipOnboardingSetupItem(item, current))
+  }, [])
+
+  const setFirstRunSetupStep = useCallback((item: OnboardingSetupItem) => {
+    setOnboarding((current) => setCurrentOnboardingSetupStep(item, current))
+  }, [])
+
+  const finishOllamaTutorial = useCallback(() => {
+    setOnboarding((current) => markOllamaTutorialSeen(current))
+    setOllamaTutorialOpen(false)
+  }, [])
+
   return (
     <div className={`studio-shell relative isolate h-screen overflow-hidden ${hasCustomChrome ? 'moxzk-has-custom-chrome' : ''}`}>
       <WorkspaceBackdrop />
       <header className="moxzk-app-chrome fixed left-3 right-3 top-3 z-50 flex min-w-0 items-center gap-3">
-        <div className="moxzk-project-chip moxzk-window-no-drag flex max-w-[min(22rem,45vw)] min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
+        {!firstRunSetupOpen && (
+          <div className="moxzk-project-chip moxzk-window-no-drag flex max-w-[min(22rem,45vw)] min-w-0 items-center gap-2 overflow-hidden px-3 py-2">
           <BookOpen size={16} className="hidden shrink-0 text-[var(--moxzk-muted)] sm:block" />
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-[var(--moxzk-text)]" title={albumTitle}>{albumTitle}</div>
             <div className="hidden truncate text-[11px] font-bold text-[var(--moxzk-muted)] min-[420px]:block">{headerStatus}</div>
           </div>
-        </div>
+          </div>
+        )}
 
         <div className="moxzk-chrome-drag flex min-w-6 flex-1 self-stretch" aria-hidden="true" />
 
-        <div className="moxzk-command-dock moxzk-window-no-drag flex min-w-0 max-w-full shrink-0 items-center justify-self-end gap-1 px-2 py-2 sm:gap-2">
-          {store.currentStep === 'edit' && (
+        <div className={`${!firstRunSetupOpen ? 'moxzk-command-dock' : ''} moxzk-window-no-drag flex min-w-0 max-w-full shrink-0 items-center justify-self-end gap-1 px-2 py-2 sm:gap-2`}>
+          {!firstRunSetupOpen && (
+            <>
+              {store.currentStep === 'edit' && (
             <>
               <input
                 ref={addImagesInputRef}
@@ -260,8 +356,10 @@ function App() {
               </IconButton>
             </>
           )}
-          <UserMenu />
-          <AppChromeBar />
+              <UserMenu />
+            </>
+          )}
+          <AppChromeBar hideDivider={firstRunSetupOpen} />
         </div>
       </header>
 
@@ -313,6 +411,32 @@ function App() {
         onSave={store.setSettings}
         isOpen={store.showSettings}
         onClose={() => store.toggleSettings(false)}
+        onOpenFirstRunSetup={openFirstRunFromSettings}
+      />
+      <FirstRunSetupView
+        isOpen={firstRunSetupOpen}
+        settings={store.settings}
+        currentSetupStep={onboarding.currentSetupStep}
+        completedSetupItems={onboarding.completedSetupItems}
+        skippedSetupItems={onboarding.skippedSetupItems}
+        isAccountReady={Boolean(authUser)}
+        onOpenTutorial={openFirstRunTutorial}
+        onOpenSettings={openSettingsFromFirstRun}
+        onOpenAuth={openAuthFromFirstRun}
+        onUpdateSettings={store.setSettings}
+        onCompleteSetupItem={markFirstRunSetupItem}
+        onSkipSetupItem={skipFirstRunSetupItem}
+        onCurrentStepChange={setFirstRunSetupStep}
+        onStart={finishFirstRun}
+      />
+      <OllamaInstallTutorialModal
+        isOpen={ollamaTutorialOpen}
+        onClose={() => setOllamaTutorialOpen(false)}
+        onComplete={finishOllamaTutorial}
+        onOpenSettings={() => {
+          setOllamaTutorialOpen(false)
+          store.toggleSettings(true)
+        }}
       />
       <FontConfigPage
         moodMap={store.settings.fontMoodMap}

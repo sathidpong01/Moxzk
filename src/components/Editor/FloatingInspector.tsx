@@ -101,18 +101,19 @@ export default function FloatingInspector({
           </TabPanel>
 
           <TabPanel className="space-y-4 pt-3">
-            <div className="flex gap-1">
+            <div className="flex gap-2">
               {BRUSH_TOOLS.map(({ tool, label }) => (
                 <Button
                   key={tool}
                   variant={store.activeTool === tool ? 'primary' : 'ghost'}
                   size="sm"
+                  className="flex-1 py-1.5"
                   onClick={() => {
                     store.selectRegion(null)
                     store.setActiveTool(tool)
                   }}
                 >
-                  <span className="text-xs font-bold">{label}</span>
+                  <span className="text-[13px] font-bold">{label}</span>
                 </Button>
               ))}
             </div>
@@ -132,7 +133,7 @@ export default function FloatingInspector({
 
             {store.activeTool !== 'eyedropper' && (
               <DisclosureSection title="สีและหัวแปรง">
-                <div>
+                <div className="space-y-4">
                   <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-[var(--moxzk-muted)]">
                     สี
                   </label>

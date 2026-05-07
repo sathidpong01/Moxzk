@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Stage, Layer, Image as KonvaImage, Text, Transformer, Line } from 'react-konva'
 import { Html } from 'react-konva-utils'
 import Konva from 'konva'
@@ -605,6 +605,152 @@ export default function CanvasEditor({
   const transformerKeepRatio = getTextTransformerKeepRatio(selectedLayoutMode)
   const transformerShiftBehavior = getTextTransformerShiftBehavior(selectedLayoutMode)
 
+  const backgroundLayer = useMemo(() => (
+    <Layer>
+      {image && (
+        <KonvaImage
+          image={image}
+          width={image.width * scale}
+          height={image.height * scale}
+        />
+      )}
+    </Layer>
+  ), [image, scale])
+
+  const textRegionsLayer = useMemo(() => (
+    <Layer visible={showTextOverlay}>
+      {regions.map((region) => {
+        const font = resolveRegionFont(region)
+        const text = region.translatedText || ' '
+        const regionLayout = getRegionTextLayout(region, text, {
+          fontFamily: font.family,
+          fontWeight: font.weight,
+          fontStyle: font.style,
+        })
+        const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
+        const isArtistic = layoutMode === 'artistic'
+        const isArtisticFree = isArtistic && regionLayout.artisticFit === 'free'
+        const fontSize = regionLayout.fontSize * scale
+        return (
+          <Fragment key={`${region.id}-${layoutMode}`}>
+            <Text
+              id={region.id}
+              x={region.bbox.x * scale}
+              y={region.bbox.y * scale}
+              text={regionLayout.lines.join('\n')}
+              fontSize={fontSize}
+              fontFamily={font.family}
+              fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
+              fill={region.fontColor}
+              stroke={region.strokeWidth > 0 ? region.strokeColor : undefined}
+              strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
+              fillAfterStrokeEnabled
+              lineJoin={region.strokeJoin ?? 'round'}
+              lineHeight={regionLayout.lineHeight}
+              {...(isArtistic
+                ? {
+                    width: (isArtisticFree ? regionLayout.innerWidth : region.bbox.width) * scale,
+                    height: (isArtisticFree ? regionLayout.contentHeight : region.bbox.height) * scale,
+                    padding: regionLayout.artisticFit === 'bubble_guided'
+                      ? Math.max(regionLayout.paddingX, regionLayout.paddingY) * scale
+                      : 0,
+                    wrap: 'none' as const,
+                    align: regionLayout.textAlign,
+                    scaleX: 1,
+                    scaleY: 1,
+                  }
+                : {
+                    width: region.bbox.width * scale,
+                    height: region.bbox.height * scale,
+                    padding: Math.max(regionLayout.paddingX, regionLayout.paddingY) * scale,
+                    wrap: 'none' as const,
+                    align: regionLayout.textAlign,
+                    verticalAlign: 'middle' as const,
+                  })}
+              draggable={!isPanning && !isBrushActive && !isEyedropper}
+              rotation={region.rotation}
+              opacity={1}
+              onClick={() => {
+                if (!isBrushActive && !isEyedropper) handleSelect(region.id)
+              }}
+              onDblClick={() => startInlineEdit(region)}
+              onDblTap={() => startInlineEdit(region)}
+              onDragEnd={(e) => handleDragEnd(region.id, e)}
+              onTransformStart={() => {
+                textTransformStartRef.current[region.id] = cloneRegions(regions)
+              }}
+              onTransform={(e) => {
+                const node = e.target as Konva.Text
+                if (isArtisticFree) {
+                  node.getLayer()?.batchDraw()
+                  return
+                }
+                const resized = applyLiveTextBoxResize(node)
+                const nextBbox = {
+                  x: node.x() / scale,
+                  y: node.y() / scale,
+                  width: resized.width / scale,
+                  height: resized.height / scale,
+                }
+                const fittingRegion = textTransformStartRef.current[region.id]?.find((item) => item.id === region.id) ?? region
+                const resizeResult = getTextBoxResizeResult({
+                  region: fittingRegion,
+                  bbox: nextBbox,
+                  text,
+                  rotation: node.rotation(),
+                  fontFamily: font.family,
+                  fontWeight: font.weight,
+                  fontStyle: font.style,
+                })
+                if (resizeResult.layout) {
+                  node.text(resizeResult.layout.lines.join('\n'))
+                  node.fontSize(resizeResult.layout.fontSize * scale)
+                }
+                onRegionUpdate(region.id, resizeResult.updates, { trackHistory: false })
+              }}
+              onTransformEnd={(e) => handleTransformEnd(region, e)}
+            />
+            {regionLayout.overflow && (
+              <OversetTextBadge
+                x={(region.bbox.x + region.bbox.width) * scale}
+                y={(region.bbox.y + region.bbox.height) * scale}
+                viewportZoom={zoom}
+                showLabel={selectedId === region.id}
+                labelText={regionLayout.overflowReason === 'readability' ? 'ตัวเล็ก/ล้น' : 'ข้อความยังล้น'}
+              />
+            )}
+          </Fragment>
+        )
+      })}
+
+      {/* Transformer for selected text */}
+      <Transformer
+        ref={transformerRef}
+        borderStroke="#6366f1"
+        anchorStroke="#6366f1"
+        anchorFill="#ffffff"
+        anchorSize={8}
+        anchorCornerRadius={4}
+        padding={4}
+        rotateEnabled={true}
+        keepRatio={transformerKeepRatio}
+        enabledAnchors={transformerAnchors}
+        shiftBehavior={transformerShiftBehavior}
+        ignoreStroke
+        flipEnabled={false}
+        boundBoxFunc={(oldBox, newBox) => {
+          if (Math.abs(newBox.width) < 20 || Math.abs(newBox.height) < 16) return oldBox
+          return newBox
+        }}
+      />
+    </Layer>
+  ), [
+    showTextOverlay, regions, scale, zoom, selectedId,
+    isPanning, isBrushActive, isEyedropper, inlineEdit?.id,
+    transformerKeepRatio, transformerAnchors, transformerShiftBehavior,
+    handleSelect, startInlineEdit, handleDragEnd, applyLiveTextBoxResize, handleTransformEnd, onRegionUpdate
+  ])
+
   return (
     <div className="studio-canvas flex h-full min-h-0 flex-col">
       <div className="absolute left-3 top-16 z-20 flex items-center gap-1.5 rounded-[8px] bg-black/45 p-1 backdrop-blur">
@@ -689,15 +835,7 @@ export default function CanvasEditor({
           style={{ cursor: getEditorToolCursor(activeTool) }}
         >
           {/* Layer 1: Background image */}
-          <Layer>
-            {image && (
-              <KonvaImage
-                image={image}
-                width={image.width * scale}
-                height={image.height * scale}
-              />
-            )}
-          </Layer>
+          {backgroundLayer}
 
           {/* Layer 2: Paint strokes */}
           <Layer>
@@ -729,7 +867,7 @@ export default function CanvasEditor({
                   points={drawingLine.map((p) => p * scale)}
                   stroke={activeTool === 'eraser' ? '#ff000080' : brushColor}
                   strokeWidth={f.strokeWidth * scale}
-                  opacity={activeTool === 'eraser' ? 0.5 : brushOpacity}
+              opacity={activeTool === 'eraser' ? 0.5 : brushOpacity}
                   tension={0.5}
                   lineCap="round"
                   lineJoin="round"
@@ -742,131 +880,9 @@ export default function CanvasEditor({
           </Layer>
 
           {/* Layer 3: Text regions + Transformer */}
-          <Layer visible={showTextOverlay}>
-            {regions.map((region) => {
-              const font = resolveRegionFont(region)
-              const text = region.translatedText || ' '
-              const regionLayout = getRegionTextLayout(region, text, {
-                fontFamily: font.family,
-                fontWeight: font.weight,
-                fontStyle: font.style,
-              })
-              const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
-              const isArtistic = layoutMode === 'artistic'
-              const isArtisticFree = isArtistic && regionLayout.artisticFit === 'free'
-              const fontSize = regionLayout.fontSize * scale
-              return (
-                <Fragment key={`${region.id}-${layoutMode}`}>
-                  <Text
-                    id={region.id}
-                    x={region.bbox.x * scale}
-                    y={region.bbox.y * scale}
-                    text={regionLayout.lines.join('\n')}
-                    fontSize={fontSize}
-                    fontFamily={font.family}
-                    fontStyle={`${font.weight >= 700 ? 'bold' : 'normal'}${font.style === 'italic' ? ' italic' : ''}`}
-                    fill={region.fontColor}
-                    stroke={region.strokeWidth > 0 ? region.strokeColor : undefined}
-                    strokeWidth={region.strokeWidth > 0 ? region.strokeWidth * scale : 0}
-                    fillAfterStrokeEnabled
-                    lineJoin={region.strokeJoin ?? 'round'}
-                    lineHeight={regionLayout.lineHeight}
-                    {...(isArtistic
-                      ? {
-                          width: (isArtisticFree ? regionLayout.innerWidth : region.bbox.width) * scale,
-                          height: (isArtisticFree ? regionLayout.contentHeight : region.bbox.height) * scale,
-                          padding: regionLayout.artisticFit === 'bubble_guided'
-                            ? Math.max(regionLayout.paddingX, regionLayout.paddingY) * scale
-                            : 0,
-                          wrap: 'none' as const,
-                          align: regionLayout.textAlign,
-                          scaleX: 1,
-                          scaleY: 1,
-                        }
-                      : {
-                          width: region.bbox.width * scale,
-                          height: region.bbox.height * scale,
-                          padding: Math.max(regionLayout.paddingX, regionLayout.paddingY) * scale,
-                          wrap: 'none' as const,
-                          align: regionLayout.textAlign,
-                          verticalAlign: 'middle' as const,
-                        })}
-                    draggable={!isPanning && !isBrushActive && !isEyedropper}
-                    rotation={region.rotation}
-                    opacity={1}
-                    onClick={() => {
-                      if (!isBrushActive && !isEyedropper) handleSelect(region.id)
-                    }}
-                    onDblClick={() => startInlineEdit(region)}
-                    onDblTap={() => startInlineEdit(region)}
-                    onDragEnd={(e) => handleDragEnd(region.id, e)}
-                    onTransformStart={() => {
-                      textTransformStartRef.current[region.id] = cloneRegions(regions)
-                    }}
-                    onTransform={(e) => {
-                      const node = e.target as Konva.Text
-                      if (isArtisticFree) {
-                        node.getLayer()?.batchDraw()
-                        return
-                      }
-                      const resized = applyLiveTextBoxResize(node)
-                      const nextBbox = {
-                        x: node.x() / scale,
-                        y: node.y() / scale,
-                        width: resized.width / scale,
-                        height: resized.height / scale,
-                      }
-                      const fittingRegion = textTransformStartRef.current[region.id]?.find((item) => item.id === region.id) ?? region
-                      const resizeResult = getTextBoxResizeResult({
-                        region: fittingRegion,
-                        bbox: nextBbox,
-                        text,
-                        rotation: node.rotation(),
-                        fontFamily: font.family,
-                        fontWeight: font.weight,
-                        fontStyle: font.style,
-                      })
-                      if (resizeResult.layout) {
-                        node.text(resizeResult.layout.lines.join('\n'))
-                        node.fontSize(resizeResult.layout.fontSize * scale)
-                      }
-                      onRegionUpdate(region.id, resizeResult.updates, { trackHistory: false })
-                    }}
-                    onTransformEnd={(e) => handleTransformEnd(region, e)}
-                  />
-                  {regionLayout.overflow && (
-                    <OversetTextBadge
-                      x={(region.bbox.x + region.bbox.width) * scale}
-                      y={(region.bbox.y + region.bbox.height) * scale}
-                      viewportZoom={zoom}
-                      showLabel={selectedId === region.id}
-                      labelText={regionLayout.overflowReason === 'readability' ? 'ตัวเล็ก/ล้น' : 'ข้อความยังล้น'}
-                    />
-                  )}
-                </Fragment>
-              )
-            })}
+          {textRegionsLayer}
 
-            {/* Transformer for selected text */}
-            <Transformer
-              ref={transformerRef}
-              borderStroke="#6366f1"
-              anchorStroke="#6366f1"
-              anchorFill="#ffffff"
-              anchorSize={8}
-              anchorCornerRadius={4}
-              padding={4}
-              rotateEnabled={true}
-              keepRatio={transformerKeepRatio}
-              shiftBehavior={transformerShiftBehavior}
-              enabledAnchors={transformerAnchors}
-              flipEnabled={false}
-              boundBoxFunc={(oldBox, newBox) => {
-                if (Math.abs(newBox.width) < 20 || Math.abs(newBox.height) < 16) return oldBox
-                return newBox
-              }}
-            />
-
+          <Layer>
             {showTextOverlay && inlineEdit && inlineEditRegion && inlineEditSize && inlineEditFont && (
               <Html
                 groupProps={{

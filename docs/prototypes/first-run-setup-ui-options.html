@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Moxzk First Setup Focus Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0e1014;
+      --text: #f6f7f9;
+      --muted: #a7adb8;
+      --dim: #747b87;
+      --line: rgba(255, 255, 255, 0.09);
+      --blue: #2f6df6;
+      --blue-hover: #3c78ff;
+      --blue-soft: rgba(47, 109, 246, 0.14);
+      --green: #35c27d;
+      --green-bg: rgba(53, 194, 125, 0.13);
+      --yellow: #e5ac36;
+      --yellow-bg: rgba(229, 172, 54, 0.14);
+      --red: #ee6262;
+      --red-bg: rgba(238, 98, 98, 0.13);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 4%, rgba(47, 109, 246, 0.2), transparent 26rem),
+        radial-gradient(circle at 88% 74%, rgba(53, 194, 125, 0.08), transparent 22rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Noto Sans Thai", system-ui, sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .setup-screen {
+      position: relative;
+      display: grid;
+      grid-template-rows: 5.5rem minmax(0, 1fr) 6.5rem;
+      min-height: 100vh;
+      padding: 1.5rem clamp(1.25rem, 3vw, 3rem);
+    }
+
+    .page-count {
+      position: absolute;
+      top: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .skip-button {
+      position: absolute;
+      top: 1.6rem;
+      right: clamp(1.25rem, 3vw, 3rem);
+      border: 0;
+      background: transparent;
+      color: var(--dim);
+      padding: 0.5rem 0.2rem;
+      cursor: pointer;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    .skip-button:hover {
+      color: var(--muted);
+    }
+
+    .brand {
+      align-self: start;
+      color: var(--dim);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .content {
+      display: grid;
+      place-items: center;
+      min-height: 0;
+      text-align: center;
+    }
+
+    .step {
+      display: grid;
+      justify-items: center;
+      gap: 1.15rem;
+      width: min(680px, 100%);
+      transform: translateY(-0.6rem);
+    }
+
+    .icon {
+      display: grid;
+      width: 4.75rem;
+      height: 4.75rem;
+      place-items: center;
+      border-radius: 18px;
+      background: var(--blue-soft);
+      color: #dfe8ff;
+      font-size: 1.55rem;
+      font-weight: 900;
+      box-shadow: inset 0 0 0 1px rgba(47, 109, 246, 0.24);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.35rem);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .description {
+      width: min(540px, 100%);
+      margin: -0.35rem 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.5vw, 1.1rem);
+      line-height: 1.75;
+    }
+
+    .status-line {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      min-height: 2.1rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .status-dot {
+      width: 0.62rem;
+      height: 0.62rem;
+      border-radius: 999px;
+      background: var(--red);
+      box-shadow: 0 0 0 0.35rem var(--red-bg);
+    }
+
+    .status-ready .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 0 0.35rem var(--green-bg);
+    }
+
+    .status-skipped .status-dot {
+      background: var(--yellow);
+      box-shadow: 0 0 0 0.35rem var(--yellow-bg);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+      width: min(520px, 100%);
+      margin-top: 0.25rem;
+    }
+
+    .actions.intro-actions {
+      display: grid;
+      justify-items: center;
+      gap: 0.55rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 3rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.7rem 1rem;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      min-width: min(320px, 100%);
+      border-color: rgba(47, 109, 246, 0.58);
+      background: var(--blue);
+      color: white;
+      box-shadow: 0 18px 38px rgba(47, 109, 246, 0.22);
+    }
+
+    .btn-primary:hover {
+      background: var(--blue-hover);
+    }
+
+    .btn-check {
+      min-width: 9.5rem;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .btn-check.status-missing {
+      border-color: rgba(238, 98, 98, 0.48);
+      background: var(--red-bg);
+      color: #ffdede;
+    }
+
+    .btn-check.status-ready {
+      border-color: rgba(53, 194, 125, 0.5);
+      background: var(--green-bg);
+      color: #dcffe9;
+    }
+
+    .btn-check.status-skipped {
+      border-color: rgba(229, 172, 54, 0.52);
+      background: var(--yellow-bg);
+      color: #ffefc8;
+    }
+
+    .btn-ghost {
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .intro-skip {
+      min-height: 2rem;
+      border: 0;
+      background: transparent;
+      color: var(--dim);
+      padding: 0.15rem 0.5rem;
+      cursor: pointer;
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .intro-skip:hover {
+      color: var(--muted);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.38;
+    }
+
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .footer.hidden {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .progress {
+      display: flex;
+      justify-self: center;
+      gap: 0.35rem;
+      width: min(360px, 100%);
+    }
+
+    .progress span {
+      height: 0.3rem;
+      flex: 1;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .progress span.done {
+      background: var(--blue);
+    }
+
+    .footer .btn-primary {
+      min-width: 8rem;
+      box-shadow: none;
+    }
+
+    .nav-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.65rem;
+    }
+
+    @media (max-width: 720px) {
+      body {
+        overflow: auto;
+      }
+
+      .setup-screen {
+        min-height: 100svh;
+        grid-template-rows: 4.5rem minmax(28rem, 1fr) auto;
+      }
+
+      .brand {
+        display: none;
+      }
+
+      .skip-button {
+        top: 1.1rem;
+      }
+
+      .page-count {
+        top: 1.55rem;
+      }
+
+      .footer {
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+      }
+
+      .footer .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="setup-screen" aria-label="ตัวอย่าง First Setup แบบ Focused Page">
+    <div class="brand">MOXZK SETUP</div>
+    <div class="page-count" id="pageCount"></div>
+    <button class="skip-button" id="skipButton" type="button">Skip</button>
+
+    <section class="content">
+      <div class="step">
+        <div class="icon" id="stepIcon"></div>
+        <div>
+          <h1 id="stepTitle"></h1>
+          <p class="description" id="stepDescription"></p>
+        </div>
+        <div class="status-line" id="statusLine">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="statusText"></span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="primaryAction" type="button"></button>
+          <button class="btn btn-check" id="checkAction" type="button"></button>
+          <button class="btn btn-ghost" id="extraAction" type="button">เปิดหน้าโหลด Python</button>
+          <button class="intro-skip" id="introSkipAction" type="button">Skip</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer" id="footerNav">
+      <div class="progress" id="progress" aria-label="ความคืบหน้า"></div>
+      <div class="nav-actions">
+        <button class="btn btn-ghost" id="backButton" type="button">ย้อนกลับ</button>
+        <button class="btn btn-primary" id="nextButton" type="button">ถัดไป</button>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const steps = [
+      {
+        id: 'intro',
+        icon: 'M',
+        title: 'ตั้งค่า Moxzk ให้พร้อมใช้งาน',
+        desc: 'Moxzk ต้องใช้โปรแกรมเสริมบางอย่างในเครื่องเพื่อคลีนข้อความ แปลภาพ และจัดการงานของคุณให้ครบ',
+        required: false,
+        primary: 'เริ่มตั้งค่า',
+        check: '',
+        extra: '',
+        missing: 'สิ่งที่ต้องติดตั้ง: Python, ตัวช่วยลบข้อความ, Ollama และโมเดลแปลภาพ',
+        intro: true,
+      },
+      {
+        id: 'python',
+        icon: 'Py',
+        title: 'โปรแกรม Python',
+        desc: 'ใช้สำหรับติดตั้งและรันตัวช่วยลบข้อความในเครื่อง',
+        required: true,
+        primary: 'ติดตั้ง Python',
+        check: 'ตรวจอีกครั้ง',
+        extra: 'เปิดหน้าโหลด Python',
+        missing: 'ยังไม่พบ Python ที่ใช้งานได้',
+      },
+      {
+        id: 'panelcleaner',
+        icon: 'PC',
+        title: 'ตัวช่วยลบข้อความ',
+        desc: 'ติดตั้ง PanelCleaner เพื่อให้ Moxzk ลบข้อความเดิมออกจากภาพก่อนแปล',
+        required: true,
+        primary: 'ติดตั้ง PanelCleaner',
+        check: 'ตรวจสถานะ',
+        extra: '',
+        missing: 'ยังไม่ได้ติดตั้งหรือตรวจไม่ผ่าน',
+      },
+      {
+        id: 'ollama',
+        icon: 'AI',
+        title: 'โปรแกรม Ollama',
+        desc: 'ติดตั้งและเปิด Ollama เพื่อให้ AI อ่านและแปลข้อความจากภาพ',
+        required: true,
+        primary: 'ดูวิธีติดตั้ง Ollama',
+        check: 'ตรวจสถานะ',
+        extra: 'เริ่ม Ollama',
+        missing: 'ยังเชื่อมต่อ Ollama ไม่ได้',
+      },
+      {
+        id: 'model',
+        icon: 'M',
+        title: 'โหลดโมเดล gemma3:4b',
+        desc: 'โหลดโมเดลเข้า Ollama แล้วให้ Ollama จัดการที่เก็บไฟล์เอง',
+        required: true,
+        primary: 'โหลดเข้า Ollama',
+        check: 'ตรวจอีกครั้ง',
+        extra: '',
+        missing: 'ยังไม่พบโมเดลใน Ollama',
+      },
+      {
+        id: 'translation',
+        icon: 'TH',
+        title: 'ภาษาและโหมดแปล',
+        desc: 'ตั้งค่าภาษาต้นฉบับและแนวคำแปลเริ่มต้น',
+        required: true,
+        primary: 'เปิด Settings',
+        check: 'ตรวจการตั้งค่า',
+        extra: 'ใช้ค่าเริ่มต้น',
+        missing: 'ยังไม่ได้ตั้งค่าภาษาและโหมดแปล',
+      },
+      {
+        id: 'account',
+        icon: '@',
+        title: 'บัญชีและอัลบั้ม',
+        desc: 'เข้าสู่ระบบเมื่อต้องการบันทึกอัลบั้มและใช้งานต่อข้ามเครื่อง',
+        required: false,
+        primary: 'เข้าสู่ระบบ',
+        check: 'ตรวจสถานะ',
+        extra: '',
+        missing: 'ยังไม่ได้เข้าสู่ระบบ',
+      },
+      {
+        id: 'workspace',
+        icon: '◎',
+        title: 'งานร่างและไฟล์ในเครื่อง',
+        desc: 'ดูโฟลเดอร์ตั้งค่า งานร่าง และไฟล์ log ได้จาก Settings',
+        required: false,
+        primary: 'เปิด Settings',
+        check: 'รับทราบ',
+        extra: '',
+        missing: 'ตั้งค่าเพิ่มได้ภายหลัง',
+      },
+    ]
+
+    const state = {
+      index: 0,
+      ready: new Set(),
+      skipped: new Set(),
+    }
+
+    const nodes = {
+      pageCount: document.querySelector('#pageCount'),
+      skipButton: document.querySelector('#skipButton'),
+      stepIcon: document.querySelector('#stepIcon'),
+      stepTitle: document.querySelector('#stepTitle'),
+      stepDescription: document.querySelector('#stepDescription'),
+      statusLine: document.querySelector('#statusLine'),
+      statusText: document.querySelector('#statusText'),
+      primaryAction: document.querySelector('#primaryAction'),
+      checkAction: document.querySelector('#checkAction'),
+      extraAction: document.querySelector('#extraAction'),
+      introSkipAction: document.querySelector('#introSkipAction'),
+      backButton: document.querySelector('#backButton'),
+      progress: document.querySelector('#progress'),
+      nextButton: document.querySelector('#nextButton'),
+      footerNav: document.querySelector('#footerNav'),
+    }
+
+    nodes.primaryAction.addEventListener('click', markReady)
+    nodes.checkAction.addEventListener('click', markReady)
+    nodes.extraAction.addEventListener('click', () => {
+      if (currentStep().id === 'workspace') markReady()
+    })
+    nodes.introSkipAction.addEventListener('click', () => {
+      state.index = steps.length - 1
+      render()
+    })
+    nodes.skipButton.addEventListener('click', skipStep)
+    nodes.backButton.addEventListener('click', goBack)
+    nodes.nextButton.addEventListener('click', goNext)
+
+    function currentStep() {
+      return steps[state.index]
+    }
+
+    function getStatus(step) {
+      if (state.ready.has(step.id)) return 'ready'
+      if (state.skipped.has(step.id)) return 'skipped'
+      return 'missing'
+    }
+
+    function canGoNext() {
+      const step = currentStep()
+      if (step.intro) return true
+      return !step.required || state.ready.has(step.id) || state.skipped.has(step.id)
+    }
+
+    function markReady() {
+      const step = currentStep()
+      if (step.intro) {
+        goNext()
+        return
+      }
+      state.ready.add(step.id)
+      state.skipped.delete(step.id)
+      render()
+    }
+
+    function skipStep() {
+      state.skipped.add(currentStep().id)
+      if (state.index < steps.length - 1) state.index += 1
+      render()
+    }
+
+    function goBack() {
+      state.index = Math.max(0, state.index - 1)
+      render()
+    }
+
+    function goNext() {
+      if (!canGoNext()) return
+      state.index = Math.min(steps.length - 1, state.index + 1)
+      render()
+    }
+
+    function render() {
+      const step = currentStep()
+      const status = getStatus(step)
+      const isLast = state.index === steps.length - 1
+
+      nodes.pageCount.textContent = `${state.index + 1} / ${steps.length}`
+      nodes.skipButton.style.visibility = step.intro || status === 'ready' ? 'hidden' : 'visible'
+      nodes.footerNav.classList.toggle('hidden', Boolean(step.intro))
+      nodes.stepIcon.textContent = step.icon
+      nodes.stepTitle.textContent = step.title
+      nodes.stepDescription.textContent = step.desc
+      nodes.statusLine.className = `status-line status-${status}`
+      nodes.statusText.textContent = step.intro
+        ? step.missing
+        : status === 'ready'
+          ? 'ตรวจผ่านแล้ว พร้อมไปต่อ'
+          : status === 'skipped'
+            ? 'Skipped แล้ว กลับมาแก้ได้ภายหลัง'
+            : step.missing
+
+      nodes.primaryAction.textContent = step.primary
+      nodes.checkAction.textContent = step.check
+      nodes.checkAction.className = `btn btn-check status-${status}`
+      nodes.checkAction.style.display = step.check ? 'inline-flex' : 'none'
+      nodes.extraAction.textContent = step.extra
+      nodes.extraAction.style.display = step.extra ? 'inline-flex' : 'none'
+      nodes.introSkipAction.style.display = step.intro ? 'inline-flex' : 'none'
+      nodes.primaryAction.parentElement.classList.toggle('intro-actions', Boolean(step.intro))
+
+      nodes.backButton.disabled = state.index === 0
+      nodes.nextButton.disabled = !canGoNext()
+      nodes.nextButton.textContent = isLast ? 'เริ่มใช้งาน' : 'ถัดไป'
+
+      nodes.progress.innerHTML = steps
+        .map((_, index) => `<span class="${index <= state.index ? 'done' : ''}"></span>`)
+        .join('')
+    }
+
+    render()
+  </script>
+</body>
+</html>

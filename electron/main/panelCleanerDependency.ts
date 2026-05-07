@@ -16,10 +16,13 @@ const PANELCLEANER_PACKAGE_SPEC = 'pcleaner-cli==2.11.9'
 const PANELCLEANER_VENV_DIR_NAME = 'panelcleaner-venv'
 const PANELCLEANER_LICENSE_NAME = 'GPLv3'
 const PANELCLEANER_PROJECT_URL = 'https://pypi.org/project/pcleaner-cli/'
+const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/windows/'
+const PYTHON_WINGET_PACKAGE_ID = 'Python.Python.3.12'
 const PCLEANER_VERSION_SNIPPET = "from pcleaner import __version__; print('Panel Cleaner ' + __version__)"
 const RUN_TIMEOUT_MS = 10 * 60_000
 
 let installPromise: Promise<NativeServiceActionResult> | null = null
+let pythonInstallPromise: Promise<NativeServiceActionResult> | null = null
 let lastInstallLogs: string[] = []
 
 interface PythonLauncher {
@@ -46,12 +49,15 @@ export function getManagedPanelCleanerPythonPath(): string {
 }
 
 export async function getPanelCleanerDependencyStatus(): Promise<NativePanelCleanerDependencyStatus> {
+  const python = await checkPythonDependency()
+
   if (installPromise) {
     return baseStatus({
       state: 'installing',
       installPath: getManagedPanelCleanerVenvDir(),
       actionHint: 'Moxzk is installing PanelCleaner in the managed virtual environment.',
       logs: lastInstallLogs,
+      python,
     })
   }
 
@@ -62,6 +68,7 @@ export async function getPanelCleanerDependencyStatus(): Promise<NativePanelClea
       installPath: getManagedPanelCleanerVenvDir(),
       actionHint: 'กดติดตั้ง PanelCleaner เพื่อสร้าง managed venv ในโปรไฟล์ผู้ใช้ของ Moxzk',
       logs: lastInstallLogs,
+      python,
     })
   }
 
@@ -76,6 +83,7 @@ export async function getPanelCleanerDependencyStatus(): Promise<NativePanelClea
       command: `${pythonPath} -c ${PCLEANER_VERSION_SNIPPET}`,
       installPath: getManagedPanelCleanerVenvDir(),
       logs: lastInstallLogs,
+      python,
     })
   } catch (error) {
     return baseStatus({
@@ -84,6 +92,7 @@ export async function getPanelCleanerDependencyStatus(): Promise<NativePanelClea
       error: toMessage(error),
       actionHint: 'กดซ่อม PanelCleaner เพื่อลบ managed venv เดิมแล้วติดตั้งใหม่',
       logs: lastInstallLogs,
+      python,
     })
   }
 }
@@ -94,6 +103,16 @@ export async function installPanelCleaner(): Promise<NativeServiceActionResult> 
 
 export async function repairPanelCleaner(): Promise<NativeServiceActionResult> {
   return runInstall(true)
+}
+
+export async function installPython(): Promise<NativeServiceActionResult> {
+  if (pythonInstallPromise) return pythonInstallPromise
+  pythonInstallPromise = installPythonWithWinget()
+  try {
+    return await pythonInstallPromise
+  } finally {
+    pythonInstallPromise = null
+  }
 }
 
 async function runInstall(repair: boolean): Promise<NativeServiceActionResult> {
@@ -143,6 +162,55 @@ async function installManagedPanelCleaner(repair: boolean): Promise<NativeServic
   }
 }
 
+async function installPythonWithWinget(): Promise<NativeServiceActionResult> {
+  const logs: string[] = []
+  try {
+    if (process.platform !== 'win32') {
+      return {
+        ok: false,
+        error: 'ติดตั้ง Python อัตโนมัติรองรับเฉพาะ Windows',
+        logs,
+      }
+    }
+
+    logs.push('ติดตั้ง Python: ตรวจ winget')
+    await runProcess('winget.exe', ['--version'], {
+      logAs: 'winget --version',
+      logs,
+      timeoutMs: 30_000,
+    })
+
+    logs.push(`ติดตั้ง Python: ${PYTHON_WINGET_PACKAGE_ID}`)
+    await runProcess('winget.exe', [
+      'install',
+      '-e',
+      '--id',
+      PYTHON_WINGET_PACKAGE_ID,
+      '--scope',
+      'user',
+      '--accept-package-agreements',
+      '--accept-source-agreements',
+      '--disable-interactivity',
+    ], {
+      logAs: `winget install ${PYTHON_WINGET_PACKAGE_ID}`,
+      logs,
+      timeoutMs: RUN_TIMEOUT_MS,
+    })
+
+    const python = await checkPythonDependency()
+    if (python.state === 'ready') {
+      logs.push(`Python พร้อมใช้งาน: ${python.version || python.command || 'ตรวจพบแล้ว'}`)
+    } else {
+      logs.push('ติดตั้งเสร็จแล้ว แต่ยังตรวจไม่พบในหน้าต่างนี้ ให้ปิดเปิด Moxzk ใหม่ แล้วกดตรวจอีกครั้ง')
+    }
+    return { ok: true, logs }
+  } catch (error) {
+    const message = toMessage(error)
+    logs.push(`ติดตั้ง Python ไม่สำเร็จ: ${message}`)
+    return { ok: false, error: message, logs }
+  }
+}
+
 async function verifyManagedPanelCleaner(managedPython: string): Promise<string> {
   if (!existsSync(managedPython)) {
     throw new Error(`Managed Python was not created: ${managedPython}`)
@@ -156,15 +224,8 @@ async function verifyManagedPanelCleaner(managedPython: string): Promise<string>
 }
 
 async function findPythonLauncher(): Promise<PythonLauncher> {
-  const candidates: PythonLauncher[] = [
-    ...(process.env.MOXZK_PYTHON ? [{ command: process.env.MOXZK_PYTHON, args: [], label: process.env.MOXZK_PYTHON }] : []),
-    ...(process.platform === 'win32' ? [{ command: 'py.exe', args: ['-3'], label: 'py -3' }] : []),
-    { command: process.platform === 'win32' ? 'python.exe' : 'python3', args: [], label: process.platform === 'win32' ? 'python' : 'python3' },
-    { command: 'python', args: [], label: 'python' },
-  ]
-
   const errors: string[] = []
-  for (const candidate of candidates) {
+  for (const candidate of getPythonCandidates()) {
     try {
       await runProcess(candidate.command, [...candidate.args, '--version'], {
         logAs: `${candidate.label} --version`,
@@ -176,6 +237,42 @@ async function findPythonLauncher(): Promise<PythonLauncher> {
     }
   }
   throw new Error(`Python executable not found. Install Python 3 and enable PATH, then try again. ${errors.join(' | ')}`)
+}
+
+async function checkPythonDependency(): Promise<NativePanelCleanerDependencyStatus['python']> {
+  const errors: string[] = []
+  for (const candidate of getPythonCandidates()) {
+    try {
+      const result = await runProcess(candidate.command, [...candidate.args, '--version'], {
+        logAs: `${candidate.label} --version`,
+        timeoutMs: 15_000,
+      })
+      return {
+        state: 'ready',
+        version: (result.stdout || result.stderr).trim(),
+        command: [candidate.command, ...candidate.args].join(' '),
+        downloadUrl: PYTHON_DOWNLOAD_URL,
+      }
+    } catch (error) {
+      errors.push(`${candidate.label}: ${toMessage(error)}`)
+    }
+  }
+
+  return {
+    state: 'missing',
+    downloadUrl: PYTHON_DOWNLOAD_URL,
+    error: errors.join(' | '),
+    actionHint: 'ติดตั้ง Python 3 และเลือก Add python.exe to PATH แล้วกดตรวจอีกครั้ง',
+  }
+}
+
+function getPythonCandidates(): PythonLauncher[] {
+  return [
+    ...(process.env.MOXZK_PYTHON ? [{ command: process.env.MOXZK_PYTHON, args: [], label: process.env.MOXZK_PYTHON }] : []),
+    ...(process.platform === 'win32' ? [{ command: 'py.exe', args: ['-3'], label: 'py -3' }] : []),
+    { command: process.platform === 'win32' ? 'python.exe' : 'python3', args: [], label: process.platform === 'win32' ? 'python' : 'python3' },
+    { command: 'python', args: [], label: 'python' },
+  ]
 }
 
 function baseStatus(

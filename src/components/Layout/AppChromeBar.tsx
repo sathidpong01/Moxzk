@@ -7,7 +7,11 @@ const DEFAULT_WINDOW_STATE: RuntimeWindowState = {
   isMaximized: false,
 }
 
-export default function AppChromeBar() {
+interface AppChromeBarProps {
+  hideDivider?: boolean
+}
+
+export default function AppChromeBar({ hideDivider = false }: AppChromeBarProps) {
   const runtime = useMemo<AppRuntime>(() => getAppRuntime(), [])
   const [windowState, setWindowState] = useState<RuntimeWindowState>(DEFAULT_WINDOW_STATE)
 
@@ -57,7 +61,7 @@ export default function AppChromeBar() {
 
   return (
     <>
-      <div className="moxzk-chrome-divider" aria-hidden="true" />
+      {!hideDivider && <div className="moxzk-chrome-divider" aria-hidden="true" />}
       <div className="moxzk-window-controls">
         <button className="moxzk-window-control" type="button" aria-label="Minimize" title="Minimize" onClick={handleMinimize}>
           <Minus size={13} />

@@ -81,7 +81,7 @@ export default function ImageUploader({ onImagesSelected, selectedImages }: Imag
           <input {...inputProps} />
           <div className="flex flex-col items-center justify-center gap-3">
             {isDragActive ? (
-              <Upload className="h-12 w-12 animate-bounce text-[var(--moxzk-accent)]" aria-hidden="true" />
+              <Upload className="h-12 w-12 animate-pulse text-[var(--moxzk-accent)]" aria-hidden="true" />
             ) : (
               <ImageIcon className="h-12 w-12 text-[var(--moxzk-dim)]" aria-hidden="true" />
             )}

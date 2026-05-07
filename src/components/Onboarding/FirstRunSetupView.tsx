@@ -1,0 +1,797 @@
+import {
+  BookOpen,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  Loader2,
+  LogIn,
+  Settings,
+  Terminal,
+} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
+import type { AppSettings, TranslationMode } from '../../types'
+import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
+import type { OllamaPullProgress, OllamaStatus } from '../../services/ollama'
+import type { PanelCleanerDependencyStatus } from '../../runtime'
+import { getAppRuntime } from '../../runtime'
+import type { OnboardingSetupItem } from '../../services/onboardingStorage'
+
+import { OLLAMA_DOWNLOAD_URL, OLLAMA_RECOMMENDED_MODEL } from './ollamaTutorial'
+
+const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/windows/'
+const SETUP_ICON_SRC = {
+  intro: '/setup-icons/moxzk.svg',
+  python: '/setup-icons/python.svg',
+  panelcleaner: '/setup-icons/panelcleaner.svg',
+  ollama: '/setup-icons/ollama.svg',
+  model: '/setup-icons/model.svg',
+  translation: '/setup-icons/translation.svg',
+  account: '/setup-icons/account-albums.svg',
+  workspace: '/setup-icons/workspace.svg',
+} as const
+
+const SETUP_MODEL_OPTIONS = [
+  {
+    name: 'gemma3:4b',
+    title: 'Gemma 3 4B',
+    badge: 'แนะนำเริ่มต้น',
+    description: 'ขนาดเริ่มต้นที่สมดุล เหมาะกับเครื่องทั่วไป และเป็นค่าแนะนำของ Moxzk',
+  },
+  {
+    name: 'gemma3:12b',
+    title: 'Gemma 3 12B',
+    badge: 'แม่นขึ้น',
+    description: 'เหมาะกับเครื่องที่มี RAM/VRAM มากกว่า เมื่อต้องการอ่านภาพและภาษาให้ละเอียดขึ้น',
+  },
+  {
+    name: 'llama3.2-vision:11b',
+    title: 'Llama 3.2 Vision 11B',
+    badge: 'ทางเลือก vision',
+    description: 'ทางเลือกสำหรับงานอ่านภาพโดยตรง ใช้ทรัพยากรมากกว่าโมเดลเริ่มต้น',
+  },
+]
+
+const SOURCE_LANGUAGE_OPTIONS: Array<{ value: AppSettings['sourceLang']; label: string; description: string }> = [
+  { value: 'auto', label: 'ตรวจอัตโนมัติ', description: 'เหมาะกับงานที่มีหลายภาษา หรือยังไม่แน่ใจต้นฉบับ' },
+  { value: 'ja', label: 'ญี่ปุ่น', description: 'เหมาะกับมังงะภาษาญี่ปุ่น' },
+  { value: 'zh', label: 'จีน', description: 'เหมาะกับแมนฮวาหรือภาพภาษาจีน' },
+  { value: 'en', label: 'อังกฤษ', description: 'เหมาะกับคอมิกหรือสแกนภาษาอังกฤษ' },
+]
+
+const TRANSLATION_MODE_OPTIONS: Array<{ value: TranslationMode; label: string; description: string }> = [
+  {
+    value: 'concise',
+    label: 'สั้นเข้าใจได้',
+    description: 'กระชับให้พอดีกับบับเบิล แต่ยังเก็บสาระสำคัญและน้ำเสียง',
+  },
+  {
+    value: 'faithful',
+    label: 'ตรงตามต้นฉบับ',
+    description: 'รักษารายละเอียดและลำดับความคิดใกล้ต้นฉบับมากขึ้น',
+  },
+]
+
+interface FirstRunSetupViewProps {
+  isOpen: boolean
+  settings: AppSettings
+  currentSetupStep: OnboardingSetupItem
+  completedSetupItems: OnboardingSetupItem[]
+  skippedSetupItems: OnboardingSetupItem[]
+  isAccountReady: boolean
+  onOpenTutorial: () => void
+  onOpenSettings: () => void
+  onOpenAuth: () => void
+  onUpdateSettings: (settings: AppSettings) => void | Promise<void>
+  onCompleteSetupItem: (item: OnboardingSetupItem) => void
+  onSkipSetupItem: (item: OnboardingSetupItem) => void
+  onCurrentStepChange: (item: OnboardingSetupItem) => void
+  onStart: (suppressReminder: boolean) => void
+}
+
+interface SetupAction {
+  label: string
+  icon: ReactNode
+  onClick: () => void
+  kind?: 'primary' | 'check' | 'secondary'
+  disabled?: boolean
+}
+
+interface SetupStep {
+  id: OnboardingSetupItem
+  title: string
+  description: string
+  required: boolean
+  ready: boolean
+  statusText: string
+  iconSrc: string
+  iconAlt: string
+  actions: SetupAction[]
+}
+
+function getPullPercent(progress: OllamaPullProgress | null): number | null {
+  if (!progress?.total || !progress.completed) return null
+  return Math.max(0, Math.min(100, Math.round((progress.completed / progress.total) * 100)))
+}
+
+function formatBytes(value?: number): string {
+  if (!value || value <= 0) return '-'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let size = value
+  let unit = 0
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024
+    unit += 1
+  }
+  return `${size >= 10 ? size.toFixed(0) : size.toFixed(1)} ${units[unit]}`
+}
+
+function resolveSetupModelName(model: string): string {
+  const trimmed = model.trim()
+  if (SETUP_MODEL_OPTIONS.some((option) => option.name === trimmed)) return trimmed
+  return OLLAMA_RECOMMENDED_MODEL
+}
+
+export default function FirstRunSetupView({
+  isOpen,
+  settings,
+  currentSetupStep,
+  completedSetupItems,
+  skippedSetupItems,
+  isAccountReady,
+  onOpenTutorial,
+  onOpenSettings,
+  onOpenAuth,
+  onUpdateSettings,
+  onCompleteSetupItem,
+  onSkipSetupItem,
+  onCurrentStepChange,
+  onStart,
+}: FirstRunSetupViewProps) {
+  const appRuntime = getAppRuntime()
+  const [panelCleanerDependency, setPanelCleanerDependency] = useState<PanelCleanerDependencyStatus | null>(null)
+  const [panelCleanerStatus, setPanelCleanerStatus] = useState<PanelCleanerStatus | null>(null)
+  const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null)
+  const [modelReady, setModelReady] = useState(false)
+  const [modelPullProgress, setModelPullProgress] = useState<OllamaPullProgress | null>(null)
+  const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [showIntro, setShowIntro] = useState(true)
+  const completed = useMemo(() => new Set(completedSetupItems), [completedSetupItems])
+  const skipped = useMemo(() => new Set(skippedSetupItems), [skippedSetupItems])
+
+  const refreshPanelCleanerDependency = useCallback(async () => {
+    setBusyAction('python-check')
+    try {
+      const status = await appRuntime.localServices.getPanelCleanerDependencyStatus()
+      setPanelCleanerDependency(status)
+      if (status.python.state === 'ready' && !completed.has('python')) onCompleteSetupItem('python')
+      if (status.state === 'ready' && !completed.has('panelcleaner')) onCompleteSetupItem('panelcleaner')
+    } catch {
+      setPanelCleanerDependency(null)
+    } finally {
+      setBusyAction((current) => current === 'python-check' ? null : current)
+    }
+  }, [appRuntime.localServices, completed, onCompleteSetupItem])
+
+  const installPython = useCallback(async () => {
+    setBusyAction('python-install')
+    try {
+      await appRuntime.localServices.installPython()
+      await refreshPanelCleanerDependency()
+    } finally {
+      setBusyAction((current) => current === 'python-install' ? null : current)
+    }
+  }, [appRuntime.localServices, refreshPanelCleanerDependency])
+
+  const checkPanelCleaner = useCallback(async () => {
+    setBusyAction('panelcleaner-check')
+    try {
+      const status = await appRuntime.panelCleaner.getStatus({
+        bridgeUrl: settings.panelCleanerBridgeUrl,
+        executablePath: settings.panelCleanerExecutablePath,
+        timeoutMs: 15000,
+      })
+      setPanelCleanerStatus(status)
+      if (status.ok && !completed.has('panelcleaner')) onCompleteSetupItem('panelcleaner')
+    } catch {
+      setPanelCleanerStatus(null)
+    } finally {
+      setBusyAction((current) => current === 'panelcleaner-check' ? null : current)
+    }
+  }, [appRuntime.panelCleaner, completed, onCompleteSetupItem, settings.panelCleanerBridgeUrl, settings.panelCleanerExecutablePath])
+
+  const installPanelCleaner = useCallback(async () => {
+    setBusyAction('panelcleaner-install')
+    try {
+      const result = await appRuntime.localServices.installPanelCleaner()
+      if (result.ok) {
+        await refreshPanelCleanerDependency()
+        await checkPanelCleaner()
+      }
+    } finally {
+      setBusyAction((current) => current === 'panelcleaner-install' ? null : current)
+    }
+  }, [appRuntime.localServices, checkPanelCleaner, refreshPanelCleanerDependency])
+
+  const startPanelCleaner = useCallback(async () => {
+    setBusyAction('panelcleaner-start')
+    try {
+      await appRuntime.localServices.startPanelCleanerBridge()
+      await checkPanelCleaner()
+    } finally {
+      setBusyAction((current) => current === 'panelcleaner-start' ? null : current)
+    }
+  }, [appRuntime.localServices, checkPanelCleaner])
+
+  const checkOllama = useCallback(async () => {
+    setBusyAction('ollama-check')
+    try {
+      const status = await appRuntime.ollama.getServerStatus({
+        ollamaUrl: settings.ollamaUrl,
+        ollamaApiKey: settings.ollamaApiKey,
+        timeoutMs: 8000,
+      })
+      setOllamaStatus(status)
+      if (status.ok && !completed.has('ollama')) onCompleteSetupItem('ollama')
+    } catch {
+      setOllamaStatus(null)
+    } finally {
+      setBusyAction((current) => current === 'ollama-check' ? null : current)
+    }
+  }, [appRuntime.ollama, completed, onCompleteSetupItem, settings.ollamaApiKey, settings.ollamaUrl])
+
+  const startOllama = useCallback(async () => {
+    setBusyAction('ollama-start')
+    try {
+      await appRuntime.localServices.startOllama()
+      await checkOllama()
+    } finally {
+      setBusyAction((current) => current === 'ollama-start' ? null : current)
+    }
+  }, [appRuntime.localServices, checkOllama])
+
+  const installOllama = useCallback(async () => {
+    setBusyAction('ollama-install')
+    try {
+      const result = await appRuntime.localServices.installOllama()
+      if (!result.ok) return
+      await startOllama()
+      await checkOllama()
+    } finally {
+      setBusyAction((current) => current === 'ollama-install' ? null : current)
+    }
+  }, [appRuntime.localServices, checkOllama, startOllama])
+
+  const refreshModel = useCallback(async () => {
+    setBusyAction('model-check')
+    try {
+      const models = await appRuntime.ollama.listModels({
+        ollamaUrl: settings.ollamaUrl,
+        ollamaApiKey: settings.ollamaApiKey,
+        timeoutMs: 15000,
+      })
+      const selectedModel = resolveSetupModelName(settings.ollamaModel)
+      const found = models.some((model) => (model.name || model.model) === selectedModel)
+      setModelReady(found)
+      if (found && !completed.has('model')) onCompleteSetupItem('model')
+    } catch {
+      setModelReady(false)
+    } finally {
+      setBusyAction((current) => current === 'model-check' ? null : current)
+    }
+  }, [appRuntime.ollama, completed, onCompleteSetupItem, settings.ollamaApiKey, settings.ollamaModel, settings.ollamaUrl])
+
+  const pullModel = useCallback(async () => {
+    setBusyAction('model-pull')
+    setModelPullProgress({ status: 'กำลังเริ่มดาวน์โหลด' })
+    try {
+      const modelName = resolveSetupModelName(settings.ollamaModel)
+      if (settings.ollamaModel !== modelName) {
+        await onUpdateSettings({ ...settings, ollamaModel: modelName })
+      }
+      await appRuntime.ollama.pullModel({
+        ollamaUrl: settings.ollamaUrl,
+        ollamaApiKey: settings.ollamaApiKey,
+        model: modelName,
+        onProgress: setModelPullProgress,
+      })
+      setModelReady(true)
+      if (!completed.has('model')) onCompleteSetupItem('model')
+    } finally {
+      setBusyAction((current) => current === 'model-pull' ? null : current)
+    }
+  }, [appRuntime.ollama, completed, onCompleteSetupItem, onUpdateSettings, settings])
+
+  const updateSettings = useCallback((patch: Partial<AppSettings>) => {
+    void onUpdateSettings({ ...settings, ...patch })
+  }, [onUpdateSettings, settings])
+
+  const chooseModel = useCallback((model: string) => {
+    setModelReady(false)
+    setModelPullProgress(null)
+    updateSettings({ ollamaModel: model })
+  }, [updateSettings])
+
+  const saveTranslationSetup = useCallback(() => {
+    if (!completed.has('translation')) onCompleteSetupItem('translation')
+  }, [completed, onCompleteSetupItem])
+
+  useEffect(() => {
+    if (!isOpen) return
+    setShowIntro(true)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    void refreshPanelCleanerDependency()
+    void checkOllama()
+    void refreshModel()
+  }, [checkOllama, isOpen, refreshModel, refreshPanelCleanerDependency])
+
+  useEffect(() => {
+    if (settings.sourceLang && settings.translationMode && !completed.has('translation')) onCompleteSetupItem('translation')
+  }, [completed, onCompleteSetupItem, settings.sourceLang, settings.translationMode])
+
+  const pythonReady = completed.has('python') || panelCleanerDependency?.python.state === 'ready'
+  const panelCleanerReady = completed.has('panelcleaner') || panelCleanerDependency?.state === 'ready' || panelCleanerStatus?.ok === true
+  const ollamaReady = completed.has('ollama') || ollamaStatus?.ok === true
+  const translationReady = completed.has('translation') || Boolean(settings.sourceLang && settings.translationMode)
+  const accountReady = completed.has('account') || isAccountReady
+  const workspaceReady = completed.has('workspace')
+
+  const setupSteps: SetupStep[] = [
+    {
+      id: 'python',
+      title: 'โปรแกรม Python',
+      description: 'ใช้สำหรับติดตั้งและรันตัวช่วยลบข้อความในเครื่อง',
+      required: true,
+      ready: pythonReady,
+      statusText: pythonReady
+        ? panelCleanerDependency?.python.version || 'พบ Python แล้ว'
+        : 'ยังไม่พบ Python ที่ใช้งานได้',
+      iconSrc: SETUP_ICON_SRC.python,
+      iconAlt: 'Python',
+      actions: [
+        {
+          label: 'ติดตั้ง Python',
+          icon: busyAction === 'python-install' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />,
+          onClick: installPython,
+          kind: 'primary',
+          disabled: busyAction !== null || appRuntime.kind !== 'electron',
+        },
+        {
+          label: 'ตรวจอีกครั้ง',
+          icon: busyAction === 'python-check' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />,
+          onClick: refreshPanelCleanerDependency,
+          kind: 'check',
+          disabled: busyAction !== null,
+        },
+        {
+          label: 'เปิดหน้าโหลด Python',
+          icon: <ExternalLink size={13} />,
+          onClick: () => window.open(PYTHON_DOWNLOAD_URL, '_blank', 'noopener,noreferrer'),
+          kind: 'secondary',
+        },
+      ],
+    },
+    {
+      id: 'panelcleaner',
+      title: 'ตัวช่วยลบข้อความ',
+      description: 'ติดตั้ง PanelCleaner เพื่อให้ Moxzk ลบข้อความเดิมออกจากภาพก่อนแปล',
+      required: true,
+      ready: panelCleanerReady,
+      statusText: panelCleanerReady ? 'ตัวช่วยลบข้อความพร้อมใช้งาน' : 'ยังไม่ได้ติดตั้งหรือตรวจไม่ผ่าน',
+      iconSrc: SETUP_ICON_SRC.panelcleaner,
+      iconAlt: 'PanelCleaner',
+      actions: [
+        {
+          label: panelCleanerDependency?.state === 'broken' ? 'ซ่อม PanelCleaner' : 'ติดตั้ง PanelCleaner',
+          icon: busyAction === 'panelcleaner-install' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />,
+          onClick: installPanelCleaner,
+          kind: 'primary',
+          disabled: busyAction !== null || !pythonReady,
+        },
+        {
+          label: 'เริ่มตัวช่วยลบข้อความ',
+          icon: <Terminal size={13} />,
+          onClick: startPanelCleaner,
+          kind: 'secondary',
+          disabled: busyAction !== null,
+        },
+        {
+          label: 'ตรวจสถานะ',
+          icon: busyAction === 'panelcleaner-check' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />,
+          onClick: checkPanelCleaner,
+          kind: 'check',
+          disabled: busyAction !== null,
+        },
+      ],
+    },
+    {
+      id: 'ollama',
+      title: 'โปรแกรม Ollama',
+      description: 'ติดตั้งและเปิด Ollama เพื่อให้ AI อ่านและแปลข้อความจากภาพ',
+      required: true,
+      ready: ollamaReady,
+      statusText: ollamaReady ? 'Ollama พร้อมใช้งาน' : 'ยังเชื่อมต่อ Ollama ไม่ได้',
+      iconSrc: SETUP_ICON_SRC.ollama,
+      iconAlt: 'Ollama',
+      actions: [
+        {
+          label: 'ติดตั้ง Ollama',
+          icon: busyAction === 'ollama-install' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />,
+          onClick: installOllama,
+          kind: 'primary',
+          disabled: busyAction !== null || appRuntime.kind !== 'electron',
+        },
+        { label: 'ดูวิธีติดตั้ง', icon: <BookOpen size={13} />, onClick: onOpenTutorial, kind: 'secondary' },
+        { label: 'เริ่ม Ollama', icon: <Terminal size={13} />, onClick: startOllama, kind: 'secondary', disabled: busyAction !== null },
+        {
+          label: 'ตรวจสถานะ',
+          icon: busyAction === 'ollama-check' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />,
+          onClick: checkOllama,
+          kind: 'check',
+          disabled: busyAction !== null,
+        },
+        { label: 'เปิดหน้าโหลด Ollama', icon: <ExternalLink size={13} />, onClick: () => window.open(OLLAMA_DOWNLOAD_URL, '_blank', 'noopener,noreferrer'), kind: 'secondary' },
+      ],
+    },
+    {
+      id: 'model',
+      title: 'เลือกและโหลดโมเดลแปลภาพ',
+      description: 'ชื่อโมเดลอิงจากคลังโมเดลของ Ollama เลือกตัวที่เหมาะกับเครื่องคุณก่อนโหลดเข้า Ollama',
+      required: true,
+      ready: completed.has('model') || modelReady,
+      statusText: completed.has('model') || modelReady ? 'โมเดลพร้อมใช้งาน' : 'ยังไม่พบโมเดลใน Ollama',
+      iconSrc: SETUP_ICON_SRC.model,
+      iconAlt: 'โมเดลแปลภาพ',
+      actions: [
+        {
+          label: 'โหลดเข้า Ollama',
+          icon: busyAction === 'model-pull' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />,
+          onClick: pullModel,
+          kind: 'primary',
+          disabled: busyAction !== null || !ollamaReady,
+        },
+        {
+          label: 'ตรวจอีกครั้ง',
+          icon: busyAction === 'model-check' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />,
+          onClick: refreshModel,
+          kind: 'check',
+          disabled: busyAction !== null,
+        },
+      ],
+    },
+    {
+      id: 'translation',
+      title: 'ภาษาและโหมดแปล',
+      description: 'เลือกภาษาต้นฉบับและแนวคำแปลเริ่มต้นได้จากหน้านี้เลย',
+      required: true,
+      ready: translationReady,
+      statusText: translationReady ? 'ตั้งค่าไว้แล้ว' : 'ยังไม่ได้ตั้งค่าภาษาและโหมดแปล',
+      iconSrc: SETUP_ICON_SRC.translation,
+      iconAlt: 'ภาษาและโหมดแปล',
+      actions: [
+        { label: 'ใช้ตัวเลือกนี้', icon: <CheckCircle2 size={13} />, onClick: saveTranslationSetup, kind: 'primary' },
+      ],
+    },
+    {
+      id: 'account',
+      title: 'สมัครสมาชิกเพื่อเก็บงานแปล',
+      description: 'สร้างบัญชีเพื่อเก็บอัลบั้ม รูปต้นฉบับ และงานที่แก้ไว้ให้กลับมาเปิดต่อได้ง่าย',
+      required: false,
+      ready: accountReady,
+      statusText: accountReady ? 'เข้าสู่ระบบแล้ว' : 'ยังไม่ได้เข้าสู่ระบบ',
+      iconSrc: SETUP_ICON_SRC.account,
+      iconAlt: 'บัญชีและอัลบั้ม',
+      actions: [
+        { label: 'สมัครสมาชิก / เข้าสู่ระบบ', icon: <LogIn size={13} />, onClick: onOpenAuth, kind: 'primary' },
+      ],
+    },
+    {
+      id: 'workspace',
+      title: 'งานร่างและไฟล์ในเครื่อง',
+      description: 'ดูโฟลเดอร์ตั้งค่า งานร่าง และไฟล์ log ได้จาก Settings',
+      required: false,
+      ready: workspaceReady,
+      statusText: workspaceReady ? 'รับทราบแล้ว' : 'ตั้งค่าเพิ่มได้ภายหลัง',
+      iconSrc: SETUP_ICON_SRC.workspace,
+      iconAlt: 'งานร่างและไฟล์ในเครื่อง',
+      actions: [
+        { label: 'เปิด Settings', icon: <Settings size={13} />, onClick: onOpenSettings, kind: 'primary' },
+      ],
+    },
+  ]
+
+  const currentStepIndex = Math.max(0, setupSteps.findIndex((step) => step.id === currentSetupStep))
+  const activeStep = setupSteps[currentStepIndex] ?? setupSteps[0]
+  const isLastStep = currentStepIndex === setupSteps.length - 1
+  const activeSkipped = skipped.has(activeStep.id)
+  const activeStatus = activeStep.ready ? 'ready' : activeSkipped ? 'skipped' : 'missing'
+  const canGoNext = !activeStep.required || activeStep.ready || activeSkipped
+  const skippedRequired = setupSteps.filter((step) => step.required && skipped.has(step.id))
+  const totalPages = setupSteps.length + 1
+  const visiblePageNumber = showIntro ? 1 : currentStepIndex + 2
+
+  const goToStep = (index: number) => {
+    const nextStep = setupSteps[Math.max(0, Math.min(index, setupSteps.length - 1))]
+    onCurrentStepChange(nextStep.id)
+  }
+
+  const goNext = () => {
+    if (!canGoNext) return
+    if (isLastStep) {
+      onStart(skippedRequired.length > 0)
+      return
+    }
+    goToStep(currentStepIndex + 1)
+  }
+
+  const skipStep = () => {
+    onSkipSetupItem(activeStep.id)
+    if (!isLastStep) goToStep(currentStepIndex + 1)
+  }
+
+  const skipAllSetup = () => {
+    onStart(true)
+  }
+
+  const primaryAction = activeStep.actions.find((action) => action.kind === 'primary') ?? activeStep.actions[0]
+  const utilityActions = activeStep.actions.filter((action) => action !== primaryAction)
+  const showPrimaryAction = Boolean(primaryAction && activeStatus !== 'ready')
+  const modelPullPercent = getPullPercent(modelPullProgress)
+
+  const getUtilityActionClassName = (action: SetupAction) => {
+    if (action.kind === 'check') return `FirstRunSetupUtilityAction FirstRunSetupUtilityCheck FirstRunSetupUtilityCheck-${activeStatus}`
+    return 'FirstRunSetupUtilityAction'
+  }
+
+  const renderStepExtras = () => {
+    if (activeStep.id === 'model') {
+      const selectedModel = resolveSetupModelName(settings.ollamaModel)
+      return (
+        <div className="FirstRunSetupStepExtras FirstRunSetupModelExtras">
+          <div className="FirstRunSetupModelChoices" aria-label="เลือกโมเดล Ollama">
+            {SETUP_MODEL_OPTIONS.map((option) => {
+              const active = selectedModel === option.name
+              return (
+                <button
+                  key={option.name}
+                  type="button"
+                  className={`FirstRunSetupModelChoice ${active ? 'FirstRunSetupModelChoiceActive' : ''}`}
+                  onClick={() => chooseModel(option.name)}
+                  disabled={busyAction !== null}
+                >
+                  <span>
+                    <strong>{option.title}</strong>
+                    <small>{option.name}</small>
+                  </span>
+                  <span className="FirstRunSetupModelBadge">{option.badge}</span>
+                  <p>{option.description}</p>
+                </button>
+              )
+            })}
+          </div>
+          {(busyAction === 'model-pull' || modelPullProgress) && (
+            <div className="FirstRunSetupModelProgress">
+              <div className="FirstRunSetupModelProgressHeader">
+                <strong>กำลังโหลด {selectedModel}</strong>
+                <span>{modelPullPercent != null ? `${modelPullPercent}%` : 'กำลังเริ่ม'}</span>
+              </div>
+              <div className="FirstRunSetupModelProgressTrack" aria-hidden="true">
+                <span style={{ width: '100%', transform: `scaleX(${(modelPullPercent ?? 8) / 100})` }} />
+              </div>
+              <p>
+                {modelPullProgress?.status ?? 'กำลังดาวน์โหลด'}
+                {modelPullPercent != null
+                  ? ` - ${formatBytes(modelPullProgress?.completed)} / ${formatBytes(modelPullProgress?.total)}`
+                  : ''}
+              </p>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    if (activeStep.id === 'translation') {
+      return (
+        <div className="FirstRunSetupStepExtras FirstRunSetupTranslationExtras">
+          <div className="FirstRunSetupChoiceGroup">
+            <h3>ภาษาต้นฉบับ</h3>
+            <div className="FirstRunSetupChoiceGrid">
+              {SOURCE_LANGUAGE_OPTIONS.map((option) => {
+                const active = settings.sourceLang === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`FirstRunSetupChoiceTile ${active ? 'FirstRunSetupChoiceTileActive' : ''}`}
+                    onClick={() => updateSettings({ sourceLang: option.value })}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.description}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div className="FirstRunSetupChoiceGroup">
+            <h3>โหมดคำแปล</h3>
+            <div className="FirstRunSetupChoiceGrid FirstRunSetupChoiceGridTwo">
+              {TRANSLATION_MODE_OPTIONS.map((option) => {
+                const active = settings.translationMode === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`FirstRunSetupChoiceTile ${active ? 'FirstRunSetupChoiceTileActive' : ''}`}
+                    onClick={() => updateSettings({ translationMode: option.value })}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.description}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeStep.id === 'account') {
+      return (
+        <div className="FirstRunSetupAccountPreview" aria-hidden="true">
+          <div className="FirstRunSetupAlbumCard FirstRunSetupAlbumCardOne">
+            <span>อัลบั้มแปล</span>
+            <strong>ตอนที่ 01</strong>
+            <small>12 หน้า</small>
+          </div>
+          <div className="FirstRunSetupAlbumCard FirstRunSetupAlbumCardTwo">
+            <span>รูปต้นฉบับ</span>
+            <strong>page-08.webp</strong>
+            <small>พร้อมแก้ต่อ</small>
+          </div>
+          <div className="FirstRunSetupAlbumCard FirstRunSetupAlbumCardThree">
+            <span>งานที่บันทึกไว้</span>
+            <strong>คำแปล + ตำแหน่งข้อความ</strong>
+            <small>เปิดต่อภายหลังได้</small>
+          </div>
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[var(--moxzk-bg)] overflow-y-auto pb-10 pt-[4.5rem]">
+      <div className="FirstRunSetupShell">
+        <div className="FirstRunSetupBrand">Moxzk setup</div>
+        <div className="FirstRunSetupPageCount">{visiblePageNumber} / {totalPages}</div>
+        {!showIntro && (
+          <button type="button" className="FirstRunSetupTopSkip" onClick={skipStep}>
+            Skip
+          </button>
+        )}
+
+        <main className="FirstRunSetupMain" aria-live="polite">
+          {showIntro ? (
+            <section className="FirstRunSetupFocusedPage">
+              <img className="FirstRunSetupIcon" src={SETUP_ICON_SRC.intro} alt="Moxzk setup" />
+              <div>
+                <h2>ตั้งค่า Moxzk ให้พร้อมใช้งาน</h2>
+                <p>
+                  Moxzk ต้องใช้โปรแกรมเสริมบางอย่างในเครื่องเพื่อคลีนข้อความ แปลภาพ และจัดการงานของคุณให้ครบ<br/>
+                  <span className="opacity-70">(ใช้เวลาตั้งค่าประมาณ 5–15 นาที สามารถ Skip ขั้นตอนเพื่อกลับมาทำทีหลังได้)</span>
+                </p>
+              </div>
+              <div className="FirstRunSetupStatusLine FirstRunSetupStatusIntro">
+                <span aria-hidden="true" />
+                <strong>สิ่งที่ต้องติดตั้ง: Python, ตัวช่วยลบข้อความ, Ollama และโมเดลแปลภาพ</strong>
+              </div>
+              <div className="FirstRunSetupIntroActions">
+                <button type="button" className="FirstRunSetupAction FirstRunSetupActionPrimary" onClick={() => setShowIntro(false)}>
+                  เริ่มตั้งค่า
+                </button>
+                <button type="button" className="FirstRunSetupIntroSkip" onClick={skipAllSetup}>
+                  Skip
+                </button>
+              </div>
+            </section>
+          ) : (
+            <section className={`FirstRunSetupFocusedPage FirstRunSetupStepPage FirstRunSetupStepPage-${activeStep.id}`}>
+              <img className="FirstRunSetupIcon" src={activeStep.iconSrc} alt={activeStep.iconAlt} />
+              <div>
+                <h2>{activeStep.title}</h2>
+                <p>{activeStep.description}</p>
+              </div>
+              <div className={`FirstRunSetupStatusLine FirstRunSetupStatus-${activeStatus}`}>
+                <span aria-hidden="true" />
+                <strong>
+                  {activeStatus === 'ready'
+                    ? 'ตรวจผ่านแล้ว พร้อมไปต่อ'
+                    : activeStatus === 'skipped'
+                      ? 'Skipped แล้ว กลับมาแก้ได้ภายหลัง'
+                  : activeStep.statusText}
+                </strong>
+              </div>
+              {renderStepExtras()}
+              <div className="FirstRunSetupActionList">
+                {activeStatus === 'ready' && (
+                  <div className="FirstRunSetupReadyPanel" role="status">
+                    <CheckCircle2 size={18} />
+                    <span>
+                      <strong>พร้อมใช้งานแล้ว</strong>
+                      <small>{activeStep.statusText}</small>
+                    </span>
+                  </div>
+                )}
+                {showPrimaryAction && primaryAction && (
+                  <button
+                    type="button"
+                    className="FirstRunSetupAction FirstRunSetupActionPrimary FirstRunSetupHeroAction"
+                    onClick={primaryAction.onClick}
+                    disabled={primaryAction.disabled}
+                  >
+                    {primaryAction.icon} {primaryAction.label}
+                  </button>
+                )}
+                {utilityActions.length > 0 && (
+                  <div className="FirstRunSetupUtilityActions">
+                    {utilityActions.map((action) => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        className={getUtilityActionClassName(action)}
+                        onClick={action.onClick}
+                        disabled={action.disabled}
+                      >
+                        {action.icon} {action.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {skippedRequired.length > 0 && isLastStep && (
+                <div className="FirstRunSetupSkippedSummary">
+                  มีขั้นตอนสำคัญที่ถูกข้าม: {skippedRequired.map((step) => step.title).join(', ')}
+                </div>
+              )}
+            </section>
+          )}
+        </main>
+
+        {!showIntro && (
+          <footer className="FirstRunSetupFooter">
+            <div className="FirstRunSetupProgress" aria-label={`ขั้นตอน ${currentStepIndex + 2} จาก ${totalPages}`}>
+              {Array.from({ length: totalPages }, (_, index) => (
+                <span key={index} className={index <= currentStepIndex + 1 ? 'FirstRunSetupProgressDone' : ''} />
+              ))}
+            </div>
+            <div className="FirstRunSetupNavActions">
+              <button
+                type="button"
+                className="FirstRunSetupBackAction"
+                onClick={() => currentStepIndex === 0 ? setShowIntro(true) : goToStep(currentStepIndex - 1)}
+              >
+                <ChevronLeft size={14} /> ย้อนกลับ
+              </button>
+              <button
+                type="button"
+                className="FirstRunSetupAction FirstRunSetupActionPrimary FirstRunSetupNextAction"
+                onClick={goNext}
+                disabled={!canGoNext}
+              >
+                {isLastStep ? 'เริ่มใช้งาน' : 'ถัดไป'} <ChevronRight size={14} />
+              </button>
+            </div>
+          </footer>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -6,6 +6,7 @@ const source = fs.readFileSync('src/components/Settings/SettingsPanel.tsx', 'utf
 const css = fs.readFileSync('src/index.css', 'utf8')
 const settingsStorage = fs.readFileSync('src/services/settingsStorage.ts', 'utf8')
 const appSource = fs.readFileSync('src/App.tsx', 'utf8')
+const tutorialSource = fs.readFileSync('src/components/Onboarding/ollamaTutorial.ts', 'utf8')
 
 test('settings modal is sized as a desktop workspace', () => {
   assert.match(source, /SettingsWorkspace/)
@@ -18,7 +19,10 @@ test('settings modal is sized as a desktop workspace', () => {
 test('settings keeps Ollama setup compact', () => {
   assert.match(source, /AI แปลภาษา/)
   assert.match(source, /<ExternalLink size=\{12\} \/> ดาวน์โหลด/)
-  assert.match(source, /https:\/\/ollama\.com\/download\/windows/)
+  assert.match(source, /วิธีติดตั้ง Ollama/)
+  assert.match(source, /OllamaInstallTutorialModal/)
+  assert.match(source, /OLLAMA_DOWNLOAD_URL/)
+  assert.match(tutorialSource, /https:\/\/ollama\.com\/download\/windows/)
   assert.match(source, /name: 'gemma3:4b'/)
   assert.match(source, /`ollama pull \$\{model\}`/)
   assert.match(source, /function describeOllamaSummary/)
@@ -42,6 +46,9 @@ test('settings keeps Ollama setup compact', () => {
   assert.match(source, /โมเดลจะอยู่ในที่เก็บของ Ollama ไม่อยู่ในโฟลเดอร์ Moxzk/)
   assert.match(source, /เหมือนคำสั่ง ollama pull/)
   assert.match(source, /คัดลอกคำสั่ง/)
+  assert.match(source, /onCheckStatus=\{handleCheckOllama\}/)
+  assert.match(source, /onPullRecommendedModel=\{handlePullModel\}/)
+  assert.match(source, /onSaveSettings=\{handleSave\}/)
   assert.match(css, /\.settings-model-progress/)
   assert.match(css, /\.settings-model-preset-active/)
   assert.doesNotMatch(source, /ติดตั้งในเครื่องนี้/)
@@ -50,8 +57,23 @@ test('settings keeps Ollama setup compact', () => {
   assert.doesNotMatch(source, /สถานะในเครื่อง/)
 })
 
+test('settings exposes first-run setup from the general page', () => {
+  const generalBlock = source.slice(
+    source.indexOf("{tab === 'general'"),
+    source.indexOf("{tab === 'models'"),
+  )
+  const modelsBlock = source.slice(
+    source.indexOf("{tab === 'models'"),
+    source.indexOf("{tab === 'translation'"),
+  )
+
+  assert.match(generalBlock, /ตัวช่วยตั้งค่าเริ่มต้น/)
+  assert.match(generalBlock, /onOpenFirstRunSetup/)
+  assert.doesNotMatch(modelsBlock, /ตัวช่วยตั้งค่าเริ่มต้น/)
+})
+
 test('settings keeps translation guidance separate from model setup', () => {
-  assert.match(source, /type SettingsTab = 'general' \| 'models' \| 'translation' \| 'cleanup' \| 'about'/)
+  assert.match(source, /type SettingsTab = 'general' \| 'models' \| 'translation' \| 'cleanup' \| 'fonts' \| 'about'/)
   assert.match(source, /ใช้บริบทข้ามหน้า/)
   assert.match(source, /โหมดคำแปล/)
   assert.match(source, /สั้นเข้าใจได้/)

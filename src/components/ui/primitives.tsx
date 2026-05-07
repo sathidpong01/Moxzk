@@ -97,7 +97,7 @@ export function ToolButton({
     >
       {children}
       {shortcut && showShortcutBadge && (
-        <span className="absolute -right-1 -top-1 rounded bg-black/70 px-1 text-[8px] font-bold text-white/70">
+        <span className="absolute -right-1 -top-1 rounded bg-[rgba(10,10,11,0.8)] px-1 text-[8px] font-bold text-white/70">
           {shortcut}
         </span>
       )}
@@ -302,6 +302,7 @@ export function Modal({
   title,
   children,
   className,
+  layerClassName = 'relative z-[200]',
   hideHeader = false,
 }: {
   isOpen: boolean
@@ -309,11 +310,12 @@ export function Modal({
   title: ReactNode
   children: ReactNode
   className?: string
+  layerClassName?: string
   hideHeader?: boolean
 }) {
   return (
-    <Dialog open={isOpen} onClose={onClose} className="relative z-[200]">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" aria-hidden="true" />
+    <Dialog open={isOpen} onClose={onClose} className={layerClassName}>
+      <div className="fixed inset-0 bg-[rgba(10,10,11,0.8)] backdrop-blur-sm" aria-hidden="true" />
       <div className="fixed inset-0 overflow-y-auto p-4">
         <div className="flex min-h-full items-center justify-center">
           <DialogPanel className={cn('moxzk-panel w-full max-w-lg p-5', className)}>

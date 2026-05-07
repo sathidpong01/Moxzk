@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { AppSettings, TranslationMode } from '../../types'
+import type { AppSettings, FontMoodMap, TranslationMode } from '../../types'
+import EmotionFontSettings from '../Editor/EmotionFontSettings'
 import type { OllamaPullProgress, OllamaStatus } from '../../services/ollama'
 import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
 import { getAppRuntime } from '../../runtime'
 import type { LocalServiceName, ManagedServiceStatus, PanelCleanerDependencyStatus } from '../../runtime'
 import {
   AlertCircle,
+  BookOpen,
   CheckCircle2,
   Copy,
   Cpu,
@@ -22,6 +24,7 @@ import {
   Server,
   Settings,
   Terminal,
+  Type,
   Workflow,
   X,
 } from 'lucide-react'
@@ -29,27 +32,31 @@ import { toast } from 'sonner'
 import { Button, Field, Modal, SelectField, TextareaField, TextInput } from '../ui/primitives'
 import { parseApiError } from '../../utils/parseApiError'
 import { isLocalServiceUrl } from '../../services/localServiceAutoStart'
+import OllamaInstallTutorialModal from '../Onboarding/OllamaInstallTutorialModal'
+import { markOllamaTutorialSeen } from '../../services/onboardingStorage'
+import { OLLAMA_DOWNLOAD_URL } from '../Onboarding/ollamaTutorial'
 
 interface SettingsPanelProps {
   settings: AppSettings
   onSave: (settings: AppSettings) => void | Promise<void>
   isOpen: boolean
   onClose: () => void
+  onOpenFirstRunSetup: () => void
 }
 
-type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup' | 'about'
+type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup' | 'fonts' | 'about'
 
 const TABS: { id: SettingsTab; label: string; description: string; icon: typeof Settings }[] = [
   { id: 'general', label: 'ทั่วไป', description: 'ภาษาและสถานะรวม', icon: Settings },
   { id: 'models', label: 'AI แปลภาษา', description: 'Ollama และโมเดลที่ใช้แปล', icon: Cpu },
   { id: 'translation', label: 'แปลภาษา', description: 'บริบทและโทนคำแปล', icon: Languages },
   { id: 'cleanup', label: 'ลบข้อความ', description: 'ตัวช่วยลบข้อความในภาพ', icon: Server },
+  { id: 'fonts', label: 'ฟอนต์', description: 'กำหนดฟอนต์ตามอารมณ์ของตัวละคร', icon: Type },
   { id: 'about', label: 'เกี่ยวกับ', description: 'เวอร์ชัน สิทธิ์ใช้งาน และเครื่องมือภายนอก', icon: Info },
 ]
 
 const APP_LICENSE_NAME = 'MIT'
 const MAGGA_URL = 'https://magga.vercel.app'
-const OLLAMA_DOWNLOAD_URL = 'https://ollama.com/download/windows'
 const OLLAMA_API_DOC_URL = 'https://docs.ollama.com/api/introduction'
 const PANELCLEANER_PACKAGE_URL = 'https://pypi.org/project/pcleaner-cli/'
 const OLLAMA_STATUS_TIMEOUT_MS = 8000
@@ -278,6 +285,7 @@ export default function SettingsPanel({
   onSave,
   isOpen,
   onClose,
+  onOpenFirstRunSetup,
 }: SettingsPanelProps) {
   const appRuntime = getAppRuntime()
   const [draft, setDraft] = useState<AppSettings>(settings)
@@ -302,6 +310,7 @@ export default function SettingsPanel({
   const [savingSettings, setSavingSettings] = useState(false)
   const [appVersion, setAppVersion] = useState<string>('...')
   const [authCallbackUrl, setAuthCallbackUrl] = useState<string | null>(null)
+  const [showOllamaTutorial, setShowOllamaTutorial] = useState(false)
 
   const installedModels = useMemo(() => new Set(modelNames), [modelNames])
   const selectedModelName = draft.ollamaModel.trim()
@@ -664,13 +673,14 @@ export default function SettingsPanel({
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="ตั้งค่า"
-      className="SettingsWorkspace max-w-6xl overflow-hidden p-0"
-      hideHeader
-    >
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="ตั้งค่า"
+        className="SettingsWorkspace max-w-6xl overflow-hidden p-0"
+        hideHeader
+      >
       <div className="SettingsFrame flex h-[min(84vh,820px)] min-h-[620px] min-w-0">
         <aside className="SettingsSidebar flex w-64 shrink-0 flex-col overflow-hidden border-r border-[var(--settings-divider)]">
           <div className="border-b border-[var(--settings-divider)] p-4">
@@ -754,6 +764,13 @@ export default function SettingsPanel({
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={onOpenFirstRunSetup}
+                      >
+                        <Workflow size={12} /> ตัวช่วยตั้งค่าเริ่มต้น
+                      </Button>
+                      <Button
                         variant="soft"
                         size="sm"
                         onClick={() => handleOpenRuntimePath(appRuntime.app.openSettingsFolder, 'เปิดโฟลเดอร์ตั้งค่าแล้ว')}
@@ -805,6 +822,20 @@ export default function SettingsPanel({
               </SettingsSheet>
             )}
 
+            {tab === 'fonts' && (
+              <SettingsSheet>
+                <SettingsRow
+                  title="ฟอนต์ตามอารมณ์"
+                  description="กำหนดว่าอารมณ์แต่ละแบบจะใช้ฟอนต์อะไร AI จะเลือกฟอนต์นี้ให้อัตโนมัติตามอารมณ์ที่วิเคราะห์ได้ สามารถปรับเปลี่ยนเองได้ทุกเวลา"
+                >
+                  <EmotionFontSettings
+                    fontMoodMap={draft.fontMoodMap}
+                    onChange={(fontMoodMap: FontMoodMap) => setDraft({ ...draft, fontMoodMap })}
+                  />
+                </SettingsRow>
+              </SettingsSheet>
+            )}
+
             {tab === 'models' && (
               <SettingsSheet>
                 <SettingsRow
@@ -849,6 +880,9 @@ export default function SettingsPanel({
                       <Button variant="ghost" size="sm" onClick={handleLoadModels} disabled={loadingModels}>
                         {loadingModels ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
                         รีเฟรชรายชื่อ
+                      </Button>
+                      <Button variant="soft" size="sm" onClick={() => setShowOllamaTutorial(true)}>
+                        <BookOpen size={12} /> วิธีติดตั้ง Ollama
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleOpenLink(OLLAMA_DOWNLOAD_URL)}>
                         <ExternalLink size={12} /> ดาวน์โหลด
@@ -1216,7 +1250,20 @@ export default function SettingsPanel({
           </section>
         </main>
       </div>
-    </Modal>
+      </Modal>
+      <OllamaInstallTutorialModal
+        isOpen={showOllamaTutorial}
+        onClose={() => setShowOllamaTutorial(false)}
+        onComplete={() => {
+          markOllamaTutorialSeen()
+          setShowOllamaTutorial(false)
+        }}
+        onCheckStatus={handleCheckOllama}
+        onStartOllama={canStartOllamaService ? handleStartOllama : undefined}
+        onPullRecommendedModel={handlePullModel}
+        onSaveSettings={handleSave}
+      />
+    </>
   )
 }
 

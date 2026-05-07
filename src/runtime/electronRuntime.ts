@@ -87,6 +87,16 @@ export class ElectronRuntime implements AppRuntime {
     getPanelCleanerDependencyStatus: async (): Promise<PanelCleanerDependencyStatus> => {
       return unwrapNativeResult(await this.bridge.localServices.getPanelCleanerDependencyStatus())
     },
+    installPython: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.localServices.installPython()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
+    installOllama: async (): Promise<RuntimeActionResult> => {
+      const result = await this.bridge.localServices.installOllama()
+      if (!result.ok) return { ok: false, error: result.error }
+      return result.data ?? { ok: true }
+    },
     installPanelCleaner: async (): Promise<RuntimeActionResult> => {
       const result = await this.bridge.localServices.installPanelCleaner()
       if (!result.ok) return { ok: false, error: result.error }
