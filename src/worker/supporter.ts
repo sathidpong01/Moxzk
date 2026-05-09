@@ -9,19 +9,17 @@ export async function redeemSupporterKey(ctx: RequestContext, user: AuthUser): P
   if (!rawKey) return jsonError('VALIDATION_ERROR', 'Supporter key is required', 422)
 
   const now = Date.now()
-  const storedKey = await ctx.db
-    .select()
-    .from(schema.supporterKeys)
-    .where(and(eq(schema.supporterKeys.id, rawKey), isNull(schema.supporterKeys.redeemedAt)))
-    .get()
 
-  if (!storedKey) return jsonError('VALIDATION_ERROR', 'Invalid or already used key', 422)
-
-  await ctx.db
+  // Atomic: update only if key exists and has not been redeemed yet.
+  // Checking meta.changes avoids a SELECT+UPDATE race condition where two
+  // concurrent requests with the same key could both pass the SELECT guard.
+  const keyResult = await ctx.db
     .update(schema.supporterKeys)
     .set({ redeemedAt: now, redeemedByUserId: user.id })
-    .where(eq(schema.supporterKeys.id, rawKey))
+    .where(and(eq(schema.supporterKeys.id, rawKey), isNull(schema.supporterKeys.redeemedAt)))
     .run()
+
+  if (keyResult.meta.changes === 0) return jsonError('VALIDATION_ERROR', 'Invalid or already used key', 422)
 
   await ctx.db
     .update(schema.users)

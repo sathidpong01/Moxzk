@@ -22,15 +22,20 @@ export default function UpdateRestartPrompt({ busy }: UpdateRestartPromptProps) 
         if (mounted) setStatus(next)
       })
       .catch(() => {})
-    const unsubscribe = appRuntime.updates.onStatusChange((next) => {
-      setStatus(next)
-      if (next.state === 'downloaded') setDismissedVersion(null)
-    })
+    const unsubscribe = appRuntime.updates.onStatusChange(setStatus)
     return () => {
       mounted = false
       unsubscribe()
     }
   }, [appRuntime.updates])
+
+  // Reset dismissed state only when a genuinely new version becomes available,
+  // not on every periodic status poll that still reports the same downloaded version.
+  useEffect(() => {
+    if (status?.state === 'downloaded') {
+      setDismissedVersion(null)
+    }
+  }, [status?.version])
 
   if (!status || status.state !== 'downloaded' || dismissedVersion === status.version) return null
 
