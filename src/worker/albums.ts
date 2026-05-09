@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, count, desc, eq, inArray } from 'drizzle-orm'
 import * as schema from './db/schema'
 import { json, jsonError, readJson, stringifyJsonInput } from './http'
 import type { AuthUser, RequestContext } from './types'
@@ -11,10 +11,21 @@ export async function listAlbums(ctx: RequestContext, user: AuthUser): Promise<R
   return json({ data: rows })
 }
 
+const FREE_ALBUM_LIMIT = 1
+const FREE_PAGE_LIMIT = 50
+
 export async function createAlbum(ctx: RequestContext, user: AuthUser): Promise<Response> {
   const input = await readJson<{ title?: unknown; description?: unknown; sourceLang?: unknown }>(ctx.request)
   const title = typeof input.title === 'string' ? input.title.trim() : ''
   if (!title) return jsonError('VALIDATION_ERROR', 'Album title is required', 422)
+
+  if (!user.supporterUnlocked) {
+    const row = await ctx.db.select({ total: count() }).from(schema.albums).where(eq(schema.albums.userId, user.id)).get()
+    if ((row?.total ?? 0) >= FREE_ALBUM_LIMIT) {
+      return jsonError('FORBIDDEN', `Free accounts are limited to ${FREE_ALBUM_LIMIT} album. Become a Supporter for unlimited albums.`, 403)
+    }
+  }
+
   const now = Date.now()
   const row = {
     id: crypto.randomUUID(),
@@ -97,6 +108,13 @@ export async function createPage(ctx: RequestContext, user: AuthUser, albumId: s
   const input = await readJson<Record<string, unknown>>(ctx.request)
   const pageNumber = Number(input.pageNumber)
   if (!Number.isInteger(pageNumber) || pageNumber < 1) return jsonError('VALIDATION_ERROR', 'Valid pageNumber is required', 422)
+
+  if (!user.supporterUnlocked) {
+    const row = await ctx.db.select({ total: count() }).from(schema.albumPages).where(eq(schema.albumPages.albumId, album.id)).get()
+    if ((row?.total ?? 0) >= FREE_PAGE_LIMIT) {
+      return jsonError('FORBIDDEN', `Free accounts are limited to ${FREE_PAGE_LIMIT} pages per album. Become a Supporter for unlimited pages.`, 403)
+    }
+  }
   const now = Date.now()
   const row = {
     id: crypto.randomUUID(),

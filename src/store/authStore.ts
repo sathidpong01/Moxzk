@@ -5,6 +5,7 @@ import {
   getCurrentUser,
   loginWithEmail,
   logout,
+  redeemSupporterKey as apiRedeemSupporterKey,
   registerWithEmail,
   type AppSession,
   type AppUser,
@@ -38,6 +39,7 @@ interface AuthStore {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   fetchProfile: () => Promise<void>
+  redeemSupporterKey: (key: string) => Promise<void>
   init: () => Promise<() => void>
 }
 
@@ -113,6 +115,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       return
     }
     set({ ...auth, loading: false })
+  },
+
+  redeemSupporterKey: async (key: string) => {
+    const auth = await apiRedeemSupporterKey(key)
+    set({ ...auth })
   },
 
   init: async () => {

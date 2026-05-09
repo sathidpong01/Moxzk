@@ -7,6 +7,7 @@ export interface Database {
           username: string | null
           avatar_url: string | null
           plan: 'free' | 'pro' | 'team'
+          supporter_unlocked: boolean
           created_at: string
           updated_at: string
         }
@@ -15,11 +16,13 @@ export interface Database {
           username?: string | null
           avatar_url?: string | null
           plan?: 'free' | 'pro' | 'team'
+          supporter_unlocked?: boolean
         }
         Update: {
           username?: string | null
           avatar_url?: string | null
           plan?: 'free' | 'pro' | 'team'
+          supporter_unlocked?: boolean
           updated_at?: string
         }
         Relationships: []

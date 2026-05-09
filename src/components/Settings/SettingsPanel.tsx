@@ -16,10 +16,12 @@ import {
   FolderOpen,
   Globe,
   HardDriveDownload,
+  Heart,
   Info,
   Key,
   Languages,
   Loader2,
+  Lock,
   RefreshCw,
   RotateCcw,
   Save,
@@ -32,6 +34,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Field, Modal, SelectField, TextareaField, TextInput } from '../ui/primitives'
+import { useAppStore } from '../../store/appStore'
+import { useAuthStore } from '../../store/authStore'
 import { parseApiError } from '../../utils/parseApiError'
 import { isLocalServiceUrl } from '../../services/localServiceAutoStart'
 import OllamaInstallTutorialModal from '../Onboarding/OllamaInstallTutorialModal'
@@ -46,7 +50,7 @@ interface SettingsPanelProps {
   onOpenFirstRunSetup: () => void
 }
 
-type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup' | 'fonts' | 'about'
+type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup' | 'fonts' | 'about' | 'supporter'
 
 const TABS: { id: SettingsTab; label: string; description: string; icon: typeof Settings }[] = [
   { id: 'general', label: 'ทั่วไป', description: 'ภาษาและสถานะรวม', icon: Settings },
@@ -54,8 +58,11 @@ const TABS: { id: SettingsTab; label: string; description: string; icon: typeof 
   { id: 'translation', label: 'แปลภาษา', description: 'บริบทและโทนคำแปล', icon: Languages },
   { id: 'cleanup', label: 'ลบข้อความ', description: 'ตัวช่วยลบข้อความในภาพ', icon: Server },
   { id: 'fonts', label: 'ฟอนต์', description: 'กำหนดฟอนต์ตามอารมณ์ของตัวละคร', icon: Type },
+  { id: 'supporter', label: 'Supporter', description: 'Unlimited albums & pages', icon: Heart },
   { id: 'about', label: 'เกี่ยวกับ', description: 'เวอร์ชัน สิทธิ์ใช้งาน และเครื่องมือภายนอก', icon: Info },
 ]
+
+const FACEBOOK_FANPAGE_URL = 'https://www.facebook.com/moxzk'
 
 const APP_LICENSE_NAME = 'MIT'
 const MAGGA_URL = 'https://magga.vercel.app'
@@ -312,6 +319,10 @@ export default function SettingsPanel({
   onOpenFirstRunSetup,
 }: SettingsPanelProps) {
   const appRuntime = getAppRuntime()
+  const { profile, redeemSupporterKey } = useAuthStore()
+  const [supporterKeyInput, setSupporterKeyInput] = useState('')
+  const [redeemingKey, setRedeemingKey] = useState(false)
+  const [redeemError, setRedeemError] = useState<string | null>(null)
   const [draft, setDraft] = useState<AppSettings>(settings)
   const [tab, setTab] = useState<SettingsTab>('general')
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null)
@@ -419,6 +430,11 @@ export default function SettingsPanel({
 
   useEffect(() => {
     if (isOpen) {
+      const { pendingSettingsTab, clearPendingSettingsTab } = useAppStore.getState()
+      if (pendingSettingsTab) {
+        setTab(pendingSettingsTab as SettingsTab)
+        clearPendingSettingsTab()
+      }
       setDraft(settings)
       setOllamaStatus(null)
       setPanelCleanerStatus(null)
@@ -430,6 +446,8 @@ export default function SettingsPanel({
       setInstallingPanelCleaner(false)
       setPanelCleanerInstallLogs([])
       setSavingSettings(false)
+      setSupporterKeyInput('')
+      setRedeemError(null)
       void refreshManagedStatuses()
       void refreshPanelCleanerDependency()
       void appRuntime.app.getVersion()
@@ -566,6 +584,22 @@ export default function SettingsPanel({
     setPullError(null)
     setDraft((current) => ({ ...current, ollamaModel: model }))
     toast.success(`เลือก ${model} เป็นโมเดลใช้งานแล้ว กดบันทึกเพื่อเก็บค่า`)
+  }
+
+  const handleRedeemSupporterKey = async () => {
+    const key = supporterKeyInput.trim()
+    if (!key) return
+    setRedeemingKey(true)
+    setRedeemError(null)
+    try {
+      await redeemSupporterKey(key)
+      toast.success('Supporter unlocked — cloud storage พร้อมใช้งานแล้ว')
+      setSupporterKeyInput('')
+    } catch (err) {
+      setRedeemError(err instanceof Error ? err.message : 'Invalid or already used key')
+    } finally {
+      setRedeemingKey(false)
+    }
   }
 
   const handleOpenLink = (url: string) => {
@@ -1263,6 +1297,96 @@ export default function SettingsPanel({
                     </div>
                   </div>
                 </SettingsRow>
+              </SettingsSheet>
+            )}
+
+            {tab === 'supporter' && (
+              <SettingsSheet>
+                <SettingsRow
+                  title="สถานะ"
+                  description="Unlimited albums & pages สำหรับ Supporter"
+                >
+                  {profile?.supporter_unlocked ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 rounded-[10px] border border-white/10 bg-white/[0.04] px-4 py-3">
+                        <div className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--moxzk-accent)]/15 text-[var(--moxzk-accent)]">
+                          <Heart size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[var(--moxzk-text)]">Supporter</p>
+                          <p className="mt-0.5 text-xs text-[var(--moxzk-muted)]">Unlimited albums & pages ปลดล็อกแล้ว</p>
+                        </div>
+                        <CheckCircle2 size={16} className="ml-auto shrink-0 text-[var(--moxzk-success)]" />
+                      </div>
+                      <div className="moxzk-notice">
+                        <Info size={14} />
+                        <span>ขอบคุณที่ support Moxzk สิทธิ์นี้ผูกกับบัญชีของคุณถาวร</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 rounded-[10px] border border-dashed border-white/10 bg-white/[0.025] px-4 py-3">
+                        <div className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--moxzk-dim)]">
+                          <Lock size={15} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[var(--moxzk-text)]">ยังไม่ได้เป็น Supporter</p>
+                          <p className="mt-0.5 text-xs text-[var(--moxzk-muted)]">Free: 1 album, 50 pages/album</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 rounded-[10px] border border-white/8 bg-white/[0.02] p-4">
+                        <p className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--moxzk-dim)]">วิธี Support</p>
+                        <p className="text-sm leading-6 text-[var(--moxzk-muted)]">
+                          Moxzk เป็น indie tool — ไม่มีรายเดือน ไม่มี subscription
+                          Support ครั้งเดียวเพื่อปลดล็อก unlimited albums & pages ถาวร
+                        </p>
+                        <Button variant="soft" size="sm" onClick={() => handleOpenLink(FACEBOOK_FANPAGE_URL)}>
+                          <ExternalLink size={12} /> ส่งข้อความผ่าน Facebook
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </SettingsRow>
+
+                {!profile?.supporter_unlocked && (
+                  <SettingsRow
+                    title="Redeem Key"
+                    description="กรอก key ที่ได้รับเพื่อปลดล็อก"
+                  >
+                    <div className="space-y-3">
+                      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <TextInput
+                          type="text"
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                          value={supporterKeyInput}
+                          onChange={(e) => {
+                            setSupporterKeyInput(e.target.value)
+                            setRedeemError(null)
+                          }}
+                          className="font-mono text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && supporterKeyInput.trim()) void handleRedeemSupporterKey()
+                          }}
+                        />
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleRedeemSupporterKey}
+                          disabled={!supporterKeyInput.trim() || redeemingKey}
+                        >
+                          {redeemingKey ? <Loader2 size={12} className="animate-spin" /> : <Key size={12} />}
+                          Unlock
+                        </Button>
+                      </div>
+                      {redeemError && (
+                        <div className="moxzk-notice">
+                          <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
+                          <span>{redeemError}</span>
+                        </div>
+                      )}
+                    </div>
+                  </SettingsRow>
+                )}
               </SettingsSheet>
             )}
 

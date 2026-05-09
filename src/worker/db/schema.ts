@@ -2,6 +2,7 @@ import { relations, sql } from 'drizzle-orm'
 import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 export const plans = ['free', 'pro', 'team'] as const
+export const roles = ['free', 'supporter'] as const
 export const identityProviders = ['password', 'google'] as const
 export const emailTokenTypes = ['verify_email', 'reset_password'] as const
 export const pageStatuses = ['pending', 'processing', 'clean_done', 'translated', 'error'] as const
@@ -18,6 +19,7 @@ export const users = sqliteTable('users', {
   username: text('username'),
   avatarUrl: text('avatar_url'),
   plan: text('plan', { enum: plans }).notNull().default('free'),
+  supporterUnlockedAt: integer('supporter_unlocked_at'),
   createdAt: integer('created_at').notNull().$defaultFn(() => Date.now()),
   updatedAt: integer('updated_at').notNull().$defaultFn(() => Date.now()),
 }, (table) => [
@@ -190,6 +192,15 @@ export const objects = sqliteTable('objects', {
   check('objects_kind_check', sql`${table.kind} in ('original', 'cleaned', 'thumbnail', 'cover')`),
 ])
 
+export const supporterKeys = sqliteTable('supporter_keys', {
+  id: text('id').primaryKey(),
+  createdAt: integer('created_at').notNull().$defaultFn(() => Date.now()),
+  redeemedAt: integer('redeemed_at'),
+  redeemedByUserId: text('redeemed_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+}, (table) => [
+  index('supporter_keys_redeemed_by_idx').on(table.redeemedByUserId),
+])
+
 export const usersRelations = relations(users, ({ many }) => ({
   identities: many(authIdentities),
   sessions: many(sessions),
@@ -257,3 +268,5 @@ export type AlbumPage = typeof albumPages.$inferSelect
 export type NewAlbumPage = typeof albumPages.$inferInsert
 export type StoredObject = typeof objects.$inferSelect
 export type NewStoredObject = typeof objects.$inferInsert
+export type SupporterKey = typeof supporterKeys.$inferSelect
+export type NewSupporterKey = typeof supporterKeys.$inferInsert
