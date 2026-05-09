@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import * as schema from './db/schema'
 import { json, jsonError, readJson, stringifyJsonInput } from './http'
 import type { AuthUser, RequestContext } from './types'
@@ -19,13 +19,6 @@ export async function createAlbum(ctx: RequestContext, user: AuthUser): Promise<
   const title = typeof input.title === 'string' ? input.title.trim() : ''
   if (!title) return jsonError('VALIDATION_ERROR', 'Album title is required', 422)
 
-  if (!user.supporterUnlocked) {
-    const row = await ctx.db.select({ total: count() }).from(schema.albums).where(eq(schema.albums.userId, user.id)).get()
-    if ((row?.total ?? 0) >= FREE_ALBUM_LIMIT) {
-      return jsonError('FORBIDDEN', `Free accounts are limited to ${FREE_ALBUM_LIMIT} album. Become a Supporter for unlimited albums.`, 403)
-    }
-  }
-
   const now = Date.now()
   const row = {
     id: crypto.randomUUID(),
@@ -36,7 +29,22 @@ export async function createAlbum(ctx: RequestContext, user: AuthUser): Promise<
     createdAt: now,
     updatedAt: now,
   }
-  await ctx.db.insert(schema.albums).values(row).run()
+
+  if (!user.supporterUnlocked) {
+    // Atomic: INSERT only if the user is under the free-tier limit.
+    // A plain SELECT-then-INSERT check would be vulnerable to a race condition
+    // where concurrent requests both pass the count guard before either inserts.
+    const result = await ctx.db.run(
+      sql`INSERT INTO albums (id, user_id, title, description, source_lang, created_at, updated_at)
+          SELECT ${row.id}, ${row.userId}, ${row.title}, ${row.description}, ${row.sourceLang}, ${row.createdAt}, ${row.updatedAt}
+          WHERE (SELECT COUNT(*) FROM albums WHERE user_id = ${user.id}) < ${FREE_ALBUM_LIMIT}`
+    )
+    if (result.meta.changes === 0) {
+      return jsonError('FORBIDDEN', `Free accounts are limited to ${FREE_ALBUM_LIMIT} album. Become a Supporter for unlimited albums.`, 403)
+    }
+  } else {
+    await ctx.db.insert(schema.albums).values(row).run()
+  }
   return json({ data: row }, 201)
 }
 
@@ -109,12 +117,6 @@ export async function createPage(ctx: RequestContext, user: AuthUser, albumId: s
   const pageNumber = Number(input.pageNumber)
   if (!Number.isInteger(pageNumber) || pageNumber < 1) return jsonError('VALIDATION_ERROR', 'Valid pageNumber is required', 422)
 
-  if (!user.supporterUnlocked) {
-    const row = await ctx.db.select({ total: count() }).from(schema.albumPages).where(eq(schema.albumPages.albumId, album.id)).get()
-    if ((row?.total ?? 0) >= FREE_PAGE_LIMIT) {
-      return jsonError('FORBIDDEN', `Free accounts are limited to ${FREE_PAGE_LIMIT} pages per album. Become a Supporter for unlimited pages.`, 403)
-    }
-  }
   const now = Date.now()
   const row = {
     id: crypto.randomUUID(),
@@ -133,7 +135,20 @@ export async function createPage(ctx: RequestContext, user: AuthUser, albumId: s
     createdAt: now,
     updatedAt: now,
   }
-  await ctx.db.insert(schema.albumPages).values(row).run()
+
+  if (!user.supporterUnlocked) {
+    // Atomic: INSERT only if the album is under the free-tier page limit.
+    const result = await ctx.db.run(
+      sql`INSERT INTO album_pages (id, album_id, page_number, original_key, cleaned_key, thumbnail_key, artboard_x, artboard_y, regions_json, brush_strokes_json, status, processing_mode, error_message, created_at, updated_at)
+          SELECT ${row.id}, ${row.albumId}, ${row.pageNumber}, ${row.originalKey}, ${row.cleanedKey}, ${row.thumbnailKey}, ${row.artboardX}, ${row.artboardY}, ${row.regionsJson}, ${row.brushStrokesJson}, ${row.status}, ${row.processingMode}, ${row.errorMessage}, ${row.createdAt}, ${row.updatedAt}
+          WHERE (SELECT COUNT(*) FROM album_pages WHERE album_id = ${album.id}) < ${FREE_PAGE_LIMIT}`
+    )
+    if (result.meta.changes === 0) {
+      return jsonError('FORBIDDEN', `Free accounts are limited to ${FREE_PAGE_LIMIT} pages per album. Become a Supporter for unlimited pages.`, 403)
+    }
+  } else {
+    await ctx.db.insert(schema.albumPages).values(row).run()
+  }
   await touchAlbum(ctx, album.id)
   return json({ data: row }, 201)
 }
