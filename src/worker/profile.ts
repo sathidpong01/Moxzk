@@ -246,6 +246,7 @@ function publicUserFromRow(row: typeof schema.users.$inferSelect): AuthUser {
     username: row.username,
     avatarUrl: row.avatarUrl,
     plan: row.plan,
+    supporterUnlocked: row.supporterUnlockedAt != null,
   }
 }
 

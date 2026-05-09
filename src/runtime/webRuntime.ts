@@ -13,8 +13,11 @@ import type {
   RuntimeActionResult,
   RuntimeExportFile,
   RuntimeSaveExportOptions,
+  RuntimeUpdateStatus,
   RuntimeWindowState,
 } from './types'
+
+const RELEASES_URL = 'https://github.com/sathidpong01/Moxzk/releases'
 
 export class WebRuntime implements AppRuntime {
   readonly kind = 'web'
@@ -105,6 +108,17 @@ export class WebRuntime implements AppRuntime {
     openDraftsFolder: () => unsupportedRuntimeAction('Web runtime does not expose native draft folders.'),
   }
 
+  readonly updates = {
+    getStatus: async (): Promise<RuntimeUpdateStatus> => getWebUpdateStatus(),
+    checkForUpdates: async (): Promise<RuntimeUpdateStatus> => getWebUpdateStatus(),
+    installDownloadedUpdate: () => unsupportedRuntimeAction('Web runtime cannot install desktop updates.'),
+    openReleases: async (): Promise<RuntimeActionResult> => {
+      window.open(RELEASES_URL, '_blank', 'noopener,noreferrer')
+      return { ok: true }
+    },
+    onStatusChange: (_callback: (status: RuntimeUpdateStatus) => void) => () => {},
+  }
+
   readonly secureStore = {
     getSecret: async () => null,
     setSecret: () => unsupportedRuntimeAction('Web runtime does not provide secure secret storage.'),
@@ -174,6 +188,16 @@ async function saveExportFiles(
 
 async function unsupportedRuntimeAction(error: string): Promise<RuntimeActionResult> {
   return { ok: false, error }
+}
+
+function getWebUpdateStatus(): RuntimeUpdateStatus {
+  return {
+    state: 'disabled',
+    currentVersion: 'web',
+    canInstall: false,
+    manualUrl: RELEASES_URL,
+    error: 'Desktop updates are available only in the Windows app.',
+  }
 }
 
 async function signInWithGoogleInBrowser(): Promise<RuntimeActionResult> {

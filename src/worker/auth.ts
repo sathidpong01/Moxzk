@@ -274,6 +274,7 @@ function publicUser(user: {
   username: string | null
   avatarUrl: string | null
   plan: 'free' | 'pro' | 'team'
+  supporterUnlockedAt?: number | null
 }): AuthUser {
   return {
     id: user.id,
@@ -282,6 +283,7 @@ function publicUser(user: {
     username: user.username,
     avatarUrl: user.avatarUrl,
     plan: user.plan,
+    supporterUnlocked: user.supporterUnlockedAt != null,
   }
 }
 

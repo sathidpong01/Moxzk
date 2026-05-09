@@ -19,6 +19,7 @@ import {
   repairPanelCleaner,
 } from './panelCleanerDependency'
 import { deleteSecret, getSecret, setSecret } from './secureStore'
+import { checkForUpdates, getUpdateStatus, installDownloadedUpdate, openReleasesPage } from './updater'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
 import type {
   NativeLocalServiceName,
@@ -134,6 +135,22 @@ export function registerRuntimeIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.appOpenDraftsFolder, async () => {
     return nativeActionResult(async () => openNativePath(getDraftDir()))
+  })
+
+  ipcMain.handle(IPC_CHANNELS.updatesGetStatus, async () => {
+    return nativeActionResult(async () => getUpdateStatus())
+  })
+
+  ipcMain.handle(IPC_CHANNELS.updatesCheckForUpdates, async () => {
+    return nativeActionResult(checkForUpdates)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.updatesInstallDownloaded, async () => {
+    return nativeActionResult(installDownloadedUpdate)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.updatesOpenReleases, async () => {
+    return nativeActionResult(openReleasesPage)
   })
 
   ipcMain.handle(IPC_CHANNELS.secureStoreGetSecret, async (_event, key: string) => {

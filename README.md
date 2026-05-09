@@ -2,7 +2,7 @@
 
 React/Vite image editor สำหรับคลีนภาพมังงะและแปลเป็นภาษาไทย โดยใช้ PanelCleaner, Ollama vision model และ Cloudflare Worker/D1/R2 เป็นแกนหลัก
 
-Windows Electron desktop คือ target เดียวของแอปนี้. React/Vite รันเป็น renderer ภายใน Windows Electron shell และ Electron V1 shipped แล้ว — รองรับ native IPC สำหรับ export, desktop draft persistence, local service start helpers สำหรับ PanelCleaner/Ollama, Google OAuth ผ่าน system browser, และ frameless window controls ผ่าน `AppRuntime`. Web runtime ยังใช้เป็น fallback และสำหรับ CI; Linux/macOS ไม่ใช่ planned target. เฟสถัดไปคือ secure local storage และ custom protocol auth.
+Windows Electron desktop คือ target เดียวของแอปนี้. React/Vite รันเป็น renderer ภายใน Windows Electron shell และ Electron V1 shipped แล้ว รองรับ native IPC สำหรับ export, desktop draft persistence, local service start helpers สำหรับ PanelCleaner/Ollama, Google OAuth ผ่าน system browser, frameless window controls และ GitHub Releases updater ผ่าน `AppRuntime`. Web runtime ยังใช้เป็น fallback และสำหรับ CI; Linux/macOS ไม่ใช่ planned target.
 
 ## Current Direction
 
@@ -30,6 +30,7 @@ Windows Electron desktop คือ target เดียวของแอปน�
 - Export หลายหน้า โดยเลือกทุกหน้าเป็นค่าเริ่มต้น หรือเลือกเฉพาะบางหน้า
 - Export ผ่าน File System Access API เมื่อ browser รองรับ และ fallback เป็น ZIP
 - Electron dev shell รองรับ native save dialog, folder export, desktop draft restore และ Windows frameless title bar
+- Production updater ใช้ GitHub Releases ดาวน์โหลดเบื้องหลัง แล้วถามผู้ใช้ก่อนรีสตาร์ทติดตั้ง
 
 ## Architecture
 
@@ -221,9 +222,24 @@ Build Electron shell:
 npm run electron:build
 ```
 
+Build Windows installer พร้อม update metadata:
+
+```bash
+npm run release:build
+npm run release:checksums
+```
+
+Publish installer และ metadata ไป GitHub Releases ต้องมี `GH_TOKEN`:
+
+```bash
+npm run release:publish
+```
+
 Electron dev/build ใช้ remote Worker หลัก `https://moxzk-api.sathidpong01.workers.dev` เป็นค่า default ถ้าไม่ได้ตั้ง `VITE_CLOUDFLARE_API_URL`. ตั้ง env เฉพาะเมื่อต้องการชี้ไป Worker อื่น.
 
 Electron local service start เป็นตัวช่วยสำหรับเครื่อง dev และ production: PanelCleaner ยังเป็น external dependency ที่ติดตั้งใน managed venv จากในแอป ส่วน Ollama ยังเป็น external app/CLI และไม่ได้ถูก bundle เข้า release. Production app ไม่ต้องใช้ `.env.local`; Worker URL มีค่า default ผ่าน electron-vite และ secrets อยู่บน Cloudflare Worker.
+
+Auto-update ใช้ `electron-builder` NSIS + `electron-updater` ผ่าน GitHub Releases. แอปจะเช็คอัปเดตหลังเปิดโปรแกรม ดาวน์โหลดเบื้องหลัง และถามก่อนรีสตาร์ทติดตั้ง. ตอนนี้ Moxzk เป็น unsigned indie build จึงต้องใส่ SmartScreen note, SHA256 checksum, และ manual installer fallback ในทุก release. ดูรายละเอียดที่ [Release And Updates](docs/electron/release-and-updates.md)
 
 ## Cloudflare Resources
 

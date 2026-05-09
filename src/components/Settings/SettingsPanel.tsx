@@ -5,7 +5,7 @@ import EmotionFontSettings from '../Editor/EmotionFontSettings'
 import type { OllamaPullProgress, OllamaStatus } from '../../services/ollama'
 import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
 import { getAppRuntime } from '../../runtime'
-import type { LocalServiceName, ManagedServiceStatus, PanelCleanerDependencyStatus } from '../../runtime'
+import type { LocalServiceName, ManagedServiceStatus, PanelCleanerDependencyStatus, RuntimeUpdateStatus } from '../../runtime'
 import {
   AlertCircle,
   BookOpen,
@@ -16,10 +16,14 @@ import {
   FolderOpen,
   Globe,
   HardDriveDownload,
+  Heart,
   Info,
   Key,
   Languages,
   Loader2,
+  Lock,
+  RefreshCw,
+  RotateCcw,
   Save,
   Server,
   Settings,
@@ -30,6 +34,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Field, Modal, SelectField, TextareaField, TextInput } from '../ui/primitives'
+import { useAppStore } from '../../store/appStore'
+import { useAuthStore } from '../../store/authStore'
 import { parseApiError } from '../../utils/parseApiError'
 import { isLocalServiceUrl } from '../../services/localServiceAutoStart'
 import OllamaInstallTutorialModal from '../Onboarding/OllamaInstallTutorialModal'
@@ -44,7 +50,7 @@ interface SettingsPanelProps {
   onOpenFirstRunSetup: () => void
 }
 
-type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup' | 'fonts' | 'about'
+type SettingsTab = 'general' | 'models' | 'translation' | 'cleanup' | 'fonts' | 'about' | 'supporter'
 
 const TABS: { id: SettingsTab; label: string; description: string; icon: typeof Settings }[] = [
   { id: 'general', label: 'ทั่วไป', description: 'ภาษาและสถานะรวม', icon: Settings },
@@ -52,8 +58,11 @@ const TABS: { id: SettingsTab; label: string; description: string; icon: typeof 
   { id: 'translation', label: 'แปลภาษา', description: 'บริบทและโทนคำแปล', icon: Languages },
   { id: 'cleanup', label: 'ลบข้อความ', description: 'ตัวช่วยลบข้อความในภาพ', icon: Server },
   { id: 'fonts', label: 'ฟอนต์', description: 'กำหนดฟอนต์ตามอารมณ์ของตัวละคร', icon: Type },
+  { id: 'supporter', label: 'Supporter', description: 'Unlimited albums & pages', icon: Heart },
   { id: 'about', label: 'เกี่ยวกับ', description: 'เวอร์ชัน สิทธิ์ใช้งาน และเครื่องมือภายนอก', icon: Info },
 ]
+
+const FACEBOOK_FANPAGE_URL = 'https://www.facebook.com/moxzk'
 
 const APP_LICENSE_NAME = 'MIT'
 const MAGGA_URL = 'https://magga.vercel.app'
@@ -177,8 +186,30 @@ const EMPTY_MANAGED_STATUS: Record<LocalServiceName, ManagedServiceStatus> = {
   },
 }
 
-function runtimeDisplayName(kind: string): string {
-  return kind === 'web' ? 'โหมดเว็บ' : 'แอปเดสก์ท็อป'
+function formatVisibleAppVersion(version: string | null | undefined): string | null {
+  const value = version?.trim()
+  if (!value || value === '...' || value === 'web') return null
+  return value
+}
+
+function describeUpdateStatus(status: RuntimeUpdateStatus | null): string {
+  if (!status) return 'ยังไม่ได้ตรวจ'
+  if (status.state === 'checking') return 'กำลังตรวจสอบอัปเดต'
+  if (status.state === 'available') return `พบเวอร์ชัน ${status.version ?? 'ใหม่'} · กำลังดาวน์โหลด`
+  if (status.state === 'downloading') return `กำลังดาวน์โหลด${status.percent != null ? ` · ${status.percent}%` : ''}`
+  if (status.state === 'downloaded') return `ดาวน์โหลด ${status.version ?? 'เวอร์ชันใหม่'} เสร็จแล้ว`
+  if (status.state === 'not-available') return 'ใช้เวอร์ชันล่าสุดแล้ว'
+  if (status.state === 'disabled') return 'อัปเดตอัตโนมัติใช้ได้เมื่อเปิดจากแอป Windows'
+  if (status.state === 'error') return status.error ? `ตรวจสอบไม่ได้ · ${status.error}` : 'ตรวจสอบอัปเดตไม่ได้'
+  return 'พร้อมตรวจสอบ'
+}
+
+function formatUpdateProgress(status: RuntimeUpdateStatus | null): string | null {
+  if (!status || status.state !== 'downloading') return null
+  const total = formatBytes(status.total)
+  const transferred = formatBytes(status.transferred)
+  const speed = formatBytes(status.bytesPerSecond)
+  return `${transferred} / ${total}${status.bytesPerSecond ? ` · ${speed}/s` : ''}`
 }
 
 function formatRemainingTime(deadlineAt: number | null): string | null {
@@ -288,6 +319,10 @@ export default function SettingsPanel({
   onOpenFirstRunSetup,
 }: SettingsPanelProps) {
   const appRuntime = getAppRuntime()
+  const { profile, redeemSupporterKey } = useAuthStore()
+  const [supporterKeyInput, setSupporterKeyInput] = useState('')
+  const [redeemingKey, setRedeemingKey] = useState(false)
+  const [redeemError, setRedeemError] = useState<string | null>(null)
   const [draft, setDraft] = useState<AppSettings>(settings)
   const [tab, setTab] = useState<SettingsTab>('general')
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null)
@@ -309,6 +344,9 @@ export default function SettingsPanel({
   const [stoppingOwnedServices, setStoppingOwnedServices] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [appVersion, setAppVersion] = useState<string>('...')
+  const [updateStatus, setUpdateStatus] = useState<RuntimeUpdateStatus | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [installingUpdate, setInstallingUpdate] = useState(false)
   const [authCallbackUrl, setAuthCallbackUrl] = useState<string | null>(null)
   const [showOllamaTutorial, setShowOllamaTutorial] = useState(false)
 
@@ -324,6 +362,8 @@ export default function SettingsPanel({
   const selectedModelIsPulling = Boolean(selectedModelName) && pullingModel === selectedModelName && !selectedModelHasPreset
   const showModelNotListedHint = Boolean(selectedModelName) && modelNames.length > 0 && !selectedModelKnown && !selectedModelIsPulling
   const currentTab = TABS.find((item) => item.id === tab) ?? TABS[0]
+  const visibleAppVersion = formatVisibleAppVersion(appVersion)
+  const visibleUpdateCurrentVersion = formatVisibleAppVersion(updateStatus?.currentVersion) ?? visibleAppVersion
   const canStartLocalServices = appRuntime.capabilities.canStartLocalServices
   const canStartOllama = canStartLocalServices && isLocalServiceUrl(draft.ollamaUrl)
   const isOllamaCloud = isOllamaCloudEndpoint(draft.ollamaUrl)
@@ -336,6 +376,7 @@ export default function SettingsPanel({
   const canInstallPanelCleaner = canStartPanelCleaner && !panelCleanerReady && panelCleanerDependency?.state !== 'installing'
   const canRepairPanelCleaner = canStartPanelCleaner && panelCleanerDependency?.state === 'broken'
   const canStartPanelCleanerBridge = canStartPanelCleaner && !localServiceStatus.panelcleaner.running
+  const updateProgressText = formatUpdateProgress(updateStatus)
 
   const refreshManagedStatuses = useCallback(async () => {
     if (!canStartLocalServices) {
@@ -389,6 +430,11 @@ export default function SettingsPanel({
 
   useEffect(() => {
     if (isOpen) {
+      const { pendingSettingsTab, clearPendingSettingsTab } = useAppStore.getState()
+      if (pendingSettingsTab) {
+        setTab(pendingSettingsTab as SettingsTab)
+        clearPendingSettingsTab()
+      }
       setDraft(settings)
       setOllamaStatus(null)
       setPanelCleanerStatus(null)
@@ -400,16 +446,26 @@ export default function SettingsPanel({
       setInstallingPanelCleaner(false)
       setPanelCleanerInstallLogs([])
       setSavingSettings(false)
+      setSupporterKeyInput('')
+      setRedeemError(null)
       void refreshManagedStatuses()
       void refreshPanelCleanerDependency()
       void appRuntime.app.getVersion()
         .then(setAppVersion)
         .catch(() => setAppVersion(appRuntime.kind))
+      void appRuntime.updates.getStatus()
+        .then(setUpdateStatus)
+        .catch(() => setUpdateStatus(null))
       void appRuntime.customProtocolAuth.getCallbackUrl('/auth/callback')
         .then(setAuthCallbackUrl)
         .catch(() => setAuthCallbackUrl(null))
     }
-  }, [appRuntime.app, appRuntime.customProtocolAuth, appRuntime.kind, isOpen, refreshManagedStatuses, refreshPanelCleanerDependency, settings])
+  }, [appRuntime.app, appRuntime.customProtocolAuth, appRuntime.kind, appRuntime.updates, isOpen, refreshManagedStatuses, refreshPanelCleanerDependency, settings])
+
+  useEffect(() => {
+    if (!isOpen) return
+    return appRuntime.updates.onStatusChange(setUpdateStatus)
+  }, [appRuntime.updates, isOpen])
 
   useEffect(() => {
     if (!isOpen || !canStartLocalServices) return
@@ -528,6 +584,22 @@ export default function SettingsPanel({
     setPullError(null)
     setDraft((current) => ({ ...current, ollamaModel: model }))
     toast.success(`เลือก ${model} เป็นโมเดลใช้งานแล้ว กดบันทึกเพื่อเก็บค่า`)
+  }
+
+  const handleRedeemSupporterKey = async () => {
+    const key = supporterKeyInput.trim()
+    if (!key) return
+    setRedeemingKey(true)
+    setRedeemError(null)
+    try {
+      await redeemSupporterKey(key)
+      toast.success('Supporter unlocked — cloud storage พร้อมใช้งานแล้ว')
+      setSupporterKeyInput('')
+    } catch (err) {
+      setRedeemError(err instanceof Error ? err.message : 'Invalid or already used key')
+    } finally {
+      setRedeemingKey(false)
+    }
   }
 
   const handleOpenLink = (url: string) => {
@@ -672,6 +744,40 @@ export default function SettingsPanel({
     }
   }
 
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true)
+    try {
+      const status = await appRuntime.updates.checkForUpdates()
+      setUpdateStatus(status)
+      if (status.state === 'not-available') toast.success('ใช้เวอร์ชันล่าสุดแล้ว')
+      if (status.state === 'disabled') toast.info('อัปเดตอัตโนมัติใช้ได้ในแอป Windows ที่ติดตั้งแล้ว')
+      if (status.state === 'error') toast.error(status.error ?? 'ตรวจสอบอัปเดตไม่ได้')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'ตรวจสอบอัปเดตไม่ได้')
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
+
+  const handleInstallUpdate = async () => {
+    setInstallingUpdate(true)
+    try {
+      const result = await appRuntime.updates.installDownloadedUpdate()
+      if (!result.ok) {
+        toast.error(result.error ?? 'ติดตั้งอัปเดตไม่สำเร็จ')
+        setInstallingUpdate(false)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'ติดตั้งอัปเดตไม่สำเร็จ')
+      setInstallingUpdate(false)
+    }
+  }
+
+  const handleOpenReleases = async () => {
+    const result = await appRuntime.updates.openReleases()
+    if (!result.ok) toast.error(result.error ?? 'เปิดหน้า GitHub Releases ไม่สำเร็จ')
+  }
+
   return (
     <>
       <Modal
@@ -681,7 +787,7 @@ export default function SettingsPanel({
         className="SettingsWorkspace max-w-6xl overflow-hidden p-0"
         hideHeader
       >
-      <div className="SettingsFrame flex h-[min(84vh,820px)] min-h-[620px] min-w-0">
+      <div className="SettingsFrame flex h-[min(84vh,820px)] min-w-0">
         <aside className="SettingsSidebar flex w-64 shrink-0 flex-col overflow-hidden border-r border-[var(--settings-divider)]">
           <div className="border-b border-[var(--settings-divider)] p-4">
             <div className="flex items-center gap-3">
@@ -703,6 +809,7 @@ export default function SettingsPanel({
                 }`}
                 onClick={() => setTab(id)}
                 aria-current={tab === id ? 'page' : undefined}
+                data-autofocus={tab === id ? true : undefined}
               >
                 <Icon
                   size={15}
@@ -714,12 +821,6 @@ export default function SettingsPanel({
               </button>
             ))}
           </nav>
-          <div className="border-t border-[var(--settings-divider)] p-4">
-            <div className="flex items-center gap-2 text-xs text-[var(--moxzk-muted)]">
-              <Workflow size={14} />
-              <span>{runtimeDisplayName(appRuntime.kind)}</span>
-            </div>
-          </div>
         </aside>
 
         <main className="SettingsMain flex min-w-0 flex-1 flex-col">
@@ -760,7 +861,7 @@ export default function SettingsPanel({
                   <div className="space-y-4">
                     <div className="moxzk-notice">
                       <Workflow size={14} />
-                      <span>เวอร์ชัน {appVersion} · {runtimeDisplayName(appRuntime.kind)}</span>
+                      <span>{visibleAppVersion ? `เวอร์ชัน ${visibleAppVersion}` : 'Moxzk พร้อมใช้งาน'}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -1199,14 +1300,103 @@ export default function SettingsPanel({
               </SettingsSheet>
             )}
 
+            {tab === 'supporter' && (
+              <SettingsSheet>
+                <SettingsRow
+                  title="สถานะ"
+                  description="Unlimited albums & pages สำหรับ Supporter"
+                >
+                  {profile?.supporter_unlocked ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 rounded-[10px] border border-white/10 bg-white/[0.04] px-4 py-3">
+                        <div className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--moxzk-accent)]/15 text-[var(--moxzk-accent)]">
+                          <Heart size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[var(--moxzk-text)]">Supporter</p>
+                          <p className="mt-0.5 text-xs text-[var(--moxzk-muted)]">Unlimited albums & pages ปลดล็อกแล้ว</p>
+                        </div>
+                        <CheckCircle2 size={16} className="ml-auto shrink-0 text-[var(--moxzk-success)]" />
+                      </div>
+                      <div className="moxzk-notice">
+                        <Info size={14} />
+                        <span>ขอบคุณที่ support Moxzk สิทธิ์นี้ผูกกับบัญชีของคุณถาวร</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 rounded-[10px] border border-dashed border-white/10 bg-white/[0.025] px-4 py-3">
+                        <div className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--moxzk-dim)]">
+                          <Lock size={15} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[var(--moxzk-text)]">ยังไม่ได้เป็น Supporter</p>
+                          <p className="mt-0.5 text-xs text-[var(--moxzk-muted)]">Free: 1 album, 50 pages/album</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 rounded-[10px] border border-white/8 bg-white/[0.02] p-4">
+                        <p className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--moxzk-dim)]">วิธี Support</p>
+                        <p className="text-sm leading-6 text-[var(--moxzk-muted)]">
+                          Moxzk เป็น indie tool — ไม่มีรายเดือน ไม่มี subscription
+                          Support ครั้งเดียวเพื่อปลดล็อก unlimited albums & pages ถาวร
+                        </p>
+                        <Button variant="soft" size="sm" onClick={() => handleOpenLink(FACEBOOK_FANPAGE_URL)}>
+                          <ExternalLink size={12} /> ส่งข้อความผ่าน Facebook
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </SettingsRow>
+
+                {!profile?.supporter_unlocked && (
+                  <SettingsRow
+                    title="Redeem Key"
+                    description="กรอก key ที่ได้รับเพื่อปลดล็อก"
+                  >
+                    <div className="space-y-3">
+                      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <TextInput
+                          type="text"
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                          value={supporterKeyInput}
+                          onChange={(e) => {
+                            setSupporterKeyInput(e.target.value)
+                            setRedeemError(null)
+                          }}
+                          className="font-mono text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && supporterKeyInput.trim()) void handleRedeemSupporterKey()
+                          }}
+                        />
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleRedeemSupporterKey}
+                          disabled={!supporterKeyInput.trim() || redeemingKey}
+                        >
+                          {redeemingKey ? <Loader2 size={12} className="animate-spin" /> : <Key size={12} />}
+                          Unlock
+                        </Button>
+                      </div>
+                      {redeemError && (
+                        <div className="moxzk-notice">
+                          <AlertCircle size={14} className="text-[var(--moxzk-warning)]" />
+                          <span>{redeemError}</span>
+                        </div>
+                      )}
+                    </div>
+                  </SettingsRow>
+                )}
+              </SettingsSheet>
+            )}
+
             {tab === 'about' && (
               <SettingsSheet>
                 <SettingsRow title="Moxzk" description="ข้อมูลแอปและสิทธิ์ใช้งาน">
                   <div className="settings-about-summary">
                     <div className="settings-about-meta">
-                      <span>เวอร์ชัน {appVersion}</span>
+                      {visibleAppVersion && <span>เวอร์ชัน {visibleAppVersion}</span>}
                       <span>ใช้สิทธิ์ {APP_LICENSE_NAME}</span>
-                      <span>{runtimeDisplayName(appRuntime.kind)}</span>
                     </div>
                     <p>
                       Moxzk เปิดให้ใช้และปรับแก้ตัวโปรแกรมได้ภายใต้ MIT แต่สิทธิ์นี้ไม่รวมชื่อ โลโก้ ไฟล์ของผู้ใช้
@@ -1215,6 +1405,75 @@ export default function SettingsPanel({
                     <Button variant="soft" size="sm" onClick={() => handleOpenLink(MAGGA_URL)}>
                       <ExternalLink size={12} /> เปิด Magga
                     </Button>
+                  </div>
+                </SettingsRow>
+
+                <SettingsRow title="อัปเดตโปรแกรม" description="ดาวน์โหลดเบื้องหลัง แล้วรีสตาร์ทเมื่องานพร้อม">
+                  <div className="settings-update-panel">
+                    <div className="settings-update-status">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[var(--moxzk-text)]">{describeUpdateStatus(updateStatus)}</p>
+                          <p className="mt-1 text-xs leading-5 text-[var(--moxzk-muted)]">
+                            {visibleUpdateCurrentVersion
+                              ? `เวอร์ชันปัจจุบัน ${visibleUpdateCurrentVersion}`
+                              : 'ตรวจอัปเดตได้เมื่อเปิดจากแอป Windows ที่ติดตั้งแล้ว'}
+                            {updateStatus?.version && updateStatus.version !== visibleUpdateCurrentVersion ? ` · รุ่นใหม่ ${updateStatus.version}` : ''}
+                          </p>
+                        </div>
+                        {updateStatus?.state === 'downloaded' ? (
+                          <CheckCircle2 size={18} className="shrink-0 text-[var(--moxzk-success)]" />
+                        ) : updateStatus?.state === 'error' ? (
+                          <AlertCircle size={18} className="shrink-0 text-[var(--moxzk-warning)]" />
+                        ) : (
+                          <RefreshCw size={18} className={`shrink-0 text-[var(--moxzk-dim)] ${updateStatus?.state === 'checking' || updateStatus?.state === 'downloading' ? 'animate-spin' : ''}`} />
+                        )}
+                      </div>
+                      {updateStatus?.state === 'downloading' && (
+                        <>
+                          <div className="settings-update-progress" aria-label="กำลังดาวน์โหลดอัปเดต">
+                            <span style={{ width: `${updateStatus.percent ?? 8}%` }} />
+                          </div>
+                          {updateProgressText && <p className="text-xs text-[var(--moxzk-muted)]">{updateProgressText}</p>}
+                        </>
+                      )}
+                      {updateStatus?.state === 'disabled' && (
+                        <p className="text-xs leading-5 text-[var(--moxzk-dim)]">
+                          ถ้าใช้งานผ่านเว็บ ให้ดาวน์โหลดเวอร์ชันล่าสุดจาก GitHub Releases
+                        </p>
+                      )}
+                      {updateStatus?.state === 'downloaded' && (
+                        <p className="text-xs leading-5 text-[var(--moxzk-muted)]">
+                          บันทึกงานให้เรียบร้อยก่อนรีสตาร์ท เพื่อให้ editor กลับมาเปิดงานเดิมได้ตามปกติ
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="soft"
+                        size="sm"
+                        onClick={handleCheckUpdate}
+                        disabled={checkingUpdate || updateStatus?.state === 'checking' || updateStatus?.state === 'downloading'}
+                      >
+                        {checkingUpdate || updateStatus?.state === 'checking' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                        ตรวจอัปเดต
+                      </Button>
+                      {updateStatus?.state === 'downloaded' && (
+                        <Button variant="primary" size="sm" onClick={handleInstallUpdate} disabled={installingUpdate}>
+                          {installingUpdate ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                          รีสตาร์ทเพื่อติดตั้ง
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={handleOpenReleases}>
+                        <ExternalLink size={12} /> เปิด GitHub Releases
+                      </Button>
+                    </div>
+                    <div className="moxzk-notice">
+                      <Info size={14} />
+                      <span>
+                        Windows อาจเตือน SmartScreen เพราะ Moxzk เป็นโปรแกรม indie ที่ยังไม่ได้ยืนยันตัวตนแบบบริษัท ดูรหัสตรวจสอบไฟล์ใน release note ได้เสมอ
+                      </span>
+                    </div>
                   </div>
                 </SettingsRow>
 

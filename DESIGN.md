@@ -458,7 +458,7 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 ## Current Limitations
 
 - Electron V1 shipped พร้อม native IPC, draft persistence, local service start, Google OAuth ผ่าน system browser, และ Windows frameless window controls
-- ยังไม่มี installer/signing/auto-update สำหรับ production distribution
+- production distribution ใช้ Windows NSIS installer และ GitHub Releases auto-update แล้ว แต่ยังไม่มี code signing เพราะโปรเจคเป็น indie build
 - secure secret storage และ custom protocol auth (`moxzk://auth/callback`) ยังเป็นเฟสถัดไป
 - verification สำคัญหลายอย่างยังต้องพึ่ง browser smoke test นอกเหนือจาก unit/script tests
 
@@ -470,7 +470,7 @@ Moxzk ได้ขยับจาก web-first editor มาเป็น Windows
 
 - เพิ่ม secure secret storage ผ่าน Electron keychain/safeStorage
 - custom protocol auth callback (`moxzk://auth/callback`)
-- Windows installer, code signing, และ auto-update pipeline สำหรับ production distribution
+- release hardening รอบถัดไป: เพิ่ม checksum automation, installer smoke test บนเครื่องสะอาด, และตัดสินใจเรื่อง code signing เมื่อโปรเจคพร้อม
 
 ## Key Reference Files
 

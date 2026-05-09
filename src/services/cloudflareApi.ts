@@ -32,6 +32,7 @@ interface ApiUser {
   username: string | null
   avatarUrl: string | null
   plan: 'free' | 'pro' | 'team'
+  supporterUnlocked: boolean
 }
 
 interface ApiAlbum {
@@ -249,6 +250,14 @@ export async function revokeUserSessions(input: { scope?: 'current' | 'others' |
   })
 }
 
+export async function redeemSupporterKey(key: string): Promise<{ user: AppUser; profile: Profile; session: AppSession }> {
+  const { user } = await apiFetch<{ user: ApiUser }>('/api/supporter/redeem', {
+    method: 'POST',
+    body: JSON.stringify({ key }),
+  })
+  return authPayload(user)
+}
+
 export async function deleteCurrentAccount(confirmation: string): Promise<void> {
   await apiFetch('/api/account', {
     method: 'DELETE',
@@ -362,6 +371,7 @@ function authPayload(user: ApiUser): { user: AppUser; profile: Profile; session:
       username: user.username,
       avatar_url: user.avatarUrl,
       plan: user.plan,
+      supporter_unlocked: user.supporterUnlocked,
       created_at: '',
       updated_at: '',
     },

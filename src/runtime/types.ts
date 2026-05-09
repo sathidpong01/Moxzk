@@ -73,6 +73,34 @@ export interface RuntimeWindowState {
   isMaximized: boolean
 }
 
+export type RuntimeUpdateState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'not-available'
+  | 'disabled'
+  | 'error'
+
+export interface RuntimeUpdateStatus {
+  state: RuntimeUpdateState
+  currentVersion: string
+  version?: string
+  releaseName?: string | null
+  releaseDate?: string
+  releaseNotes?: string | null
+  percent?: number
+  transferred?: number
+  total?: number
+  bytesPerSecond?: number
+  error?: string
+  checkedAt?: number
+  downloadedAt?: number
+  canInstall: boolean
+  manualUrl: string
+}
+
 export interface RuntimeProjectDraft {
   version: 1
   savedAt: number
@@ -138,6 +166,13 @@ export interface AppRuntime {
     openLogs(): Promise<RuntimeActionResult>
     openSettingsFolder(): Promise<RuntimeActionResult>
     openDraftsFolder(): Promise<RuntimeActionResult>
+  }
+  updates: {
+    getStatus(): Promise<RuntimeUpdateStatus>
+    checkForUpdates(): Promise<RuntimeUpdateStatus>
+    installDownloadedUpdate(): Promise<RuntimeActionResult>
+    openReleases(): Promise<RuntimeActionResult>
+    onStatusChange(callback: (status: RuntimeUpdateStatus) => void): () => void
   }
   secureStore: {
     getSecret(key: string): Promise<string | null>

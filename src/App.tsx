@@ -19,6 +19,7 @@ import FontConfigPage from './components/Settings/FontConfigPage'
 import FirstRunSetupView from './components/Onboarding/FirstRunSetupView'
 import OllamaInstallTutorialModal from './components/Onboarding/OllamaInstallTutorialModal'
 import AppChromeBar from './components/Layout/AppChromeBar'
+import UpdateRestartPrompt from './components/Layout/UpdateRestartPrompt'
 import WorkspaceBackdrop from './components/Layout/WorkspaceBackdrop'
 import { Button, DropdownItem, DropdownMenu, IconButton, Modal, SelectField } from './components/ui/primitives'
 import { getAppRuntime } from './runtime'
@@ -390,6 +391,8 @@ function App() {
         )}
 
       </main>
+
+      <UpdateRestartPrompt busy={store.isProcessing || isBatchProcessing || exportDrawerOpen} />
 
       {store.currentStep === 'edit' && exportDrawerOpen && (
         <ExportDrawer

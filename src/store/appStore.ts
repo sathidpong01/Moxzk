@@ -134,8 +134,11 @@ interface AppStore {
   settings: AppSettings
   setSettings: (s: AppSettings) => Promise<void>
   showSettings: boolean
+  pendingSettingsTab: string | null
   showFontConfig: boolean
   toggleSettings: (show?: boolean) => void
+  openSettingsAtTab: (tab: string) => void
+  clearPendingSettingsTab: () => void
   toggleFontConfig: (show?: boolean) => void
 
   // Logs
@@ -737,9 +740,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ settings: s })
   },
   showSettings: false,
+  pendingSettingsTab: null,
   showFontConfig: false,
   toggleSettings: (show) =>
     set((state) => ({ showSettings: show ?? !state.showSettings })),
+  openSettingsAtTab: (tab) => set({ showSettings: true, pendingSettingsTab: tab }),
+  clearPendingSettingsTab: () => set({ pendingSettingsTab: null }),
   toggleFontConfig: (show) =>
     set((state) => ({ showFontConfig: show ?? !state.showFontConfig })),
 

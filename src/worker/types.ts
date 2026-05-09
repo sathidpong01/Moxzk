@@ -31,4 +31,5 @@ export interface AuthUser {
   username: string | null
   avatarUrl: string | null
   plan: 'free' | 'pro' | 'team'
+  supporterUnlocked: boolean
 }

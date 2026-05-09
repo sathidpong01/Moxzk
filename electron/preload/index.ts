@@ -5,6 +5,7 @@ import type {
   NativeFilePayload,
   NativeProjectDraftPayload,
   NativeSaveExportOptions,
+  NativeUpdateStatus,
 } from '../../src/runtime/electronBridge'
 
 const bridge: MoxzkRuntimeBridge = {
@@ -43,6 +44,21 @@ const bridge: MoxzkRuntimeBridge = {
     openLogs: () => ipcRenderer.invoke(IPC_CHANNELS.appOpenLogs),
     openSettingsFolder: () => ipcRenderer.invoke(IPC_CHANNELS.appOpenSettingsFolder),
     openDraftsFolder: () => ipcRenderer.invoke(IPC_CHANNELS.appOpenDraftsFolder),
+  },
+  updates: {
+    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.updatesGetStatus),
+    checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.updatesCheckForUpdates),
+    installDownloadedUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.updatesInstallDownloaded),
+    openReleases: () => ipcRenderer.invoke(IPC_CHANNELS.updatesOpenReleases),
+    onStatusChange: (callback) => {
+      const handler = (_event: IpcRendererEvent, status: NativeUpdateStatus) => {
+        callback(status)
+      }
+      ipcRenderer.on(IPC_CHANNELS.updatesStatusChanged, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.updatesStatusChanged, handler)
+      }
+    },
   },
   secureStore: {
     getSecret: (key: string) => ipcRenderer.invoke(IPC_CHANNELS.secureStoreGetSecret, key),
