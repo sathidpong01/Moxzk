@@ -40,17 +40,8 @@ export default function AlbumCard({ album, mode = 'browse', onOpen, onManage }: 
 
   return (
     <article
-      role="button"
-      tabIndex={0}
       aria-label={`${actionLabel}: ${album.title}`}
-      className="group relative flex h-full cursor-pointer flex-col overflow-visible rounded-[18px] bg-transparent transition duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--moxzk-accent)]/45"
-      onClick={() => onOpen(album)}
-      onKeyDown={(event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return
-        event.preventDefault()
-        onOpen(album)
-      }}
-      title={`${actionLabel}: "${album.title}"`}
+      className="group relative flex h-full flex-col overflow-visible rounded-[18px] bg-transparent transition duration-200 hover:-translate-y-1"
     >
       <figure className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-[16px] border border-white/10 bg-[#0b0b0b] shadow-[0_18px_44px_rgba(0,0,0,0.3)]">
         {album.cover_key && (album.cover_key as string).startsWith('data:') ? (

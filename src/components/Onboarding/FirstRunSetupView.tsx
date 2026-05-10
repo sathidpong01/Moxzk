@@ -3,14 +3,17 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Cloud,
   Download,
   ExternalLink,
+  FolderOpen,
   Loader2,
   LogIn,
+  Search,
   Settings,
   Terminal,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { AppSettings, TranslationMode } from '../../types'
 import type { PanelCleanerStatus } from '../../services/panelcleaner-api'
@@ -52,6 +55,16 @@ const SETUP_MODEL_OPTIONS = [
     badge: 'ทางเลือก vision',
     description: 'ทางเลือกสำหรับงานอ่านภาพโดยตรง ใช้ทรัพยากรมากกว่าโมเดลเริ่มต้น',
   },
+]
+
+const SETUP_MODEL_AUTOCOMPLETE_NAMES = [
+  'qwen3.5:cloud',
+  'qwen3.6',
+  'qwen',
+  'gemma4:31b-cloud',
+  'gemma3:4b',
+  'gemma3:12b',
+  'llama3.2-vision:11b',
 ]
 
 const SOURCE_LANGUAGE_OPTIONS: Array<{ value: AppSettings['sourceLang']; label: string; description: string }> = [
@@ -130,8 +143,48 @@ function formatBytes(value?: number): string {
 
 function resolveSetupModelName(model: string): string {
   const trimmed = model.trim()
-  if (SETUP_MODEL_OPTIONS.some((option) => option.name === trimmed)) return trimmed
-  return OLLAMA_RECOMMENDED_MODEL
+  return trimmed || OLLAMA_RECOMMENDED_MODEL
+}
+
+function normalizeModelName(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s_-]+/g, '')
+}
+
+function uniqueModelNames(names: string[]): string[] {
+  const seen = new Set<string>()
+  const unique: string[] = []
+  for (const name of names) {
+    const trimmed = name.trim()
+    const key = normalizeModelName(trimmed)
+    if (!trimmed || seen.has(key)) continue
+    seen.add(key)
+    unique.push(trimmed)
+  }
+  return unique
+}
+
+function getModelSearchSuggestions(query: string, candidates: string[]): string[] {
+  const normalizedQuery = normalizeModelName(query)
+  const ranked = candidates
+    .map((name, index) => ({ name, index, normalized: normalizeModelName(name) }))
+    .filter((candidate) => (
+      normalizedQuery
+        ? candidate.normalized.startsWith(normalizedQuery) || candidate.normalized.includes(normalizedQuery)
+        : candidate.normalized
+    ))
+    .sort((a, b) => {
+      if (!normalizedQuery) return a.index - b.index
+      const aStarts = a.normalized.startsWith(normalizedQuery)
+      const bStarts = b.normalized.startsWith(normalizedQuery)
+      if (aStarts !== bStarts) return aStarts ? -1 : 1
+      return a.index - b.index
+    })
+
+  return ranked.slice(0, 6).map((candidate) => candidate.name)
+}
+
+function isCloudModelName(name: string): boolean {
+  return /cloud/i.test(name)
 }
 
 export default function FirstRunSetupView({
@@ -151,15 +204,36 @@ export default function FirstRunSetupView({
   onStart,
 }: FirstRunSetupViewProps) {
   const appRuntime = getAppRuntime()
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+  const stepTitleRef = useRef<HTMLHeadingElement>(null)
   const [panelCleanerDependency, setPanelCleanerDependency] = useState<PanelCleanerDependencyStatus | null>(null)
   const [panelCleanerStatus, setPanelCleanerStatus] = useState<PanelCleanerStatus | null>(null)
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null)
   const [modelReady, setModelReady] = useState(false)
   const [modelPullProgress, setModelPullProgress] = useState<OllamaPullProgress | null>(null)
+  const [modelNames, setModelNames] = useState<string[]>([])
+  const [modelSearchInput, setModelSearchInput] = useState(() => resolveSetupModelName(settings.ollamaModel))
+  const [debouncedModelSearch, setDebouncedModelSearch] = useState(() => resolveSetupModelName(settings.ollamaModel))
+  const [modelSearchPending, setModelSearchPending] = useState(false)
+  const [modelSearchFocused, setModelSearchFocused] = useState(false)
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [showIntro, setShowIntro] = useState(true)
   const completed = useMemo(() => new Set(completedSetupItems), [completedSetupItems])
   const skipped = useMemo(() => new Set(skippedSetupItems), [skippedSetupItems])
+  const selectedModelName = resolveSetupModelName(modelSearchInput)
+  const debouncedSelectedModelName = resolveSetupModelName(debouncedModelSearch)
+  const modelSearchCandidates = useMemo(() => uniqueModelNames([
+    ...SETUP_MODEL_OPTIONS.map((option) => option.name),
+    ...SETUP_MODEL_AUTOCOMPLETE_NAMES,
+    ...modelNames,
+  ]), [modelNames])
+  const exactModelMatch = modelSearchCandidates.some((name) => normalizeModelName(name) === normalizeModelName(debouncedModelSearch))
+  const modelSearchSuggestions = useMemo(
+    () => getModelSearchSuggestions(modelSearchInput, modelSearchCandidates),
+    [modelSearchCandidates, modelSearchInput],
+  )
+  const showModelSearchSuggestions = modelSearchFocused && modelSearchSuggestions.length > 0 && busyAction !== 'model-pull'
 
   const refreshPanelCleanerDependency = useCallback(async () => {
     setBusyAction('python-check')
@@ -272,8 +346,10 @@ export default function FirstRunSetupView({
         ollamaApiKey: settings.ollamaApiKey,
         timeoutMs: 15000,
       })
-      const selectedModel = resolveSetupModelName(settings.ollamaModel)
-      const found = models.some((model) => (model.name || model.model) === selectedModel)
+      const names = uniqueModelNames(models.map((model) => model.name || model.model || '').filter(Boolean))
+      setModelNames(names)
+      const selectedModel = debouncedSelectedModelName
+      const found = models.some((model) => normalizeModelName(model.name || model.model || '') === normalizeModelName(selectedModel))
       setModelReady(found)
       if (found && !completed.has('model')) onCompleteSetupItem('model')
     } catch {
@@ -281,19 +357,20 @@ export default function FirstRunSetupView({
     } finally {
       setBusyAction((current) => current === 'model-check' ? null : current)
     }
-  }, [appRuntime.ollama, completed, onCompleteSetupItem, settings.ollamaApiKey, settings.ollamaModel, settings.ollamaUrl])
+  }, [appRuntime.ollama, completed, debouncedSelectedModelName, onCompleteSetupItem, settings.ollamaApiKey, settings.ollamaUrl])
 
   const pullModel = useCallback(async () => {
     setBusyAction('model-pull')
     setModelPullProgress({ status: 'กำลังเริ่มดาวน์โหลด' })
     try {
-      const modelName = resolveSetupModelName(settings.ollamaModel)
-      if (settings.ollamaModel !== modelName) {
-        await onUpdateSettings({ ...settings, ollamaModel: modelName })
+      const modelName = selectedModelName
+      const s = settingsRef.current
+      if (s.ollamaModel !== modelName) {
+        await onUpdateSettings({ ...s, ollamaModel: modelName })
       }
       await appRuntime.ollama.pullModel({
-        ollamaUrl: settings.ollamaUrl,
-        ollamaApiKey: settings.ollamaApiKey,
+        ollamaUrl: s.ollamaUrl,
+        ollamaApiKey: s.ollamaApiKey,
         model: modelName,
         onProgress: setModelPullProgress,
       })
@@ -302,17 +379,26 @@ export default function FirstRunSetupView({
     } finally {
       setBusyAction((current) => current === 'model-pull' ? null : current)
     }
-  }, [appRuntime.ollama, completed, onCompleteSetupItem, onUpdateSettings, settings])
+  }, [appRuntime.ollama, completed, onCompleteSetupItem, onUpdateSettings, selectedModelName])
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
-    void onUpdateSettings({ ...settings, ...patch })
-  }, [onUpdateSettings, settings])
+    void onUpdateSettings({ ...settingsRef.current, ...patch })
+  }, [onUpdateSettings])
 
   const chooseModel = useCallback((model: string) => {
+    setModelSearchInput(model)
+    setDebouncedModelSearch(model)
+    setModelSearchFocused(false)
     setModelReady(false)
     setModelPullProgress(null)
     updateSettings({ ollamaModel: model })
   }, [updateSettings])
+
+  const updateModelSearchInput = useCallback((model: string) => {
+    setModelSearchInput(model)
+    setModelReady(false)
+    setModelPullProgress(null)
+  }, [])
 
   const saveTranslationSetup = useCallback(() => {
     if (!completed.has('translation')) onCompleteSetupItem('translation')
@@ -327,12 +413,41 @@ export default function FirstRunSetupView({
     if (!isOpen) return
     void refreshPanelCleanerDependency()
     void checkOllama()
+  }, [checkOllama, isOpen, refreshPanelCleanerDependency])
+
+  useEffect(() => {
+    if (!isOpen) return
     void refreshModel()
-  }, [checkOllama, isOpen, refreshModel, refreshPanelCleanerDependency])
+  }, [isOpen, refreshModel])
+
+  useEffect(() => {
+    const nextModel = resolveSetupModelName(settings.ollamaModel)
+    setModelSearchInput((current) => current.trim() === nextModel ? current : nextModel)
+    setDebouncedModelSearch((current) => current.trim() === nextModel ? current : nextModel)
+  }, [settings.ollamaModel])
+
+  useEffect(() => {
+    if (!isOpen) return
+    setModelSearchPending(true)
+    const timer = window.setTimeout(() => {
+      const nextModel = resolveSetupModelName(modelSearchInput)
+      setDebouncedModelSearch(nextModel)
+      setModelSearchPending(false)
+      if (nextModel !== settingsRef.current.ollamaModel) {
+        void onUpdateSettings({ ...settingsRef.current, ollamaModel: nextModel })
+      }
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [isOpen, modelSearchInput, onUpdateSettings])
 
   useEffect(() => {
     if (settings.sourceLang && settings.translationMode && !completed.has('translation')) onCompleteSetupItem('translation')
   }, [completed, onCompleteSetupItem, settings.sourceLang, settings.translationMode])
+
+  useEffect(() => {
+    if (!isOpen || showIntro) return
+    stepTitleRef.current?.focus()
+  }, [currentSetupStep, isOpen, showIntro])
 
   const pythonReady = completed.has('python') || panelCleanerDependency?.python.state === 'ready'
   const panelCleanerReady = completed.has('panelcleaner') || panelCleanerDependency?.state === 'ready' || panelCleanerStatus?.ok === true
@@ -493,14 +608,15 @@ export default function FirstRunSetupView({
     {
       id: 'workspace',
       title: 'งานร่างและไฟล์ในเครื่อง',
-      description: 'ดูโฟลเดอร์ตั้งค่า งานร่าง และไฟล์ log ได้จาก Settings',
+      description: 'งานร่างและตั้งค่าเก็บในเครื่องคุณ เปิดดูโฟลเดอร์ได้เลย หรือข้ามไปก่อนก็ได้',
       required: false,
       ready: workspaceReady,
-      statusText: workspaceReady ? 'รับทราบแล้ว' : 'ตั้งค่าเพิ่มได้ภายหลัง',
+      statusText: workspaceReady ? 'รับทราบแล้ว' : 'ดูได้ภายหลัง',
       iconSrc: SETUP_ICON_SRC.workspace,
       iconAlt: 'งานร่างและไฟล์ในเครื่อง',
       actions: [
-        { label: 'เปิด Settings', icon: <Settings size={13} />, onClick: onOpenSettings, kind: 'primary' },
+        { label: 'รับทราบ', icon: <CheckCircle2 size={13} />, onClick: () => onCompleteSetupItem('workspace'), kind: 'primary' },
+        { label: 'เปิด Settings', icon: <Settings size={13} />, onClick: onOpenSettings, kind: 'secondary' },
       ],
     },
   ]
@@ -542,6 +658,13 @@ export default function FirstRunSetupView({
   const utilityActions = activeStep.actions.filter((action) => action !== primaryAction)
   const showPrimaryAction = Boolean(primaryAction && activeStatus !== 'ready')
   const modelPullPercent = getPullPercent(modelPullProgress)
+  const modelSearchHelpText = modelSearchPending
+    ? 'กำลังค้นหา...'
+    : exactModelMatch
+      ? 'พบชื่อโมเดลนี้แล้ว พร้อมตรวจหรือโหลดต่อ'
+      : debouncedModelSearch
+        ? 'เลือกจากรายการ หรือโหลดต่อได้ถ้าชื่อนี้ถูกต้อง'
+        : 'พิมพ์ชื่อโมเดลที่ต้องการใช้'
 
   const getUtilityActionClassName = (action: SetupAction) => {
     if (action.kind === 'check') return `FirstRunSetupUtilityAction FirstRunSetupUtilityCheck FirstRunSetupUtilityCheck-${activeStatus}`
@@ -550,16 +673,63 @@ export default function FirstRunSetupView({
 
   const renderStepExtras = () => {
     if (activeStep.id === 'model') {
-      const selectedModel = resolveSetupModelName(settings.ollamaModel)
       return (
         <div className="FirstRunSetupStepExtras FirstRunSetupModelExtras">
-          <div className="FirstRunSetupModelChoices" aria-label="เลือกโมเดล Ollama">
+          <label className="FirstRunSetupModelSearch">
+            <span>Search หรือใส่ชื่อโมเดลเอง</span>
+            <div className="FirstRunSetupModelSearchBox">
+              <Search size={15} aria-hidden="true" />
+              <input
+                type="search"
+                role="combobox"
+                aria-expanded={showModelSearchSuggestions}
+                aria-haspopup="listbox"
+                aria-controls="model-search-suggestions"
+                aria-autocomplete="list"
+                value={modelSearchInput}
+                onChange={(event) => updateModelSearchInput(event.currentTarget.value)}
+                onFocus={() => setModelSearchFocused(true)}
+                onBlur={() => setModelSearchFocused(false)}
+                placeholder="เช่น gemma3:4b หรือ llama3.2-vision:11b"
+                spellCheck={false}
+                autoComplete="off"
+                disabled={busyAction === 'model-pull'}
+              />
+              {modelSearchPending && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
+              {showModelSearchSuggestions && (
+                <div id="model-search-suggestions" className="FirstRunSetupModelSuggestions" role="listbox" aria-label="รายชื่อโมเดลที่แนะนำ">
+                  {modelSearchSuggestions.map((name) => {
+                    const cloud = isCloudModelName(name)
+                    const isSelected = modelSearchInput.trim() !== '' && normalizeModelName(selectedModelName) === normalizeModelName(name)
+                    return (
+                      <div
+                        key={name}
+                        role="option"
+                        aria-selected={isSelected}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => chooseModel(name)}
+                      >
+                        <span>{name}</span>
+                        {cloud ? <Cloud size={14} aria-hidden="true" /> : <Download size={14} aria-hidden="true" />}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <small className={exactModelMatch ? 'FirstRunSetupModelSearchReady' : ''}>
+              {modelSearchHelpText}
+            </small>
+          </label>
+          <div className="FirstRunSetupModelChoices" role="radiogroup" aria-label="เลือกโมเดล Ollama">
             {SETUP_MODEL_OPTIONS.map((option) => {
-              const active = selectedModel === option.name
+              const active = modelSearchInput.trim() !== '' && selectedModelName === option.name
               return (
                 <button
                   key={option.name}
                   type="button"
+                  role="radio"
+                  aria-checked={active}
                   className={`FirstRunSetupModelChoice ${active ? 'FirstRunSetupModelChoiceActive' : ''}`}
                   onClick={() => chooseModel(option.name)}
                   disabled={busyAction !== null}
@@ -577,7 +747,7 @@ export default function FirstRunSetupView({
           {(busyAction === 'model-pull' || modelPullProgress) && (
             <div className="FirstRunSetupModelProgress">
               <div className="FirstRunSetupModelProgressHeader">
-                <strong>กำลังโหลด {selectedModel}</strong>
+                <strong>กำลังโหลด {selectedModelName}</strong>
                 <span>{modelPullPercent != null ? `${modelPullPercent}%` : 'กำลังเริ่ม'}</span>
               </div>
               <div className="FirstRunSetupModelProgressTrack" aria-hidden="true">
@@ -640,6 +810,43 @@ export default function FirstRunSetupView({
       )
     }
 
+    if (activeStep.id === 'workspace') {
+      const isElectron = appRuntime.kind === 'electron'
+      return (
+        <div className="FirstRunSetupStepExtras FirstRunSetupWorkspaceExtras">
+          {isElectron ? (
+            <div className="FirstRunSetupWorkspaceFolders">
+              <button type="button" onClick={() => { void appRuntime.app.openDraftsFolder(); if (!completed.has('workspace')) onCompleteSetupItem('workspace') }}>
+                <FolderOpen size={16} aria-hidden="true" />
+                <span>
+                  <strong>โฟลเดอร์งานร่าง</strong>
+                  <small>draft ที่บันทึกไว้ระหว่างแปล</small>
+                </span>
+              </button>
+              <button type="button" onClick={() => { void appRuntime.app.openSettingsFolder(); if (!completed.has('workspace')) onCompleteSetupItem('workspace') }}>
+                <FolderOpen size={16} aria-hidden="true" />
+                <span>
+                  <strong>โฟลเดอร์ตั้งค่า</strong>
+                  <small>ไฟล์ config ของ Moxzk</small>
+                </span>
+              </button>
+              <button type="button" onClick={() => { void appRuntime.app.openLogs(); if (!completed.has('workspace')) onCompleteSetupItem('workspace') }}>
+                <FolderOpen size={16} aria-hidden="true" />
+                <span>
+                  <strong>โฟลเดอร์ log</strong>
+                  <small>ไฟล์ log สำหรับ debug</small>
+                </span>
+              </button>
+            </div>
+          ) : (
+            <p className="FirstRunSetupWorkspaceWebNote">
+              บน web งานร่างเก็บใน browser (IndexedDB) ตั้งค่าเก็บใน localStorage
+            </p>
+          )}
+        </div>
+      )
+    }
+
     if (activeStep.id === 'account') {
       return (
         <div className="FirstRunSetupAccountPreview" aria-hidden="true">
@@ -668,19 +875,19 @@ export default function FirstRunSetupView({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[var(--moxzk-bg)] overflow-y-auto pb-10 pt-[4.5rem]">
+    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[var(--moxzk-bg)] overflow-hidden pb-10 pt-[4.5rem]">
       <div className="FirstRunSetupShell">
         <div className="FirstRunSetupBrand">Moxzk setup</div>
         <div className="FirstRunSetupPageCount">{visiblePageNumber} / {totalPages}</div>
         {!showIntro && (
-          <button type="button" className="FirstRunSetupTopSkip" onClick={skipStep}>
+          <button type="button" className="FirstRunSetupTopSkip" aria-label={`ข้าม ${activeStep.title}`} onClick={skipStep}>
             Skip
           </button>
         )}
 
         <main className="FirstRunSetupMain" aria-live="polite">
           {showIntro ? (
-            <section className="FirstRunSetupFocusedPage">
+            <section key="intro" className="FirstRunSetupFocusedPage">
               <img className="FirstRunSetupIcon" src={SETUP_ICON_SRC.intro} alt="Moxzk setup" />
               <div>
                 <h2>ตั้งค่า Moxzk ให้พร้อมใช้งาน</h2>
@@ -703,10 +910,10 @@ export default function FirstRunSetupView({
               </div>
             </section>
           ) : (
-            <section className={`FirstRunSetupFocusedPage FirstRunSetupStepPage FirstRunSetupStepPage-${activeStep.id}`}>
+            <section key={currentSetupStep} className={`FirstRunSetupFocusedPage FirstRunSetupStepPage FirstRunSetupStepPage-${activeStep.id}`}>
               <img className="FirstRunSetupIcon" src={activeStep.iconSrc} alt={activeStep.iconAlt} />
               <div>
-                <h2>{activeStep.title}</h2>
+                <h2 ref={stepTitleRef} tabIndex={-1}>{activeStep.title}</h2>
                 <p>{activeStep.description}</p>
               </div>
               <div className={`FirstRunSetupStatusLine FirstRunSetupStatus-${activeStatus}`}>

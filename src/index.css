@@ -95,6 +95,8 @@
   --moxzk-dim: #737373;
   --moxzk-accent: #2563eb;
   --moxzk-ai: #db2777;
+  --moxzk-supporter: #ec4899;
+  --moxzk-supporter-subtle: color-mix(in srgb, var(--moxzk-supporter) 15%, transparent);
   --moxzk-danger: #ef4444;
   --moxzk-success: #22c55e;
   --moxzk-warning: #f59e0b;
@@ -528,7 +530,7 @@ button:disabled {
   position: relative;
   display: grid;
   grid-template-rows: 5.5rem minmax(0, 1fr) auto;
-  min-height: min(680px, calc(100vh - 6rem));
+  height: min(860px, calc(100vh - 7rem));
   width: 100%;
   max-width: 58rem;
   padding: 1.5rem 2rem;
@@ -563,6 +565,7 @@ button:disabled {
   font-size: 0.88rem;
   font-weight: 800;
   padding: 0.45rem 0.25rem;
+  transition: color 130ms ease;
 }
 
 .FirstRunSetupTopSkip:hover,
@@ -590,6 +593,7 @@ button:disabled {
   gap: 1.15rem;
   width: min(42rem, 100%);
   transform: translateY(-0.4rem);
+  animation: setupStepIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .FirstRunSetupStepPage-account {
@@ -625,9 +629,9 @@ button:disabled {
 
 .FirstRunSetupMain h2 {
   color: var(--moxzk-text);
-  font-size: clamp(2rem, 5vw, 3.25rem);
-  font-weight: 900;
-  line-height: 1.12;
+  font-size: clamp(1.75rem, 4vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.15;
 }
 
 .FirstRunSetupMain p {
@@ -646,27 +650,27 @@ button:disabled {
   min-height: 2.1rem;
   color: var(--moxzk-muted);
   font-size: 0.92rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .FirstRunSetupStatusLine span {
   display: block;
-  height: 0.62rem;
-  width: 0.62rem;
+  height: 0.58rem;
+  width: 0.58rem;
   border-radius: 999px;
   background: #ef4444;
-  box-shadow: 0 0 0 0.34rem rgba(239, 68, 68, 0.13);
+  opacity: 0.8;
 }
 
 .FirstRunSetupStatus-ready span {
   background: #22c55e;
-  box-shadow: 0 0 0 0.34rem rgba(34, 197, 94, 0.13);
+  opacity: 0.9;
 }
 
 .FirstRunSetupStatus-skipped span,
 .FirstRunSetupStatusIntro span {
   background: #f59e0b;
-  box-shadow: 0 0 0 0.34rem rgba(245, 158, 11, 0.14);
+  opacity: 0.8;
 }
 
 .FirstRunSetupActionList {
@@ -694,7 +698,8 @@ button:disabled {
   padding: 0.7rem 1rem;
   color: var(--moxzk-text);
   font-size: 0.92rem;
-  font-weight: 900;
+  font-weight: 800;
+  transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease, box-shadow 130ms ease, opacity 130ms ease;
 }
 
 .FirstRunSetupAction:disabled {
@@ -704,10 +709,10 @@ button:disabled {
 
 .FirstRunSetupActionPrimary {
   min-width: min(20rem, 100%);
-  border-color: rgba(37, 99, 235, 0.58);
+  border-color: rgba(37, 99, 235, 0.5);
   background: var(--moxzk-accent);
   color: #fff;
-  box-shadow: 0 18px 38px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.18);
 }
 
 .FirstRunSetupActionPrimary:hover:not(:disabled) {
@@ -733,21 +738,21 @@ button:disabled {
 }
 
 .FirstRunSetupActionCheck-missing {
-  border-color: rgba(239, 68, 68, 0.48);
-  background: rgba(239, 68, 68, 0.13);
-  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--moxzk-muted);
 }
 
 .FirstRunSetupActionCheck-ready {
-  border-color: rgba(34, 197, 94, 0.5);
-  background: rgba(34, 197, 94, 0.13);
-  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.32);
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--moxzk-muted);
 }
 
 .FirstRunSetupActionCheck-skipped {
-  border-color: rgba(245, 158, 11, 0.52);
-  background: rgba(245, 158, 11, 0.14);
-  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--moxzk-muted);
 }
 
 .FirstRunSetupUtilityActions {
@@ -771,6 +776,7 @@ button:disabled {
   padding: 0.2rem 0.3rem;
   font-size: 0.84rem;
   font-weight: 850;
+  transition: background-color 130ms ease, color 130ms ease;
 }
 
 .FirstRunSetupUtilityAction:hover:not(:disabled) {
@@ -800,10 +806,10 @@ button:disabled {
   align-items: center;
   gap: 0.65rem;
   min-width: min(20rem, 100%);
-  border: 1px solid rgba(34, 197, 94, 0.24);
+  border: 1px solid rgba(34, 197, 94, 0.16);
   border-radius: 8px;
-  background: rgba(34, 197, 94, 0.1);
-  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.07);
+  color: var(--moxzk-muted);
   padding: 0.75rem 0.9rem;
   text-align: left;
 }
@@ -811,6 +817,7 @@ button:disabled {
 .FirstRunSetupReadyPanel svg {
   flex-shrink: 0;
   color: var(--moxzk-success);
+  opacity: 0.8;
 }
 
 .FirstRunSetupReadyPanel span {
@@ -820,15 +827,15 @@ button:disabled {
 }
 
 .FirstRunSetupReadyPanel strong {
-  color: #dcfce7;
+  color: var(--moxzk-text);
   font-size: 0.9rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .FirstRunSetupReadyPanel small {
-  color: #86efac;
+  color: var(--moxzk-muted);
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .FirstRunSetupStepExtras {
@@ -837,7 +844,112 @@ button:disabled {
 
 .FirstRunSetupModelExtras {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.85rem;
+}
+
+.FirstRunSetupModelSearch {
+  position: relative;
+  display: grid;
+  gap: 0.4rem;
+  text-align: left;
+}
+
+.FirstRunSetupModelSearch > span {
+  color: var(--moxzk-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.FirstRunSetupModelSearchBox {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.65rem;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--moxzk-muted);
+  padding: 0.72rem 0.85rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.FirstRunSetupModelSearchBox:focus-within {
+  border-color: rgba(96, 165, 250, 0.78);
+  background: rgba(37, 99, 235, 0.13);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+.FirstRunSetupModelSearchBox input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--moxzk-text);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.FirstRunSetupModelSearchBox input::placeholder {
+  color: rgba(148, 163, 184, 0.72);
+}
+
+.FirstRunSetupModelSuggestions {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: -1px;
+  right: -1px;
+  z-index: 10;
+  display: grid;
+  max-height: 12.5rem;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgb(29, 29, 29);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36);
+  animation: setupSuggestIn 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.FirstRunSetupModelSuggestions [role="option"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.45rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--moxzk-text);
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+}
+
+.FirstRunSetupModelSuggestions [role="option"]:hover,
+.FirstRunSetupModelSuggestions [role="option"][aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.FirstRunSetupModelSuggestions svg {
+  flex: 0 0 auto;
+  color: var(--moxzk-muted);
+}
+
+.FirstRunSetupModelSearch small {
+  color: var(--moxzk-muted);
+  font-size: 0.74rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.FirstRunSetupModelSearchReady {
+  color: rgb(134, 239, 172) !important;
 }
 
 .FirstRunSetupModelChoices {
@@ -866,9 +978,8 @@ button:disabled {
 }
 
 .FirstRunSetupModelChoiceActive {
-  border-color: rgba(37, 99, 235, 0.62);
-  background: rgba(37, 99, 235, 0.13);
-  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.24);
+  border-color: rgba(37, 99, 235, 0.55);
+  background: rgba(37, 99, 235, 0.11);
 }
 
 .FirstRunSetupModelChoice strong,
@@ -876,7 +987,7 @@ button:disabled {
   display: block;
   color: var(--moxzk-text);
   font-size: 0.9rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .FirstRunSetupModelChoice small {
@@ -884,7 +995,7 @@ button:disabled {
   margin-top: 0.15rem;
   color: var(--moxzk-dim);
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 750;
 }
 
 .FirstRunSetupModelChoice p {
@@ -898,20 +1009,21 @@ button:disabled {
 
 .FirstRunSetupModelBadge {
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.075);
-  color: var(--moxzk-muted);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--moxzk-dim);
   padding: 0.14rem 0.42rem;
   font-size: 0.66rem;
-  font-weight: 900;
+  font-weight: 750;
   white-space: nowrap;
 }
 
 .FirstRunSetupModelProgress {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.6rem;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
-  padding: 0.75rem;
+  border: 1px solid rgba(96, 165, 250, 0.18);
+  background: rgba(37, 99, 235, 0.08);
+  padding: 0.85rem;
   text-align: left;
 }
 
@@ -921,7 +1033,7 @@ button:disabled {
   gap: 1rem;
   color: var(--moxzk-text);
   font-size: 0.82rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .FirstRunSetupModelProgressHeader span,
@@ -930,10 +1042,10 @@ button:disabled {
 }
 
 .FirstRunSetupModelProgressTrack {
-  height: 0.42rem;
+  height: 0.62rem;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.13);
 }
 
 .FirstRunSetupModelProgressTrack span {
@@ -956,6 +1068,64 @@ button:disabled {
   display: grid;
   gap: 0.85rem;
   text-align: left;
+}
+
+.FirstRunSetupWorkspaceExtras {
+  display: grid;
+  gap: 0.85rem;
+  text-align: left;
+}
+
+.FirstRunSetupWorkspaceFolders {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.FirstRunSetupWorkspaceFolders > button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--moxzk-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.FirstRunSetupWorkspaceFolders > button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.FirstRunSetupWorkspaceFolders > button > svg {
+  flex-shrink: 0;
+  color: var(--moxzk-dim);
+}
+
+.FirstRunSetupWorkspaceFolders > button > span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.FirstRunSetupWorkspaceFolders > button strong {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.FirstRunSetupWorkspaceFolders > button small {
+  font-size: 0.72rem;
+  color: var(--moxzk-dim);
+}
+
+.FirstRunSetupWorkspaceWebNote {
+  font-size: 0.8rem;
+  color: var(--moxzk-dim);
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
 }
 
 .FirstRunSetupChoiceGroup {
@@ -991,6 +1161,7 @@ button:disabled {
   color: var(--moxzk-muted);
   padding: 0.7rem;
   text-align: left;
+  transition: background-color 140ms ease, border-color 140ms ease;
 }
 
 .FirstRunSetupChoiceTile:hover {
@@ -998,9 +1169,8 @@ button:disabled {
 }
 
 .FirstRunSetupChoiceTileActive {
-  border-color: rgba(37, 99, 235, 0.62);
-  background: rgba(37, 99, 235, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.24);
+  border-color: rgba(37, 99, 235, 0.55);
+  background: rgba(37, 99, 235, 0.11);
 }
 
 .FirstRunSetupChoiceTile span {
@@ -1026,10 +1196,10 @@ button:disabled {
   width: 13.5rem;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.045);
   padding: 0.85rem;
   text-align: left;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
   animation: setupAlbumFloat 4.8s ease-in-out infinite;
 }
 
@@ -1113,7 +1283,8 @@ button:disabled {
   width: min(34rem, 100%);
   color: #fde68a;
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 700;
+  opacity: 0.85;
 }
 
 .FirstRunSetupFooter {
@@ -1137,6 +1308,7 @@ button:disabled {
   flex: 1;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
+  transition: background-color 300ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .FirstRunSetupProgressDone {
@@ -1172,7 +1344,8 @@ button:disabled {
   color: var(--moxzk-muted);
   padding: 0.7rem 0.7rem;
   font-size: 0.92rem;
-  font-weight: 900;
+  font-weight: 750;
+  transition: background-color 130ms ease, color 130ms ease;
 }
 
 .FirstRunSetupBackAction:hover {
@@ -1185,7 +1358,7 @@ button:disabled {
   border-radius: 7px;
   background: transparent;
   color: var(--moxzk-muted);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .OllamaTutorialClose:hover {
@@ -1231,6 +1404,7 @@ button:disabled {
   color: var(--moxzk-muted);
   padding: 0.55rem;
   text-align: left;
+  transition: background-color 130ms ease, color 130ms ease;
 }
 
 .OllamaTutorialStep span:first-child {
@@ -1239,10 +1413,10 @@ button:disabled {
   width: 1.45rem;
   place-items: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--moxzk-text);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--moxzk-muted);
   font-size: 0.72rem;
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .OllamaTutorialStep:hover {
@@ -1251,12 +1425,13 @@ button:disabled {
 }
 
 .OllamaTutorialStepActive {
-  background: rgba(37, 99, 235, 0.18);
+  background: rgba(37, 99, 235, 0.12);
   color: var(--moxzk-text);
 }
 
 .OllamaTutorialStepActive span:first-child {
   background: var(--moxzk-accent);
+  color: #fff;
 }
 
 .OllamaTutorialMain {
@@ -1286,6 +1461,7 @@ button:disabled {
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.28);
   aspect-ratio: 16 / 9;
+  animation: ollamaStepIn 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .OllamaTutorialImageFrame img {
@@ -1317,6 +1493,7 @@ button:disabled {
   height: 0.35rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
+  transition: background-color 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .OllamaTutorialProgressDone {
@@ -1907,5 +2084,46 @@ button:disabled {
   }
   50% {
     transform: translateY(-0.45rem);
+  }
+}
+
+@keyframes setupStepIn {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes setupSuggestIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ollamaStepIn {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .FirstRunSetupFocusedPage,
+  .FirstRunSetupModelSuggestions,
+  .OllamaTutorialImageFrame {
+    animation: none !important;
   }
 }
