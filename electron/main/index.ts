@@ -54,12 +54,14 @@ function createWindow(): void {
 
   win.webContents.on('render-process-gone', (_event, details) => {
     if (details.reason !== 'clean-exit') {
+      console.warn(`Renderer process gone: ${details.reason}. Reloading window.`)
       win.reload()
     }
   })
 
-  win.webContents.on('did-fail-load', (_event, errorCode, _errorDescription, _validatedURL, isMainFrame) => {
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, _validatedURL, isMainFrame) => {
     if (isMainFrame && errorCode !== -3) {
+      console.error(`Failed to load main frame with error code ${errorCode}: ${errorDescription}. Reloading window.`)
       win.reload()
     }
   })
