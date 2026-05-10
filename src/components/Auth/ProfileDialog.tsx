@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Badge, Button, IconButton, Modal, TextInput } from '../ui/primitives'
 import { useAuthStore } from '../../store/authStore'
 import { useAlbumStore } from '../../store/albumStore'
+import { useAppStore } from '../../store/appStore'
 import {
   changePassword,
   deleteCurrentAccount,
@@ -22,11 +23,13 @@ import {
   Eye,
   EyeOff,
   FolderOpen,
+  Heart,
   ImageUp,
   KeyRound,
   Link2,
   Loader2,
   LogOut,
+  Settings2,
   ShieldCheck,
   Trash2,
   User,
@@ -177,6 +180,21 @@ export default function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; on
       <div className="grid h-full min-h-0 grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="ProfileModalSidebar flex min-h-0 flex-col px-5 py-5">
           <div className="truncate text-sm font-semibold text-[var(--moxzk-text)]">{displayEmail || 'Moxzk account'}</div>
+          <div className="mt-2">
+            {profile?.supporter_unlocked ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--moxzk-supporter-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[var(--moxzk-supporter)]">
+                <Heart size={10} className="fill-[var(--moxzk-supporter)]" /> Supporter
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-[var(--moxzk-muted)] transition hover:bg-white/[0.10] hover:text-[var(--moxzk-text)]"
+                onClick={() => { onClose(); setTimeout(() => useAppStore.getState().openSettingsAtTab('supporter'), 150) }}
+              >
+                <Settings2 size={10} /> Free · อัปเกรด
+              </button>
+            )}
+          </div>
           <nav className="mt-6 space-y-2">
             {PROFILE_SECTIONS.map((item) => (
               <button

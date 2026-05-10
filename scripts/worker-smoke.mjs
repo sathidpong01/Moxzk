@@ -25,6 +25,7 @@ export async function runWorkerSmoke({
   cookieHeader = auth.cookieHeader
   const me = await requestJson(fetchImpl, baseUrl, '/api/auth/me', { cookieHeader })
   if (!me.ok || !me.payload?.user) throw new Error(`auth/me with session failed: ${me.status} ${me.message}`)
+  if (typeof me.payload.user.supporterUnlocked !== 'boolean') throw new Error(`auth/me response missing supporterUnlocked field (got ${JSON.stringify(me.payload.user.supporterUnlocked)})`)
   checks.push({ name: 'auth.session_me', mode: auth.mode })
 
   try {

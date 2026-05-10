@@ -60,6 +60,11 @@ let activeProtocolCallback:
   | null = null
 
 export function registerDesktopProtocol(): boolean {
+  if (!app.isPackaged) {
+    app.removeAsDefaultProtocolClient(DESKTOP_AUTH_PROTOCOL)
+    customProtocolRegistered = false
+    return false
+  }
   const launchArgs = process.defaultApp && process.argv[1]
     ? [process.argv[1]]
     : []

@@ -52,6 +52,18 @@ function createWindow(): void {
     sendWindowState(win)
   })
 
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason !== 'clean-exit') {
+      win.reload()
+    }
+  })
+
+  win.webContents.on('did-fail-load', (_event, errorCode, _errorDescription, _validatedURL, isMainFrame) => {
+    if (isMainFrame && errorCode !== -3) {
+      win.reload()
+    }
+  })
+
   win.on('maximize', () => sendWindowState(win))
   win.on('unmaximize', () => sendWindowState(win))
   win.on('restore', () => sendWindowState(win))

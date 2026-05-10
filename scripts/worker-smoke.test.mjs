@@ -37,13 +37,13 @@ test('runWorkerSmoke covers auth, album, page, storage, and cleanup paths', asyn
       }
       if (parsed.pathname === '/api/auth/register') {
         return jsonResponse(201, {
-          user: { id: 'u1', email: 'smoke@example.com', emailNormalized: 'smoke@example.com', username: 'Smoke Test', avatarUrl: null, plan: 'free' },
+          user: { id: 'u1', email: 'smoke@example.com', emailNormalized: 'smoke@example.com', username: 'Smoke Test', avatarUrl: null, plan: 'free', supporterUnlocked: false },
         }, { 'Set-Cookie': 'moxzk_session=smoke; Path=/; HttpOnly; Secure; SameSite=Lax' })
       }
       if (parsed.pathname === '/api/auth/me') {
         assert.equal(init.headers.Cookie, 'moxzk_session=smoke')
         return jsonResponse(200, {
-          user: { id: 'u1', email: 'smoke@example.com', emailNormalized: 'smoke@example.com', username: 'Smoke Test', avatarUrl: null, plan: 'free' },
+          user: { id: 'u1', email: 'smoke@example.com', emailNormalized: 'smoke@example.com', username: 'Smoke Test', avatarUrl: null, plan: 'free', supporterUnlocked: false },
         })
       }
       if (parsed.pathname === '/api/albums' && init.method === 'POST') {

@@ -84,15 +84,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ loading: true, authError: null })
     try {
       const result = await runtime.auth.signInWithGoogle()
-      if (!result.ok) throw new Error(result.error || 'Google login ล้มเหลว')
+      if (!result.ok) throw new Error(result.error || 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ')
       if (runtime.kind === 'electron' || hasElectronBridge) {
         await get().fetchProfile()
         set({ showAuthModal: false, authError: null })
         toast.success('เข้าสู่ระบบด้วย Google สำเร็จ!')
       }
     } catch (error) {
-      set({ loading: false, authError: toAuthUiError(error, 'Google login ล้มเหลว') })
-      toast.error(error instanceof Error ? error.message : 'Google login ล้มเหลว')
+      set({ loading: false, authError: toAuthUiError(error, 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ') })
+      toast.error(error instanceof Error ? error.message : 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ')
       throw error
     }
   },

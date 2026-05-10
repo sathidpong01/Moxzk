@@ -69,7 +69,7 @@ export async function runBrowserSmoke(config) {
     report(config, 'browser.upload.start')
     await page.setInputFiles('input[type=file]', sampleImagePath)
     await page.getByRole('button', { name: /เริ่มแก้ไข|เปิดในหน้าแก้ไข/ }).click()
-    await page.getByRole('button', { name: /ส่งออก/ }).waitFor({ timeout: 15_000 })
+    await page.getByRole('button', { name: /export/ }).waitFor({ timeout: 15_000 })
     checks.push({ name: 'browser.upload' })
     report(config, 'browser.upload.done')
 
@@ -84,16 +84,16 @@ export async function runBrowserSmoke(config) {
 
     report(config, 'browser.open_album.start')
     await openAlbumThroughUi(page, albumTitle, config.worker.username, config.worker.email)
-    await page.getByRole('button', { name: /ส่งออก/ }).waitFor({ timeout: 20_000 })
+    await page.getByRole('button', { name: /export/ }).waitFor({ timeout: 20_000 })
     checks.push({ name: 'browser.open_album', albumTitle })
     report(config, 'browser.open_album.done')
 
     report(config, 'browser.export_zip.start')
-    await page.getByRole('button', { name: /ส่งออก/ }).click()
-    await page.getByText('ตั้งค่าส่งออก').waitFor({ timeout: 10_000 })
+    await page.getByRole('button', { name: /export/ }).click()
+    await page.getByText('ตั้งค่า export').waitFor({ timeout: 10_000 })
     await page.getByRole('button', { name: 'บันทึกเป็น ZIP' }).waitFor({ timeout: 10_000 })
     const downloadPromise = page.waitForEvent('download', { timeout: 30_000 })
-    await page.getByRole('button', { name: /ส่งออกไฟล์/ }).click()
+    await page.getByRole('button', { name: /export ไฟล์/ }).click()
     const download = await downloadPromise
     const outputPath = path.join(config.downloadDir, download.suggestedFilename())
     await download.saveAs(outputPath)

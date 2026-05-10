@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import { useAlbumStore } from '../../store/albumStore'
-import { LogIn, LogOut, User, FolderOpen } from 'lucide-react'
+import { Heart, LogIn, LogOut, User, FolderOpen } from 'lucide-react'
 import { Button, DropdownItem, DropdownMenu } from '../ui/primitives'
 import ProfileDialog from './ProfileDialog'
 
@@ -56,7 +56,18 @@ export default function UserMenu() {
         )}
         className="w-52"
       >
-        <div className="px-2 py-1 text-xs text-[var(--moxzk-dim)] truncate">{user.email}</div>
+        <div className="px-2 pt-1 text-xs text-[var(--moxzk-dim)] truncate">{user.email}</div>
+        <div className="px-2 pb-1">
+          {profile?.supporter_unlocked ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--moxzk-supporter-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--moxzk-supporter)]">
+              <Heart size={9} className="fill-[var(--moxzk-supporter)]" /> Supporter
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-[var(--moxzk-muted)]">
+              Free
+            </span>
+          )}
+        </div>
         <DropdownItem onClick={() => useAlbumStore.getState().openForBrowse()}>
           <FolderOpen size={14} /> อัลบั้มของฉัน
         </DropdownItem>

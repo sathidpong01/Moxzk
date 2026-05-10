@@ -145,7 +145,7 @@ export async function renderImageEntryToBlob(
 
     return await new Promise((resolve, reject) => {
       canvas.toBlob(
-        (blob) => blob ? resolve(blob) : reject(new Error('Export canvas failed')),
+        (blob) => blob ? resolve(blob) : reject(new Error('สร้างไฟล์ export ไม่สำเร็จ')),
         MIME_TYPES[format],
         format === 'png' ? undefined : quality,
       )

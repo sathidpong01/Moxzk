@@ -81,7 +81,7 @@ export default function SplitView({
                 <div className={viewportClassName} style={zoomFrameStyle}>
                   <img
                     src={translatedImageUrl}
-                    alt="ภาพหลังส่งออก"
+                    alt="ภาพหลัง export"
                     className={imageClassName}
                     draggable={false}
                   />

@@ -53,7 +53,7 @@ export class ElectronRuntime implements AppRuntime {
         const nativeFiles = await Promise.all(files.map(toNativeFilePayload))
         const result = await this.bridge.files.saveExportFiles(nativeFiles, archiveName, options)
         if (result.ok) return 'folder'
-        if (result.error === 'USER_CANCELLED') throw new DOMException('Export cancelled', 'AbortError')
+        if (result.error === 'USER_CANCELLED') throw new DOMException('ยกเลิก export', 'AbortError')
         console.warn('[runtime:electron] folder export failed, falling back to zip:', result.error)
       }
       await saveZip(this.bridge, files, archiveName)

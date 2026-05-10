@@ -428,14 +428,14 @@ export default function ExportDrawer({
         <DialogPanel className="flex h-full w-full max-w-[72rem] flex-col bg-[rgba(11,11,12,0.98)] shadow-[-24px_0_64px_rgba(0,0,0,0.45)] backdrop-blur">
           <div className="flex items-center justify-between gap-4 px-6 py-4">
             <div className="min-w-0">
-              <DialogTitle className="sr-only">ส่งออกโปรเจกต์</DialogTitle>
+              <DialogTitle className="sr-only">export โปรเจกต์</DialogTitle>
               <p className="text-sm font-medium text-[var(--moxzk-muted)]">
                 {selectedEntries.length > 0
-                  ? `${selectedEntries.length} จาก ${sortedEntries.length} หน้า พร้อมส่งออก`
-                  : 'เลือกหน้าอย่างน้อย 1 หน้าเพื่อส่งออก'}
+                  ? `${selectedEntries.length} จาก ${sortedEntries.length} หน้า พร้อม export`
+                  : 'เลือกหน้าอย่างน้อย 1 หน้าเพื่อ export'}
               </p>
             </div>
-            <IconButton label="ปิดหน้าส่งออก" onClick={onClose} className="h-10 w-10 rounded-[14px]">
+            <IconButton label="ปิดหน้า export" onClick={onClose} className="h-10 w-10 rounded-[14px]">
               <X size={18} />
             </IconButton>
           </div>
@@ -470,7 +470,7 @@ export default function ExportDrawer({
                         <ImageIcon size={40} aria-hidden="true" />
                         <p className="mt-4 text-sm font-bold text-[var(--moxzk-text)]">
                           {isRenderingPreview
-                            ? 'กำลังสร้างตัวอย่างส่งออก'
+                            ? 'กำลังสร้างตัวอย่าง export'
                             : activeRenderError || (previewMode === 'after'
                               ? 'ยังไม่มีภาพ after ที่พร้อมดู'
                               : 'ยังไม่มีภาพสำหรับเปรียบเทียบ')}
@@ -583,7 +583,7 @@ export default function ExportDrawer({
               <aside className="min-h-0 rounded-[24px] bg-white/[0.02] p-4">
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="shrink-0">
-                    <h2 className="text-lg font-bold text-[var(--moxzk-text)]">ตั้งค่าส่งออก</h2>
+                    <h2 className="text-lg font-bold text-[var(--moxzk-text)]">ตั้งค่า export</h2>
                   </div>
 
                   <div className="moxzk-scrollbar-hidden mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
@@ -592,7 +592,7 @@ export default function ExportDrawer({
                         value={exportFormat}
                         options={EXPORT_FORMAT_OPTIONS}
                         onChange={onExportFormatChange}
-                        ariaLabel="รูปแบบไฟล์ส่งออก"
+                        ariaLabel="รูปแบบไฟล์ export"
                         className="grid grid-cols-3"
                         buttonClassName="w-full justify-center px-2"
                         stretch
@@ -605,7 +605,7 @@ export default function ExportDrawer({
                         value={exportDestination}
                         options={EXPORT_DESTINATION_OPTIONS}
                         onChange={setExportDestination}
-                        ariaLabel="ปลายทางการส่งออก"
+                        ariaLabel="ปลายทาง export"
                         className="grid grid-cols-2"
                         buttonClassName="w-full justify-center px-2 text-xs"
                         stretch
@@ -632,7 +632,7 @@ export default function ExportDrawer({
                           value={exportQuality}
                           options={EXPORT_QUALITY_PRESETS.map((value) => ({ value, label: `${value}%` }))}
                           onChange={onExportQualityChange}
-                          ariaLabel="คุณภาพไฟล์ส่งออก"
+                          ariaLabel="คุณภาพไฟล์ export"
                           className="grid grid-cols-4"
                           buttonClassName="w-full justify-center px-2"
                           stretch
@@ -693,7 +693,7 @@ export default function ExportDrawer({
                     disabled={isExporting || (sortedEntries.length > 1 && selectedIds.length === 0)}
                   >
                     <Download size={16} />
-                    {isExporting ? 'กำลังส่งออก...' : 'ส่งออกไฟล์'}
+                    {isExporting ? 'กำลัง export...' : 'export ไฟล์'}
                   </Button>
                 </div>
               </aside>
