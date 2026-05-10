@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAlbumStore } from '../../store/albumStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../store/appStore'
@@ -23,6 +23,8 @@ import {
   Check,
   Trash2,
   User,
+  Lock,
+  Heart,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getAlbumOpenPlan } from '../../services/albumOpen'
@@ -88,6 +90,11 @@ export default function AlbumListModal() {
     deletePage: state.deletePage,
   })))
 
+  const isSupporter = profile?.supporter_unlocked ?? false
+  const FREE_ALBUM_LIMIT = 1
+  const FREE_PAGE_LIMIT = 50
+  const atAlbumLimit = !isSupporter && albums.length >= FREE_ALBUM_LIMIT
+
   const [view, setView] = useState<ModalView>('list')
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -98,6 +105,19 @@ export default function AlbumListModal() {
   const [detailLoadError, setDetailLoadError] = useState<string | null>(null)
   const [updatingSourceLang, setUpdatingSourceLang] = useState(false)
   const [customSourceLangDraft, setCustomSourceLangDraft] = useState('')
+
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  // Focus first interactive element when modal opens or view changes
+  useEffect(() => {
+    if (!showAlbumModal) return
+    const el = modalRef.current
+    if (!el) return
+    const firstFocusable = el.querySelector<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])'
+    )
+    firstFocusable?.focus()
+  }, [showAlbumModal, view])
 
   // Confirm dialog state
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -135,6 +155,16 @@ export default function AlbumListModal() {
     setDetailLoadError(null)
     setShowAlbumModal(false)
   }, [setShowAlbumModal])
+
+  // Close on Escape
+  useEffect(() => {
+    if (!showAlbumModal) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeModal()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showAlbumModal, closeModal])
 
   // ── Save current editor images to an album ──
   const handleSaveToAlbum = useCallback(
@@ -363,13 +393,20 @@ export default function AlbumListModal() {
         />
 
         {/* Modal */}
-        <div className="relative floating-panel mx-4 flex max-h-[88vh] w-full max-w-6xl flex-col overflow-visible panel-enter">
+        <div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="album-modal-title"
+          className="relative floating-panel mx-4 flex max-h-[88vh] w-full max-w-6xl flex-col overflow-visible panel-enter"
+        >
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--moxzk-border)] bg-[#151515]/95 px-5 py-3">
             <div className="flex items-center gap-2">
               {view !== 'list' && (
                 <button
                   className="moxzk-icon-button h-7 w-7"
+                  aria-label="ย้อนกลับ"
                   onClick={() => {
                     setView('list')
                     setCurrentAlbum(null)
@@ -386,7 +423,7 @@ export default function AlbumListModal() {
               ) : (
                 <FolderOpen size={16} className="text-[var(--moxzk-accent)]" />
               )}
-              <h2 className="font-bold text-base">{modalTitle}</h2>
+              <h2 id="album-modal-title" className="font-bold text-base">{modalTitle}</h2>
               {saveMode && view === 'list' && (
                 <span className="moxzk-pill text-green-300">โหมดบันทึก</span>
               )}
@@ -403,17 +440,17 @@ export default function AlbumListModal() {
                   className="moxzk-button moxzk-button-ghost moxzk-button-sm"
                   onClick={async () => {
                     if (!currentAlbum) return
-                    toast.info('กำลังส่งออก...')
+                    toast.info('กำลัง export...')
                     await exportAlbumPages(currentPages, currentAlbum.title, {
                       format: 'webp',
                       quality: 0.92,
                       onProgress: (cur, total) => {
-                        if (cur === total) toast.success(`ส่งออก ${total} หน้าเสร็จ`)
+                        if (cur === total) toast.success(`export ${total} หน้าเสร็จ`)
                       },
                     })
                   }}
                 >
-                  <Download size={12} /> ส่งออก
+                  <Download size={12} /> export
                 </button>
               )}
               {view === 'detail' && (
@@ -430,10 +467,13 @@ export default function AlbumListModal() {
               )}
               {view === 'list' && (
                 <button
-                  className="moxzk-button moxzk-button-primary moxzk-button-sm"
-                  onClick={() => setView('create')}
+                  className={`moxzk-button moxzk-button-sm ${atAlbumLimit ? 'moxzk-button-soft opacity-60' : 'moxzk-button-primary'}`}
+                  onClick={() => !atAlbumLimit && setView('create')}
+                  disabled={atAlbumLimit}
+                  title={atAlbumLimit ? 'Free tier รองรับ 1 album — อัปเกรดเป็น Supporter เพื่อสร้างเพิ่ม' : undefined}
                 >
-                  <Plus size={12} /> สร้างอัลบั้ม
+                  {atAlbumLimit ? <Lock size={12} /> : <Plus size={12} />}
+                  สร้างอัลบั้ม
                 </button>
               )}
               {view === 'list' && user && (
@@ -454,6 +494,7 @@ export default function AlbumListModal() {
               )}
               <button
                 className="moxzk-icon-button h-7 w-7"
+                aria-label="ปิด"
                 onClick={closeModal}
               >
                 <X size={14} />
@@ -507,8 +548,8 @@ export default function AlbumListModal() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <section className="rounded-[16px] border border-white/10 bg-[#171717] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-                      <div className="relative flex flex-wrap items-end justify-between gap-3">
+                    <section className="space-y-4">
+                      <div className="flex items-end justify-between gap-3 border-b border-white/10 pb-3">
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">
                             {saveMode ? 'โหมดบันทึกงาน' : 'คลังอัลบั้ม'}
@@ -516,37 +557,51 @@ export default function AlbumListModal() {
                           <h3 className="mt-1 text-lg font-bold text-[var(--moxzk-text)]">
                             {saveMode ? 'เลือกอัลบั้มปลายทาง' : 'อัลบั้มทั้งหมด'}
                           </h3>
-                          <p className="mt-1 text-sm text-[var(--moxzk-muted)]">
-                            {saveMode ? 'คลิกการ์ดเพื่อบันทึกลงอัลบั้ม หรือเข้าไปดูรายละเอียดก่อนก็ได้' : 'ใช้รายการนี้เป็นคลังงานหลักและเข้าไปจัดการแต่ละอัลบั้มได้จากการ์ด'}
-                          </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="moxzk-pill">{albums.length} อัลบั้ม</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isSupporter ? (
+                            <span className="moxzk-pill inline-flex items-center gap-1 text-[var(--moxzk-supporter)]">
+                              <Heart size={10} className="fill-[var(--moxzk-supporter)]" /> Supporter
+                            </span>
+                          ) : (
+                            <span className={`moxzk-pill ${atAlbumLimit ? 'text-amber-300' : ''}`}>
+                              {albums.length}/{FREE_ALBUM_LIMIT} album
+                            </span>
+                          )}
                           <span className="moxzk-pill">{saveMode ? 'พร้อมบันทึกงาน' : 'พร้อมเปิดต่อ'}</span>
                         </div>
                       </div>
-                    </section>
-
-                    <section className="space-y-4">
-                      <div className="flex items-end justify-between gap-3 border-b border-white/10 pb-3">
-                        <div>
-                          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">รายการอัลบั้ม</p>
-                          <h3 className="mt-1 text-lg font-bold text-[var(--moxzk-text)]">อัลบั้มทั้งหมด</h3>
-                        </div>
-                        <span className="moxzk-pill">{albums.length} รายการ</span>
-                      </div>
 
                       <div className="grid justify-start gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,240px))] 2xl:[grid-template-columns:repeat(auto-fill,minmax(220px,250px))]">
-                      {albums.map((album) => (
-                        <AlbumCard
-                          key={album.id}
-                          album={album}
-                          mode={saveMode ? 'save' : 'browse'}
-                          onOpen={handleOpenAlbum}
-                          onManage={handleManageAlbum}
-                        />
-                      ))}
+                        {albums.map((album) => (
+                          <AlbumCard
+                            key={album.id}
+                            album={album}
+                            mode={saveMode ? 'save' : 'browse'}
+                            onOpen={handleOpenAlbum}
+                            onManage={handleManageAlbum}
+                          />
+                        ))}
                       </div>
+                      {atAlbumLimit && (
+                        <div className="flex items-center justify-between gap-4 rounded-[10px] border border-amber-400/20 bg-amber-400/5 px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <Lock size={14} className="shrink-0 text-amber-300" />
+                            <p className="text-sm text-amber-200/80">
+                              Free tier รองรับ {FREE_ALBUM_LIMIT} album — Supporter ได้ unlimited
+                            </p>
+                          </div>
+                          <button
+                            className="moxzk-button moxzk-button-soft moxzk-button-sm shrink-0"
+                            onClick={() => {
+                              closeModal()
+                              setTimeout(() => useAppStore.getState().openSettingsAtTab('supporter'), 150)
+                            }}
+                          >
+                            <Heart size={11} /> อัปเกรด
+                          </button>
+                        </div>
+                      )}
                     </section>
                   </div>
                 )}
@@ -582,8 +637,8 @@ export default function AlbumListModal() {
                   </div>
                 )}
 
-                <section className="relative z-20 mb-6 overflow-visible rounded-[22px] border border-white/10 bg-[#171717] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.32)]">
-                  <div className="relative grid gap-5 xl:grid-cols-[180px_minmax(0,1fr)_300px]">
+                <section className="relative z-20 mb-6 overflow-visible">
+                  <div className="relative grid gap-6 xl:grid-cols-[180px_minmax(0,1fr)_280px]">
                     <div>
                       <div className="overflow-hidden rounded-[18px] border border-white/10 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                         <div className="flex aspect-[3/4] items-center justify-center bg-[#111111]">
@@ -661,7 +716,7 @@ export default function AlbumListModal() {
                       )}
                     </div>
 
-                    <div className="rounded-[20px] border border-white/10 bg-[#202020] p-4">
+                    <div className="border-t border-white/[0.07] pt-5 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
                       <div className="space-y-4">
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--moxzk-dim)]">Source Language</p>
                         <p className="mt-2 text-sm leading-6 text-[var(--moxzk-muted)]">
@@ -750,15 +805,21 @@ export default function AlbumListModal() {
                   </div>
                 </section>
 
-                <section className="rounded-[18px] border border-white/10 bg-[#171717] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
-                  <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-white/10 pb-4">
+                <section className="border-t border-white/[0.07] pt-6">
+                  <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.07] pb-4">
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--moxzk-dim)]">Page Library</p>
                       <h4 className="mt-1 text-lg font-bold text-[var(--moxzk-text)]">หน้าทั้งหมด</h4>
                       <p className="mt-1 text-sm text-[var(--moxzk-muted)]">คลิกเพื่อเปิดหน้าเข้าโหมดแก้ไข หรือสลับเป็นโหมดจัดการเพื่อเรียงลำดับและลบหน้า</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="moxzk-pill">{currentPages.length} หน้า</span>
+                      {isSupporter ? (
+                        <span className="moxzk-pill">{currentPages.length} หน้า</span>
+                      ) : (
+                        <span className={`moxzk-pill ${currentPages.length >= FREE_PAGE_LIMIT ? 'text-amber-300' : ''}`}>
+                          {currentPages.length}/{FREE_PAGE_LIMIT} หน้า
+                        </span>
+                      )}
                       {editMode && <span className="moxzk-pill text-yellow-100">โหมดแก้ไข</span>}
                     </div>
                   </div>

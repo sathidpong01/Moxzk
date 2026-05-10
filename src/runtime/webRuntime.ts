@@ -211,7 +211,7 @@ async function signInWithGoogleInBrowser(): Promise<RuntimeActionResult> {
   if (isElectronUserAgent()) {
     return {
       ok: false,
-      error: 'Electron auth bridge is not available. Restart npm run electron:dev so preload can expose system-browser Google login.',
+      error: 'ระบบเข้าสู่ระบบด้วย Google ในแอปยังไม่พร้อม เปิด npm run electron:dev ใหม่เพื่อโหลดตัวช่วยเข้าสู่ระบบ',
     }
   }
 

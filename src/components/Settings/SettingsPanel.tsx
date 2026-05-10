@@ -9,6 +9,7 @@ import type { LocalServiceName, ManagedServiceStatus, PanelCleanerDependencyStat
 import {
   AlertCircle,
   BookOpen,
+  Check,
   CheckCircle2,
   Copy,
   Cpu,
@@ -22,6 +23,7 @@ import {
   Languages,
   Loader2,
   Lock,
+  Minus,
   RefreshCw,
   RotateCcw,
   Save,
@@ -1303,14 +1305,68 @@ export default function SettingsPanel({
             {tab === 'supporter' && (
               <SettingsSheet>
                 <SettingsRow
+                  title="Free vs Supporter"
+                  description="เปรียบเทียบสิทธิ์การใช้งาน"
+                >
+                  <div className="w-full overflow-hidden rounded-[10px] border border-white/10">
+                    <div className="grid grid-cols-3 bg-white/[0.04] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.12em]">
+                      <div className="text-[var(--moxzk-dim)]">ฟีเจอร์</div>
+                      <div className="text-center text-[var(--moxzk-dim)]">Free</div>
+                      <div className="text-center text-[var(--moxzk-supporter)]">Supporter</div>
+                    </div>
+                    {([
+                      { label: 'Albums', free: '1', pro: 'Unlimited' },
+                      { label: 'Pages / album', free: '50', pro: 'Unlimited' },
+                      { label: 'Cloud backup', free: true, pro: true },
+                      { label: 'OCR + แปลด้วย AI', free: true, pro: true },
+                      { label: 'Local Ollama', free: true, pro: true },
+                      { label: 'PanelCleaner', free: true, pro: true },
+                      { label: 'Export PNG / PDF', free: true, pro: true },
+                      { label: 'Story context', free: true, pro: true },
+                      { label: 'อัปเดตตลอดชีพ', free: false, pro: true },
+                    ] as const).map(({ label, free, pro }, i) => (
+                      <div
+                        key={label}
+                        className={`grid grid-cols-3 items-center px-4 py-2.5 text-sm ${i % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.018]'}`}
+                      >
+                        <span className="text-[var(--moxzk-text)]">{label}</span>
+                        <div className="flex justify-center">
+                          {typeof free === 'string' ? (
+                            <span className="text-xs text-[var(--moxzk-muted)]">{free}</span>
+                          ) : free ? (
+                            <Check size={13} className="text-[var(--moxzk-success)]" />
+                          ) : (
+                            <Minus size={13} className="text-[var(--moxzk-dim)]" />
+                          )}
+                        </div>
+                        <div className="flex justify-center">
+                          {typeof pro === 'string' ? (
+                            <span className="text-xs font-semibold text-[var(--moxzk-accent)]">{pro}</span>
+                          ) : pro ? (
+                            <Check size={13} className="text-[var(--moxzk-success)]" />
+                          ) : (
+                            <Minus size={13} className="text-[var(--moxzk-dim)]" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </SettingsRow>
+
+                <SettingsRow
                   title="สถานะ"
                   description="Unlimited albums & pages สำหรับ Supporter"
                 >
-                  {profile?.supporter_unlocked ? (
+                  {!profile ? (
+                    <div className="moxzk-notice">
+                      <Info size={14} />
+                      <span>ต้อง login ก่อนเพื่อดูสถานะ Supporter</span>
+                    </div>
+                  ) : profile.supporter_unlocked ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3 rounded-[10px] border border-white/10 bg-white/[0.04] px-4 py-3">
-                        <div className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--moxzk-accent)]/15 text-[var(--moxzk-accent)]">
-                          <Heart size={16} />
+                        <div className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--moxzk-supporter-subtle)] text-[var(--moxzk-supporter)]">
+                          <Heart size={16} className="fill-[var(--moxzk-supporter)]" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-[var(--moxzk-text)]">Supporter</p>
@@ -1348,7 +1404,7 @@ export default function SettingsPanel({
                   )}
                 </SettingsRow>
 
-                {!profile?.supporter_unlocked && (
+                {profile && !profile.supporter_unlocked && (
                   <SettingsRow
                     title="Redeem Key"
                     description="กรอก key ที่ได้รับเพื่อปลดล็อก"
@@ -1490,7 +1546,7 @@ export default function SettingsPanel({
                       </li>
                       <li>
                         <Info size={14} />
-                        <span>รูปภาพ อัลบั้ม งานร่าง ไฟล์ที่นำเข้า และไฟล์ที่ส่งออก ยังเป็นของคุณตามสิทธิ์เดิม</span>
+                        <span>รูปภาพ อัลบั้ม งานร่าง ไฟล์ที่นำเข้า และไฟล์ที่ export ยังเป็นของคุณตามสิทธิ์เดิม</span>
                       </li>
                     </ul>
                     <div className="flex flex-wrap gap-2">

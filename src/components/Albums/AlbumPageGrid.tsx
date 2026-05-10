@@ -133,12 +133,21 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
           return (
             <div
               key={page.id}
+              role={editMode ? undefined : 'button'}
+              tabIndex={editMode ? undefined : 0}
+              aria-label={editMode ? undefined : `หน้า ${page.page_number}: เปิดในตัวแก้ไข`}
               draggable={Boolean(editMode)}
               className={`group relative flex h-full flex-col overflow-hidden rounded-[16px] border bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] transition-all duration-200 hover:-translate-y-1 hover:border-[var(--moxzk-border-strong)] hover:shadow-[0_22px_44px_rgba(0,0,0,0.24)] ${
                 editMode
                   ? `cursor-grab border-yellow-300/50 ring-1 ring-yellow-300/20 ${draggedPageId === page.id ? 'opacity-50' : ''}`
                   : 'cursor-pointer border-[var(--moxzk-border)]'
               }`}
+              onKeyDown={editMode ? undefined : (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onOpenPage(page)
+                }
+              }}
               onDragStart={(event) => {
                 if (!editMode) return
                 setDraggedPageId(page.id)
@@ -202,23 +211,23 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
                   <div className="absolute bottom-16 left-0 right-0 flex justify-center gap-1">
                     <button
                       className="moxzk-icon-button h-7 w-7 border border-white/10 bg-black/65 backdrop-blur disabled:opacity-30"
+                      aria-label="เลื่อนหน้าไปซ้าย"
                       disabled={index === 0}
                       onClick={(e) => {
                         e.stopPropagation()
                         handleMoveLeft(index)
                       }}
-                      title="เลื่อนไปซ้าย"
                     >
                       <ChevronLeft size={10} />
                     </button>
                     <button
                       className="moxzk-icon-button h-7 w-7 border border-white/10 bg-black/65 backdrop-blur disabled:opacity-30"
+                      aria-label="เลื่อนหน้าไปขวา"
                       disabled={index === pages.length - 1}
                       onClick={(e) => {
                         e.stopPropagation()
                         handleMoveRight(index)
                       }}
-                      title="เลื่อนไปขวา"
                     >
                       <ChevronRight size={10} />
                     </button>
@@ -227,11 +236,11 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
                   {/* Delete button (always visible in edit mode) */}
                   <button
                     className="moxzk-icon-button absolute left-5 bottom-5 h-8 w-8 border border-red-300/25 bg-red-500/75 text-white backdrop-blur"
+                    aria-label="ลบหน้านี้"
                     onClick={(e) => {
                       e.stopPropagation()
                       onDeletePage(page.id)
                     }}
-                    title="ลบหน้านี้"
                   >
                     <Trash2 size={10} />
                   </button>
@@ -240,11 +249,11 @@ export default function AlbumPageGrid({ pages, editMode, onOpenPage, onDeletePag
                 /* Normal mode: delete on hover */
                 <button
                   className="moxzk-icon-button absolute left-5 top-5 h-8 w-8 border border-white/10 bg-black/60 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                  aria-label="ลบหน้านี้"
                   onClick={(e) => {
                     e.stopPropagation()
                     onDeletePage(page.id)
                   }}
-                  title="ลบหน้านี้"
                 >
                   <Trash2 size={10} className="text-red-300" />
                 </button>

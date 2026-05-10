@@ -56,11 +56,11 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
           selectedIds: ids,
           destination,
         })
-      toast.success(mode === 'folder' ? 'ส่งออกลงโฟลเดอร์สำเร็จ' : 'ส่งออกเป็น ZIP สำเร็จ')
+      toast.success(mode === 'folder' ? 'export ลงโฟลเดอร์สำเร็จ' : 'export เป็น ZIP สำเร็จ')
         return true
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
-        toast.error(error instanceof Error ? error.message : 'ส่งออกล้มเหลว')
+        toast.error(error instanceof Error ? error.message : 'export ล้มเหลว')
         return false
       }
     }
@@ -79,10 +79,10 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
         originalFileName,
         { destination },
       )
-      toast.success(mode === 'folder' ? 'ส่งออกลงโฟลเดอร์สำเร็จ' : 'ส่งออกเป็น ZIP สำเร็จ')
+      toast.success(mode === 'folder' ? 'export ลงโฟลเดอร์สำเร็จ' : 'export เป็น ZIP สำเร็จ')
       return true
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'ส่งออกล้มเหลว')
+      toast.error(error instanceof Error ? error.message : 'export ล้มเหลว')
       return false
     }
   }, [store])

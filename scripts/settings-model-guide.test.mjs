@@ -93,7 +93,7 @@ test('settings exposes about and licensing boundaries', () => {
   assert.match(source, /สิ่งที่ใช้ร่วมกัน/)
   assert.match(source, /ตัวช่วยลบข้อความใช้ PanelCleaner แยกจากตัวโปรแกรมหลัก/)
   assert.match(source, /Ollama, Ollama Cloud และโมเดลที่เลือกใช้/)
-  assert.match(source, /รูปภาพ อัลบั้ม งานร่าง ไฟล์ที่นำเข้า และไฟล์ที่ส่งออก/)
+  assert.match(source, /รูปภาพ อัลบั้ม งานร่าง ไฟล์ที่นำเข้า และไฟล์ที่ export/)
   assert.match(source, /settings-about-summary/)
   assert.match(source, /settings-about-list/)
   assert.match(source, /aria-current=\{tab === id \? 'page' : undefined\}/)

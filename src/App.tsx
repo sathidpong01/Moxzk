@@ -306,7 +306,7 @@ function App() {
               )}
               <button className="moxzk-button moxzk-button-primary moxzk-button-sm gap-1 px-2 sm:px-3" onClick={handleOpenExportDrawer}>
                 <Download size={14} />
-                <span className="hidden sm:inline">ส่งออก</span>
+                <span className="hidden sm:inline">export</span>
               </button>
               <DropdownMenu
                 trigger={(

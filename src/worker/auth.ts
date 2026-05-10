@@ -128,7 +128,7 @@ export async function logout(ctx: RequestContext): Promise<Response> {
 export async function me(ctx: RequestContext): Promise<Response> {
   try {
     const user = await requireUser(ctx)
-    return json({ user: publicUser(user) })
+    return json({ user })
   } catch (error) {
     if (error instanceof ApiError && error.response.status === 401) {
       return json({ user: null })
@@ -518,7 +518,7 @@ function desktopCallbackResponse(redirectUrl: URL): Response {
   const body = `<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>${APP_DISPLAY_NAME} Login</title></head>
-<body><p>Google login finished. You can return to ${APP_DISPLAY_NAME}.</p></body>
+<body><p>เข้าสู่ระบบด้วย Google เสร็จแล้ว กลับไปที่ ${APP_DISPLAY_NAME} ได้</p></body>
 </html>`
   return new Response(body, {
     status: 302,
