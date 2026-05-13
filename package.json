@@ -71,7 +71,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
     "vite": "^8.0.8",
-    "wrangler": "^4.83.0"
+    "wrangler": "^4.90.0"
   },
   "overrides": {
     "minimatch": "^10.2.5"
@@ -82,11 +82,16 @@
     "directories": {
       "output": "output/electron"
     },
+    "icon": "assets/icon.png",
     "files": [
       "out/**/*",
       "package.json",
       "LICENSE",
       "NOTICE.md"
+    ],
+    "extraResources": [
+      { "from": "assets/icon.png", "to": "assets/icon.png" },
+      { "from": "scripts/panelcleaner-bridge.mjs", "to": "panelcleaner-bridge.mjs" }
     ],
     "asar": true,
     "compression": "normal",

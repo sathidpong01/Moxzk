@@ -258,7 +258,7 @@ function GoogleAuthButton({
       {pending && (
         <div className="flex items-start gap-2 rounded-[8px] bg-white/[0.035] px-3 py-2 text-xs leading-5 text-[var(--moxzk-muted)]">
           <ShieldCheck size={14} className="mt-0.5 shrink-0 text-green-300" />
-          <span>รอการยืนยันจากเบราว์เซอร์ ระบบจะกลับมาที่แอปเมื่อเข้าสู่ระบบเสร็จ</span>
+          <span className="text-pretty">รอการยืนยันจากเบราว์เซอร์ แอปจะกลับมาอัตโนมัติเมื่อเข้าสู่ระบบเสร็จ</span>
         </div>
       )}
     </div>

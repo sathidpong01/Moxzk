@@ -95,7 +95,7 @@ export default function OllamaInstallTutorialModal({
           </header>
 
           <figure key={step.id} className="OllamaTutorialImageFrame">
-            <img src={step.imageSrc} alt={step.imageAlt} loading="lazy" decoding="async" />
+            <img src={`${import.meta.env.BASE_URL}${step.imageSrc}`} alt={step.imageAlt} loading="lazy" decoding="async" />
           </figure>
 
           <div className="OllamaTutorialActions">

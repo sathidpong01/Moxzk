@@ -1,7 +1,7 @@
 import { app, shell, session } from 'electron'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { APP_DISPLAY_NAME } from '../../src/config/appIdentity'
+import { APP_DISPLAY_NAME, SESSION_COOKIE_NAME } from '../../src/config/appIdentity'
 
 export interface NativeAuthActionResult {
   ok: boolean
@@ -219,25 +219,85 @@ function rememberDesktopSessionCookie(
   installRequestHeaderBridge()
 }
 
-function installRequestHeaderBridge(): void {
+export function initDesktopNetworkBridge(): void {
   if (requestHeaderBridgeInstalled) return
   requestHeaderBridgeInstalled = true
+
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     if (!desktopSessionCookie || !shouldAttachDesktopSession(details.url)) {
       callback({ requestHeaders: details.requestHeaders })
       return
     }
-
     const { Cookie: existingCookie, cookie: existingLowerCookie, ...remainingHeaders } = details.requestHeaders
-    const requestHeaders = {
-      ...remainingHeaders,
-      Cookie: mergeCookieHeader(
-        existingCookie || existingLowerCookie,
-        desktopSessionCookie,
-      ),
-    }
-    callback({ requestHeaders })
+    callback({
+      requestHeaders: {
+        ...remainingHeaders,
+        Cookie: mergeCookieHeader(existingCookie || existingLowerCookie, desktopSessionCookie),
+      },
+    })
   })
+
+  const apiOrigin = resolveWorkerOrigin()
+  if (apiOrigin) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      if (!isWorkerApiUrl(details.url, apiOrigin)) {
+        callback({ responseHeaders: details.responseHeaders })
+        return
+      }
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'access-control-allow-origin': ['null'],
+          'access-control-allow-credentials': ['true'],
+        },
+      })
+    })
+  }
+}
+
+export async function restoreDesktopSessionIfNeeded(): Promise<void> {
+  if (desktopSessionCookie) return
+  try {
+    const apiBase = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MOXZK_WORKER_API_BASE__)
+    if (!apiBase) return
+    const targets = getSessionCookieTargets(apiBase)
+    for (const target of targets) {
+      const cookies = await session.defaultSession.cookies.get({ url: target.href })
+      const match = cookies.find((c) => c.name === SESSION_COOKIE_NAME && c.value)
+      if (match) {
+        desktopSessionCookie = {
+          name: match.name,
+          value: match.value,
+          targetOrigins: new Set(targets.map((t) => t.origin)),
+        }
+        return
+      }
+    }
+  } catch {
+    // ignore — cookie will be re-populated on next login
+  }
+}
+
+function installRequestHeaderBridge(): void {
+  // No-op: bridge is now installed at startup via initDesktopNetworkBridge()
+}
+
+function resolveWorkerOrigin(): string {
+  try {
+    const base = normalizeBaseUrl(process.env.VITE_CLOUDFLARE_API_URL || __MOXZK_WORKER_API_BASE__)
+    return base ? new URL(base).origin : ''
+  } catch {
+    return ''
+  }
+}
+
+function isWorkerApiUrl(url: string, apiOrigin: string): boolean {
+  try {
+    const target = new URL(url)
+    return target.origin === apiOrigin && target.pathname.startsWith('/api/')
+  } catch {
+    return false
+  }
 }
 
 function shouldAttachDesktopSession(url: string): boolean {
@@ -292,11 +352,33 @@ async function createLoopbackCallbackServer(): Promise<LoopbackCallbackServer> {
       }
     }
 
-    response.writeHead(ticket ? 200 : 400, { 'Content-Type': 'text/html; charset=utf-8' })
+    const success = Boolean(ticket)
+    response.writeHead(success ? 200 : 400, { 'Content-Type': 'text/html; charset=utf-8' })
     response.end(`<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>${APP_DISPLAY_NAME} Login</title></head>
-<body><p>${ticket ? `Google login finished. You can return to ${APP_DISPLAY_NAME}.` : `Google login failed. Return to ${APP_DISPLAY_NAME} and try again.`}</p></body>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>${APP_DISPLAY_NAME} — ${success ? 'เข้าสู่ระบบสำเร็จ' : 'เข้าสู่ระบบไม่สำเร็จ'}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#0b1020;color:#e2e8f0;padding:2rem}
+.card{text-align:center;max-width:340px}
+.icon{font-size:2.5rem;margin-bottom:1rem}
+h1{font-size:1.25rem;font-weight:700;margin-bottom:.5rem}
+p{color:#94a3b8;font-size:.9rem;line-height:1.6}
+.hint{margin-top:1.25rem;font-size:.8rem;color:#64748b}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">${success ? '✓' : '✕'}</div>
+  <h1>${success ? 'เข้าสู่ระบบเสร็จแล้ว' : 'เข้าสู่ระบบไม่สำเร็จ'}</h1>
+  <p>${success ? `กลับไปที่ ${APP_DISPLAY_NAME} ได้เลย` : `กลับไปที่ ${APP_DISPLAY_NAME} แล้วลองใหม่อีกครั้ง`}</p>
+  <p class="hint">ปิดแท็บนี้ได้เลย</p>
+</div>
+<script>try{window.close()}catch(e){}</script>
+</body>
 </html>`)
   })
 
@@ -312,37 +394,7 @@ async function createLoopbackCallbackServer(): Promise<LoopbackCallbackServer> {
 }
 
 async function createDesktopCallbackReceiver(): Promise<DesktopCallbackReceiver> {
-  const customProtocolCallbackUrl = getCustomProtocolCallbackUrl(DESKTOP_AUTH_CALLBACK_PATH)
-  if (customProtocolCallbackUrl) {
-    return createCustomProtocolCallbackReceiver(customProtocolCallbackUrl)
-  }
   return createLoopbackCallbackServer()
-}
-
-function createCustomProtocolCallbackReceiver(callbackUrl: string): DesktopCallbackReceiver {
-  let resolveTicket: (ticket: string) => void = () => {}
-  let rejectTicket: (error: Error) => void = () => {}
-  const ticketPromise = new Promise<string>((resolve, reject) => {
-    resolveTicket = resolve
-    rejectTicket = reject
-  })
-
-  activeProtocolCallback = {
-    settled: false,
-    resolveTicket,
-    rejectTicket,
-  }
-
-  return {
-    kind: 'custom-protocol',
-    callbackUrl,
-    waitForTicket: () => ticketPromise,
-    close: async () => {
-      if (activeProtocolCallback?.resolveTicket === resolveTicket) {
-        activeProtocolCallback = null
-      }
-    },
-  }
 }
 
 function shouldRetryWithLoopbackCallback(error: unknown): boolean {
