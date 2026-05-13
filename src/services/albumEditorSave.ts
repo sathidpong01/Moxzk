@@ -21,7 +21,10 @@ export interface SaveEditorImagesResult {
 export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorImagesResult> {
   const appState = useAppStore.getState()
   const userId = useAuthStore.getState().user?.id
-  if (!userId) return { savedCount: 0, album }
+  if (!userId) {
+    toast.error('ต้องเข้าสู่ระบบก่อนบันทึก')
+    return { savedCount: 0, album }
+  }
 
   const images = appState.imageEntries
   if (!images || images.length === 0) {
@@ -46,7 +49,6 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
       let thumbnailHash = entry.thumbnailHash
       let cleanedBlobForThumbnail: Blob | null = null
 
-      let localThumbnailDataUrl: string | undefined
       let thumbnailSource: Blob | null = null
       let thumbnailBlob: Blob | null = null
       if (entry.cleanedImageUrl) {
@@ -64,45 +66,29 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
 
       if (thumbnailSource && (!thumbnailKey || !thumbnailHash)) {
         thumbnailBlob = await generateThumbnail(thumbnailSource)
-        localThumbnailDataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.onerror = reject
-          reader.readAsDataURL(thumbnailBlob!)
-        })
       }
 
-      try {
-        if (entry.file && (!originalKey || !originalHash)) {
-          const origKey = buildStorageKey(userId, album.id, pageNumber, 'original')
-          const prepared = await prepareImageUpload(fileToBlob(entry.file))
-          if (!originalKey || originalHash !== prepared.sha256) {
-            const origResult = await uploadPreparedImage(prepared, origKey)
-            originalKey = origResult.key
-          }
-          originalHash = prepared.sha256
-        }
-        if (entry.cleanedImageUrl && (!cleanedKey || !cleanedHash)) {
-          const cleanKey = buildStorageKey(userId, album.id, pageNumber, 'cleaned')
-          const cleanedBlob = cleanedBlobForThumbnail ?? await imageUrlToBlob(entry.cleanedImageUrl)
-          const prepared = await prepareImageUpload(cleanedBlob)
-          if (!cleanedKey || cleanedHash !== prepared.sha256) {
-            const cleanResult = await uploadPreparedImage(prepared, cleanKey)
-            cleanedKey = cleanResult.key
-          }
-          cleanedHash = prepared.sha256
-        }
-        if (thumbnailSource && (!thumbnailKey || !thumbnailHash)) {
-          const thumbKey = buildStorageKey(userId, album.id, pageNumber, 'thumbnail')
-          const prepared = await prepareImageUpload(thumbnailBlob ?? await generateThumbnail(thumbnailSource))
-          if (!thumbnailKey || thumbnailHash !== prepared.sha256) {
-            const thumbResult = await uploadPreparedImage(prepared, thumbKey)
-            thumbnailKey = thumbResult.key
-          }
-          thumbnailHash = prepared.sha256
-        }
-      } catch (uploadErr) {
-        console.warn('[save] R2 upload skipped:', uploadErr)
+      if (entry.file && (!originalKey || !originalHash)) {
+        const origKey = buildStorageKey(userId, album.id, pageNumber, 'original')
+        const prepared = await prepareImageUpload(fileToBlob(entry.file))
+        const origResult = await uploadPreparedImage(prepared, origKey)
+        originalKey = origResult.key
+        originalHash = prepared.sha256
+      }
+      if (entry.cleanedImageUrl && (!cleanedKey || !cleanedHash)) {
+        const cleanKey = buildStorageKey(userId, album.id, pageNumber, 'cleaned')
+        const cleanedBlob = cleanedBlobForThumbnail ?? await imageUrlToBlob(entry.cleanedImageUrl)
+        const prepared = await prepareImageUpload(cleanedBlob)
+        const cleanResult = await uploadPreparedImage(prepared, cleanKey)
+        cleanedKey = cleanResult.key
+        cleanedHash = prepared.sha256
+      }
+      if (thumbnailSource && (!thumbnailKey || !thumbnailHash)) {
+        const thumbKey = buildStorageKey(userId, album.id, pageNumber, 'thumbnail')
+        const prepared = await prepareImageUpload(thumbnailBlob ?? await generateThumbnail(thumbnailSource))
+        const thumbResult = await uploadPreparedImage(prepared, thumbKey)
+        thumbnailKey = thumbResult.key
+        thumbnailHash = prepared.sha256
       }
 
       const status: AlbumPage['status'] = getPersistedPageStatus(entry)
@@ -129,20 +115,16 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
           artboard_y: pagePayload.artboardY,
         })
       } else {
-        result = await saveCurrentToPage(album.id, pageNumber, pagePayload)
+        result = await saveCurrentToPage(album.id, pageNumber, {
+          ...pagePayload,
+          originalKey: originalKey ?? null,
+          cleanedKey: cleanedKey ?? null,
+          thumbnailKey: thumbnailKey ?? null,
+        })
       }
 
       if (result) {
         const { updateAlbum } = useAlbumStore.getState()
-        if (!target.existingPage) {
-          await updatePage(result.id, {
-            original_key: originalKey ?? null,
-            cleaned_key: cleanedKey ?? null,
-            thumbnail_key: thumbnailKey ?? null,
-            artboard_x: entry.artboardX ?? null,
-            artboard_y: entry.artboardY ?? null,
-          })
-        }
         useAppStore.getState().updateImageEntry(entry.id, {
           albumPageId: result.id,
           originalR2Key: originalKey,
@@ -152,15 +134,16 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
           thumbnailHash,
           pageNumber,
         })
-        if (savedCount === 0 && !album.cover_key && localThumbnailDataUrl) {
-          await updateAlbum(album.id, { cover_key: localThumbnailDataUrl })
+        if (savedCount === 0 && !album.cover_key && thumbnailKey) {
+          await updateAlbum(album.id, { cover_key: thumbnailKey })
         }
         savedCount++
         if (!target.existingPage) nextPageNum++
       }
     } catch (err) {
       console.error('[save] Error saving page:', err)
-      toast.error(`บันทึกหน้า ${entry.pageNumber ?? nextPageNum} ล้มเหลว`)
+      const reason = err instanceof Error ? err.message : String(err)
+      toast.error(`บันทึกหน้า ${entry.pageNumber ?? nextPageNum} ล้มเหลว: ${reason}`)
     }
   }
 

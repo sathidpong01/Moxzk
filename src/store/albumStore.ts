@@ -50,6 +50,9 @@ interface AlbumStore {
     processingMode?: AlbumPage['processing_mode']
     artboardX?: number | null
     artboardY?: number | null
+    originalKey?: string | null
+    cleanedKey?: string | null
+    thumbnailKey?: string | null
   }) => Promise<AlbumPage | null>
 }
 
@@ -247,25 +250,28 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       (p) => p.album_id === albumId && p.page_number === pageNumber,
     )
 
+    const patch = {
+      regions: data.regions,
+      brush_strokes: data.brushStrokes,
+      status: data.status,
+      processing_mode: data.processingMode || 'full',
+      artboard_x: data.artboardX,
+      artboard_y: data.artboardY,
+      ...(data.originalKey !== undefined ? { original_key: data.originalKey } : {}),
+      ...(data.cleanedKey !== undefined ? { cleaned_key: data.cleanedKey } : {}),
+      ...(data.thumbnailKey !== undefined ? { thumbnail_key: data.thumbnailKey } : {}),
+    }
+
     if (existing) {
-      await get().updatePage(existing.id, {
-        regions: data.regions,
-        brush_strokes: data.brushStrokes,
-        status: data.status,
-        processing_mode: data.processingMode || 'full',
-        artboard_x: data.artboardX,
-        artboard_y: data.artboardY,
-      })
+      await get().updatePage(existing.id, patch)
       const updated = {
         ...existing,
-        regions: data.regions,
-        brush_strokes: data.brushStrokes,
-        status: data.status,
-        processing_mode: data.processingMode || existing.processing_mode,
-        artboard_x: data.artboardX ?? existing.artboard_x,
-        artboard_y: data.artboardY ?? existing.artboard_y,
+        ...patch,
+        processing_mode: patch.processing_mode || existing.processing_mode,
+        artboard_x: patch.artboard_x ?? existing.artboard_x,
+        artboard_y: patch.artboard_y ?? existing.artboard_y,
         updated_at: new Date().toISOString(),
-      }
+      } as AlbumPage
       set((state) => ({
         currentPages: state.currentPages.map((p) => (p.id === existing.id ? updated : p)),
       }))
@@ -274,27 +280,15 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     }
 
     try {
-      const newPage = await createCloudflarePage(albumId, {
-        pageNumber,
-      })
-      await updateCloudflarePage(newPage.id, {
-        regions: data.regions,
-        brush_strokes: data.brushStrokes,
-        status: data.status,
-        processing_mode: data.processingMode || 'full',
-        artboard_x: data.artboardX,
-        artboard_y: data.artboardY,
-      })
+      const newPage = await createCloudflarePage(albumId, { pageNumber })
+      await updateCloudflarePage(newPage.id, patch)
       const page = {
         ...newPage,
-        regions: data.regions,
-        brush_strokes: data.brushStrokes,
-        status: data.status,
-        processing_mode: data.processingMode || 'full',
-        artboard_x: data.artboardX ?? null,
-        artboard_y: data.artboardY ?? null,
+        ...patch,
+        artboard_x: patch.artboard_x ?? null,
+        artboard_y: patch.artboard_y ?? null,
         updated_at: new Date().toISOString(),
-      }
+      } as AlbumPage
       set((state) => ({
         currentPages: [...state.currentPages, page].sort((a, b) => a.page_number - b.page_number),
       }))

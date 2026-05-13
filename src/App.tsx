@@ -35,7 +35,10 @@ import {
 } from './services/onboardingStorage'
 import { Toaster } from 'sonner'
 import { createPortal } from 'react-dom'
-import { BookOpen, ChevronDown, Download, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
+import { BookOpen, ChevronDown, Download, FileDown, FileUp, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
+import { exportProjectFile, importProjectFile } from './services/projectFile'
+import { clearProjectDraft, loadProjectDraft, restoreProjectDraftToState } from './services/projectDraftStorage'
+import { toast as sonnerToast } from 'sonner'
 import type { ProcessingMode } from './types'
 
 // ── Main App ─────────────────────────────────────────────────────────
@@ -83,6 +86,7 @@ function App() {
   const stageRef = useRef<Konva.Stage>(null)
   const editorRef = useRef<CanvasEditorHandle>(null)
   const addImagesInputRef = useRef<HTMLInputElement>(null)
+  const projectFileInputRef = useRef<HTMLInputElement>(null)
   const [aiConfirmTarget, setAiConfirmTarget] = useState<'single' | 'batch' | null>(null)
   const [processingMode, setProcessingMode] = useState<ProcessingMode>('gemma_vision_full')
   const [batchStopConfirmOpen, setBatchStopConfirmOpen] = useState(false)
@@ -107,6 +111,41 @@ function App() {
 
   // Init: restore custom fonts + auth
   useEffect(() => { store.init() }, [])
+
+  // Restore draft prompt — once on mount, only if no project loaded
+  useEffect(() => {
+    let dismissed = false
+    void (async () => {
+      const draft = await loadProjectDraft()
+      if (dismissed || !draft) return
+      const state = useAppStore.getState()
+      if (state.imageEntries.length > 0) return
+      const ageDays = (Date.now() - draft.savedAt) / 86_400_000
+      if (ageDays > 7) {
+        void clearProjectDraft()
+        return
+      }
+      const when = new Date(draft.savedAt).toLocaleString('th-TH')
+      sonnerToast(`พบ draft อัตโนมัติ (${draft.imageEntries.length} หน้า, ${when})`, {
+        duration: 15_000,
+        action: {
+          label: 'กู้คืน',
+          onClick: () => {
+            restoreProjectDraftToState(draft)
+            sonnerToast.success('กู้คืน draft แล้ว')
+          },
+        },
+        cancel: {
+          label: 'ลบทิ้ง',
+          onClick: () => {
+            void clearProjectDraft()
+          },
+        },
+      })
+    })()
+    return () => { dismissed = true }
+  }, [])
+
   useEffect(() => {
     if (!onboarding.firstRunCompleted) setFirstRunSetupOpen(true)
   }, [])
@@ -166,6 +205,22 @@ function App() {
     if (images.length > 0) store.addImageEntries(images)
     if (addImagesInputRef.current) addImagesInputRef.current.value = ''
   }
+
+  const handleExportProjectFile = useCallback(async () => {
+    const album = useAlbumStore.getState().currentAlbum
+    await exportProjectFile(album?.title || 'moxzk-project')
+  }, [])
+
+  const handleImportProjectClick = useCallback(() => {
+    projectFileInputRef.current?.click()
+  }, [])
+
+  const handleProjectFileChosen = useCallback(async (files: FileList | null) => {
+    const file = files?.[0]
+    if (projectFileInputRef.current) projectFileInputRef.current.value = ''
+    if (!file) return
+    await importProjectFile(file)
+  }, [])
 
   const handleOpenAlbums = () => {
     if (useAuthStore.getState().user) {
@@ -274,6 +329,12 @@ function App() {
                   <DropdownItem onClick={handleSaveAsAlbum}>
                     <Save size={14} /> บันทึกเป็น
                   </DropdownItem>
+                  <DropdownItem onClick={() => void handleExportProjectFile()}>
+                    <FileDown size={14} /> บันทึกเป็นไฟล์โครงการ (.moxzk)
+                  </DropdownItem>
+                  <DropdownItem onClick={handleImportProjectClick}>
+                    <FileUp size={14} /> เปิดไฟล์โครงการ...
+                  </DropdownItem>
                 </DropdownMenu>
               </div>
               <SelectField
@@ -364,6 +425,14 @@ function App() {
         </div>
       </header>
 
+      <input
+        ref={projectFileInputRef}
+        type="file"
+        accept=".moxzk,application/json"
+        className="hidden"
+        onChange={(event) => void handleProjectFileChosen(event.currentTarget.files)}
+      />
+
       <main className="relative z-10 h-full overflow-hidden">
         <div className="moxzk-window-inglow" aria-hidden="true" />
 
@@ -373,6 +442,7 @@ function App() {
             onImagesSelected={store.setImages}
             onGoToEdit={handleGoToEdit}
             onOpenAlbums={handleOpenAlbums}
+            onOpenProjectFile={handleImportProjectClick}
           />
         )}
 

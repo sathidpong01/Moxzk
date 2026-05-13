@@ -1,15 +1,16 @@
 import ImageUploader from '../Upload/ImageUploader'
 import { Button } from '../ui/primitives'
-import { FolderOpen, ImageIcon } from 'lucide-react'
+import { FileUp, FolderOpen, ImageIcon } from 'lucide-react'
 
 interface UploadStepProps {
   images: File[]
   onImagesSelected: (files: File[]) => void
   onGoToEdit: () => void
   onOpenAlbums: () => void
+  onOpenProjectFile: () => void
 }
 
-export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpenAlbums }: UploadStepProps) {
+export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpenAlbums, onOpenProjectFile }: UploadStepProps) {
   const hasImages = images.length > 0
 
   return (
@@ -54,6 +55,14 @@ export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpe
               เปิดจากอัลบั้ม
             </Button>
           </div>
+          <button
+            type="button"
+            onClick={onOpenProjectFile}
+            className="mx-auto inline-flex items-center gap-1.5 text-xs text-[var(--moxzk-muted)] underline-offset-4 hover:text-[var(--moxzk-text)] hover:underline"
+          >
+            <FileUp size={12} />
+            เปิดไฟล์โครงการ (.moxzk)
+          </button>
         </div>
       </section>
       </div>
