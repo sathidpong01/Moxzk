@@ -1813,38 +1813,40 @@ button:disabled {
   display: none;
 }
 
-.moxzk-icon-button,
-.moxzk-tool {
-  position: relative;
-  width: 2rem;
-  height: 2rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  color: var(--moxzk-muted);
-  cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
-}
+@layer components {
+  .moxzk-icon-button,
+  .moxzk-tool {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: var(--moxzk-muted);
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+  }
 
-.moxzk-icon-button::after,
-.moxzk-tool::after {
-  content: '';
-  position: absolute;
-  inset: -6px;
-}
+  .moxzk-icon-button::after,
+  .moxzk-tool::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+  }
 
-.moxzk-icon-button:not(.hidden),
-.moxzk-tool:not(.hidden) {
-  display: inline-flex;
-}
+  .moxzk-icon-button:not(.hidden),
+  .moxzk-tool:not(.hidden) {
+    display: inline-flex;
+  }
 
-.moxzk-icon-button.hidden,
-.moxzk-tool.hidden {
-  display: none;
+  .moxzk-icon-button.hidden,
+  .moxzk-tool.hidden {
+    display: none;
+  }
 }
 
 .moxzk-pill {

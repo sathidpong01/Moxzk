@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ReactCompareSlider,
   ReactCompareSliderImage,
@@ -30,16 +30,28 @@ export default function SplitView({
   const [overlayOpacity, setOverlayOpacity] = useState(50)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragStart, setDragStart] = useState<{ x: number; y: number; panX: number; panY: number } | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const canPan = canPanExportPreview(mode, zoom)
 
   useEffect(() => {
     setPan((current) => normalizeExportPreviewPan(zoom, current))
   }, [zoom])
 
-  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    onZoomChange(wheelViewerZoom(zoom, event.deltaY))
-  }, [onZoomChange, zoom])
+  const onZoomChangeRef = useRef(onZoomChange)
+  const zoomRef = useRef(zoom)
+  useEffect(() => { onZoomChangeRef.current = onZoomChange }, [onZoomChange])
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = (event: WheelEvent) => {
+      event.preventDefault()
+      onZoomChangeRef.current(wheelViewerZoom(zoomRef.current, event.deltaY))
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [])
 
   const zoomFrameStyle = {
     transform: createExportPreviewTransform(zoom, pan),
@@ -52,10 +64,10 @@ export default function SplitView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div
+        ref={containerRef}
         className={`studio-canvas relative min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[var(--moxzk-border)] bg-black/25 ${
           canPan ? 'cursor-grab active:cursor-grabbing' : ''
         }`}
-        onWheel={handleWheel}
         onPointerDown={(event) => {
           if (!canPan) return
           event.currentTarget.setPointerCapture(event.pointerId)

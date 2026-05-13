@@ -471,6 +471,7 @@ function App() {
           exportFormat={store.exportFormat}
           exportQuality={store.exportQuality}
           imageEntries={store.imageEntries}
+          defaultFilename={currentAlbumTitle?.trim() || store.imageEntries.find((e) => e.id === store.activeImageId)?.file?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'}
           onClose={() => setExportDrawerOpen(false)}
           onExportFormatChange={store.setExportFormat}
           onExportQualityChange={store.setExportQuality}

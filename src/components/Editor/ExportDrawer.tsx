@@ -1,6 +1,6 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Download, ImageIcon, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Download, ImageIcon, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react'
 import type { ExportFormat, ImageEntry } from '../../types'
 import type { RuntimeExportDestination } from '../../runtime'
 import {
@@ -10,6 +10,7 @@ import {
   EXPORT_PREVIEW_MODE_OPTIONS,
   EXPORT_QUALITY_PRESETS,
   type ExportPreviewMode,
+  getSmartQualityDefault,
   isExportQualityPreset,
   normalizeExportQualityPreset,
   supportsExportQuality,
@@ -35,10 +36,11 @@ interface ExportDrawerProps {
   exportFormat: ExportFormat
   exportQuality: number
   imageEntries: ImageEntry[]
+  defaultFilename: string
   onClose: () => void
   onExportFormatChange: (format: ExportFormat) => void
   onExportQualityChange: (quality: number) => void
-  onExport: (selectedIds?: string[], destination?: RuntimeExportDestination) => Promise<boolean | void>
+  onExport: (selectedIds?: string[], destination?: RuntimeExportDestination, filename?: string) => Promise<boolean | void>
 }
 
 type SegmentedOption<T extends string | number> = {
@@ -150,6 +152,7 @@ export default function ExportDrawer({
   exportFormat,
   exportQuality,
   imageEntries,
+  defaultFilename,
   onClose,
   onExportFormatChange,
   onExportQualityChange,
@@ -157,6 +160,7 @@ export default function ExportDrawer({
 }: ExportDrawerProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [exportDestination, setExportDestination] = useState<RuntimeExportDestination>(DEFAULT_EXPORT_DESTINATION)
+  const [filename, setFilename] = useState('')
   const [activePreviewId, setActivePreviewId] = useState<string | null>(activeImageId)
   const [previewMode, setPreviewMode] = useState<ExportPreviewMode>('after')
   const [previewZoom, setPreviewZoom] = useState(1)
@@ -190,9 +194,10 @@ export default function ExportDrawer({
     setActivePreviewId(activeImageId)
     setPreviewMode('after')
     setPreviewZoom(1)
-    setExportDestination(DEFAULT_EXPORT_DESTINATION)
+    setExportDestination(sortedEntries.length <= 1 ? 'folder' : 'zip')
+    setFilename(defaultFilename)
     setIsExporting(false)
-  }, [activeImageId, isOpen, sortedEntries])
+  }, [activeImageId, defaultFilename, isOpen, sortedEntries])
 
   useEffect(() => {
     if (!isOpen) return
@@ -255,6 +260,18 @@ export default function ExportDrawer({
       strip.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', handleScroll)
     }
+  }, [isOpen])
+
+  useEffect(() => {
+    const strip = previewStripRef.current
+    if (!strip) return
+    const handler = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+      event.preventDefault()
+      strip.scrollBy({ left: event.deltaY, behavior: 'auto' })
+    }
+    strip.addEventListener('wheel', handler, { passive: false })
+    return () => strip.removeEventListener('wheel', handler)
   }, [isOpen])
 
   useEffect(() => {
@@ -402,7 +419,7 @@ export default function ExportDrawer({
     if (isExporting) return
     setIsExporting(true)
     try {
-      const didExport = await onExport(sortedEntries.length > 1 ? selectedIds : undefined, exportDestination)
+      const didExport = await onExport(sortedEntries.length > 1 ? selectedIds : undefined, exportDestination, filename.trim() || undefined)
       if (didExport) {
         onClose()
         return
@@ -518,13 +535,6 @@ export default function ExportDrawer({
                         <div
                           ref={previewStripRef}
                           className="overflow-x-auto pb-1 pr-1 scroll-smooth"
-                          onWheel={(event) => {
-                            const strip = previewStripRef.current
-                            if (!strip) return
-                            if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
-                            event.preventDefault()
-                            strip.scrollBy({ left: event.deltaY, behavior: 'auto' })
-                          }}
                         >
                           <div className="flex min-w-max gap-2.5">
                             {selectedEntries.map((entry) => {
@@ -591,12 +601,32 @@ export default function ExportDrawer({
                       <SegmentedPicker
                         value={exportFormat}
                         options={EXPORT_FORMAT_OPTIONS}
-                        onChange={onExportFormatChange}
+                        onChange={(format) => {
+                          onExportFormatChange(format)
+                          if (supportsExportQuality(format)) {
+                            onExportQualityChange(getSmartQualityDefault(format))
+                          }
+                        }}
                         ariaLabel="รูปแบบไฟล์ export"
                         className="grid grid-cols-3"
                         buttonClassName="w-full justify-center px-2"
                         stretch
                       />
+                    </Field>
+
+                    <Field label="ชื่อไฟล์" className="gap-1.5">
+                      <input
+                        type="text"
+                        value={filename}
+                        onChange={(e) => setFilename(e.target.value)}
+                        placeholder="ชื่อไฟล์ export"
+                        className="w-full rounded-[12px] border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-[var(--moxzk-text)] placeholder:text-[var(--moxzk-dim)] focus:border-[var(--moxzk-accent)] focus:outline-none"
+                      />
+                      <p className="text-xs leading-5 text-[var(--moxzk-muted)]">
+                        {sortedEntries.length <= 1
+                          ? <>ชื่อไฟล์จะเป็น <span className="font-mono text-[var(--moxzk-text)]">{(filename.trim() || defaultFilename).slice(0, 30) || 'manga'}.{exportFormat}</span></>
+                          : <>ไฟล์จะเป็น <span className="font-mono text-[var(--moxzk-text)]">{(filename.trim() || defaultFilename).slice(0, 24) || 'manga'}_001.{exportFormat}</span> …</>}
+                      </p>
                     </Field>
 
                     <Field as="fieldset" label="ปลายทาง" className="gap-2">
@@ -610,24 +640,38 @@ export default function ExportDrawer({
                         buttonClassName="w-full justify-center px-2 text-xs"
                         stretch
                       />
-                      <p className="text-xs leading-5 text-[var(--moxzk-muted)]">
+                      <p className={cn(
+                        'flex items-start gap-1.5 text-xs leading-5',
+                        exportDestination === 'zip' && sortedEntries.length <= 1
+                          ? 'text-amber-400/80'
+                          : 'text-[var(--moxzk-muted)]',
+                      )}>
+                        {exportDestination === 'zip' && sortedEntries.length <= 1 && (
+                          <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+                        )}
                         {exportDestination === 'folder'
-                          ? 'ระบบจะขอสิทธิ์เลือกโฟลเดอร์ก่อนบันทึกหลายไฟล์'
-                          : 'บันทึกเป็นไฟล์เดียว ไม่ต้องเลือกโฟลเดอร์ปลายทาง'}
+                          ? sortedEntries.length <= 1
+                            ? 'บันทึกไฟล์เดียวลงโฟลเดอร์ที่เลือก'
+                            : 'ระบบจะขอสิทธิ์เลือกโฟลเดอร์ก่อนบันทึกหลายไฟล์'
+                          : sortedEntries.length <= 1
+                            ? 'ZIP ที่มี 1 ไฟล์ — แนะนำให้ใช้ "บันทึกลงโฟลเดอร์" แทน'
+                            : 'บันทึกทุกหน้าเป็นไฟล์ ZIP เดียว'}
                       </p>
                     </Field>
 
-                    {hasQualityControls && (
-                      <Field
-                        as="fieldset"
-                        label={(
-                          <span className="flex items-center justify-between gap-2">
-                            <span>คุณภาพ</span>
-                            <span className="text-[11px] font-bold text-[var(--moxzk-dim)]">{exportQuality}%</span>
-                          </span>
-                        )}
-                        className="gap-2"
-                      >
+                    <Field
+                      as="fieldset"
+                      label={(
+                        <span className="flex items-center justify-between gap-2">
+                          <span>คุณภาพ</span>
+                          {hasQualityControls
+                            ? <span className="text-[11px] font-bold text-[var(--moxzk-dim)]">{exportQuality}%</span>
+                            : <span className="text-[11px] font-bold text-[var(--moxzk-dim)]">Lossless</span>}
+                        </span>
+                      )}
+                      className="gap-2"
+                    >
+                      {hasQualityControls ? (
                         <SegmentedPicker
                           value={exportQuality}
                           options={EXPORT_QUALITY_PRESETS.map((value) => ({ value, label: `${value}%` }))}
@@ -637,8 +681,12 @@ export default function ExportDrawer({
                           buttonClassName="w-full justify-center px-2"
                           stretch
                         />
-                      </Field>
-                    )}
+                      ) : (
+                        <p className="text-xs leading-5 text-[var(--moxzk-muted)]">
+                          PNG เป็น lossless — บันทึกคุณภาพเต็มโดยไม่มีการสูญเสียข้อมูล
+                        </p>
+                      )}
+                    </Field>
 
                     {sortedEntries.length > 1 && (
                       <Field as="fieldset" label="หน้า" className="min-h-0 gap-2">

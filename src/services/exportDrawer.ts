@@ -31,6 +31,10 @@ export function supportsExportQuality(format: ExportFormat): boolean {
   return format !== 'png'
 }
 
+export function getSmartQualityDefault(format: ExportFormat): ExportQualityPreset {
+  return format === 'png' ? 100 : 90
+}
+
 export function isExportQualityPreset(value: number): value is ExportQualityPreset {
   return EXPORT_QUALITY_PRESETS.includes(value as ExportQualityPreset)
 }

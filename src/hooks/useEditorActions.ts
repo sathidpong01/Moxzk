@@ -39,7 +39,7 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
     onOpenExportDrawer()
   }, [onOpenExportDrawer, store])
 
-  const handleExport = useCallback(async (selectedIds?: string[], destination: RuntimeExportDestination = 'zip') => {
+  const handleExport = useCallback(async (selectedIds?: string[], destination: RuntimeExportDestination = 'zip', filename?: string) => {
     store.saveActiveEntryState()
     const currentState = useAppStore.getState()
     const entries = currentState.imageEntries
@@ -48,15 +48,16 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
       const originalFileName = currentActiveFile?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
       const album = useAlbumStore.getState().currentAlbum
       const ids = selectedIds && selectedIds.length > 0 ? selectedIds : entries.map((entry) => entry.id)
+      const resolvedTitle = filename || album?.title || originalFileName
       try {
         const mode = await exportImageEntries(entries, {
           format: store.exportFormat,
           quality: store.exportQuality / 100,
-          albumTitle: album?.title || originalFileName,
+          albumTitle: resolvedTitle,
           selectedIds: ids,
           destination,
         })
-      toast.success(mode === 'folder' ? 'export ลงโฟลเดอร์สำเร็จ' : 'export เป็น ZIP สำเร็จ')
+        toast.success(mode === 'folder' ? 'export ลงโฟลเดอร์สำเร็จ' : 'export เป็น ZIP สำเร็จ')
         return true
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
@@ -71,12 +72,14 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
       return false
     }
     const originalFileName = entry.file?.name?.replace(/\.[^.]+$/, '') || 'manga-translated'
+    const album = useAlbumStore.getState().currentAlbum
+    const resolvedName = filename || album?.title || originalFileName
     try {
       const blob = await renderImageEntryToBlob(entry, store.exportFormat, store.exportQuality / 100)
       const ext = store.exportFormat === 'jpg' ? 'jpg' : store.exportFormat
       const mode = await getAppRuntime().files.saveExportFiles(
-        [{ name: `${originalFileName}.${ext}`, blob }],
-        originalFileName,
+        [{ name: `${resolvedName}.${ext}`, blob }],
+        resolvedName,
         { destination },
       )
       toast.success(mode === 'folder' ? 'export ลงโฟลเดอร์สำเร็จ' : 'export เป็น ZIP สำเร็จ')
