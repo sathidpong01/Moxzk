@@ -4,6 +4,8 @@ React/Vite image editor สำหรับคลีนภาพมังงะ�
 
 Windows Electron desktop คือ target เดียวของแอปนี้. React/Vite รันเป็น renderer ภายใน Windows Electron shell และ Electron V1 shipped แล้ว รองรับ native IPC สำหรับ export, desktop draft persistence, local service start helpers สำหรับ PanelCleaner/Ollama, Google OAuth ผ่าน system browser, frameless window controls และ GitHub Releases updater ผ่าน `AppRuntime`. Web runtime ยังใช้เป็น fallback และสำหรับ CI; Linux/macOS ไม่ใช่ planned target.
 
+สำหรับคู่มือผู้ใช้, หน้า download/landing copy, FAQ, troubleshooting, และ developer entrypoint แบบอ่านเร็ว ดู [Moxzk Wiki](docs/wiki/README.md)
+
 ## Current Direction
 
 - Frontend: React 19 + Vite 8 + TypeScript
