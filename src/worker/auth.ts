@@ -137,18 +137,6 @@ export async function me(ctx: RequestContext): Promise<Response> {
   }
 }
 
-export async function verifyEmail(_ctx: RequestContext): Promise<Response> {
-  return jsonError('FEATURE_DISABLED', 'Email verification is disabled for this app', 404)
-}
-
-export async function requestPasswordReset(_ctx: RequestContext): Promise<Response> {
-  return jsonError('FEATURE_DISABLED', 'Password reset by email is disabled for this app', 404)
-}
-
-export async function resetPassword(_ctx: RequestContext): Promise<Response> {
-  return jsonError('FEATURE_DISABLED', 'Password reset by email is disabled for this app', 404)
-}
-
 export async function googleStart(ctx: RequestContext): Promise<Response> {
   const protection = await enforceAuthProtection(ctx, 'google_start', {
     turnstileToken: ctx.url.searchParams.get('turnstileToken'),
