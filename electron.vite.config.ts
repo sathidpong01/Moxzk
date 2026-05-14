@@ -63,6 +63,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
+      base: './',
       build: {
         outDir: 'out/renderer',
         rollupOptions: {

@@ -30,7 +30,8 @@ import { toast } from 'sonner'
 import { getAlbumOpenPlan } from '../../services/albumOpen'
 import { exportAlbumPages } from '../../services/exporter'
 import { saveEditorImagesToAlbum } from '../../services/albumEditorSave'
-import { generateThumbnail } from '../../services/storageService'
+import { buildStorageKey, generateThumbnail, prepareImageUpload, uploadPreparedImage } from '../../services/storageService'
+import { LazyThumbnail } from './LazyThumbnail'
 import { SelectField, TextInput } from '../ui/primitives'
 
 type ModalView = 'list' | 'detail' | 'create'
@@ -642,8 +643,13 @@ export default function AlbumListModal() {
                     <div>
                       <div className="overflow-hidden rounded-[18px] border border-white/10 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                         <div className="flex aspect-[3/4] items-center justify-center bg-[#111111]">
-                          {currentAlbum.cover_key && (currentAlbum.cover_key as string).startsWith('data:') ? (
-                            <img src={currentAlbum.cover_key as string} alt="cover" className="h-full w-full object-cover" />
+                          {currentAlbum.cover_key ? (
+                            <LazyThumbnail
+                              src={currentAlbum.cover_key as string}
+                              alt="cover"
+                              className="h-full w-full"
+                              imgClassName="h-full w-full object-cover"
+                            />
                           ) : (
                             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--moxzk-dim)]">
                               <FolderOpen size={28} />
@@ -692,7 +698,7 @@ export default function AlbumListModal() {
                                 key={page.id}
                                 className="overflow-hidden rounded-[12px] border border-[var(--moxzk-border)] bg-black/20 transition hover:border-[var(--moxzk-border-strong)]"
                                 onClick={async () => {
-                                  if (page.thumbnail_key && (page.thumbnail_key as string).startsWith('data:')) {
+                                  if (page.thumbnail_key) {
                                     await useAlbumStore.getState().updateAlbum(currentAlbum.id, { cover_key: page.thumbnail_key })
                                     setShowCoverPicker(false)
                                   } else {
@@ -701,8 +707,13 @@ export default function AlbumListModal() {
                                 }}
                               >
                                 <div className="flex aspect-[3/4] items-center justify-center overflow-hidden">
-                                  {page.thumbnail_key && (page.thumbnail_key as string).startsWith('data:') ? (
-                                    <img src={page.thumbnail_key as string} alt={`#${page.page_number}`} className="h-full w-full object-cover" />
+                                  {page.thumbnail_key ? (
+                                    <LazyThumbnail
+                                      src={page.thumbnail_key as string}
+                                      alt={`#${page.page_number}`}
+                                      className="h-full w-full"
+                                      imgClassName="h-full w-full object-cover"
+                                    />
                                   ) : (
                                     <div className="flex h-full w-full items-center justify-center text-[10px] text-[var(--moxzk-dim)]">
                                       #{page.page_number}
@@ -769,15 +780,23 @@ export default function AlbumListModal() {
                               onChange={async (e) => {
                                 const file = e.target.files?.[0]
                                 if (!file || !currentAlbum) return
+                                const userId = useAuthStore.getState().user?.id
+                                if (!userId) {
+                                  toast.error('กรุณาเข้าสู่ระบบก่อนอัปโหลดปก')
+                                  e.target.value = ''
+                                  return
+                                }
                                 try {
                                   const thumbBlob = await generateThumbnail(file)
-                                  const reader = new FileReader()
-                                  reader.onload = async () => {
-                                    const dataUrl = reader.result as string
-                                    await useAlbumStore.getState().updateAlbum(currentAlbum.id, { cover_key: dataUrl })
-                                  }
-                                  reader.readAsDataURL(thumbBlob)
-                                } catch { toast.error('อัปโหลดปกล้มเหลว') }
+                                  const prepared = await prepareImageUpload(thumbBlob)
+                                  const key = buildStorageKey(userId, currentAlbum.id, 0, 'thumbnail')
+                                  const result = await uploadPreparedImage(prepared, key)
+                                  await useAlbumStore.getState().updateAlbum(currentAlbum.id, { cover_key: result.key })
+                                  toast.success('อัปเดตปกแล้ว')
+                                } catch (err) {
+                                  const reason = err instanceof Error ? err.message : String(err)
+                                  toast.error(`อัปโหลดปกล้มเหลว: ${reason}`)
+                                }
                                 e.target.value = ''
                               }}
                             />

@@ -22,6 +22,7 @@ export default function AuthModal() {
   const [username, setUsername] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [capsLockOn, setCapsLockOn] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [googleSubmitting, setGoogleSubmitting] = useState(false)
   const [googlePending, setGooglePending] = useState(false)
@@ -37,6 +38,7 @@ export default function AuthModal() {
     setUsername('')
     setShowPassword(false)
     setCapsLockOn(false)
+    setAgreedToTerms(false)
     setSubmitting(false)
     setGoogleSubmitting(false)
     setGooglePending(false)
@@ -74,6 +76,7 @@ export default function AuthModal() {
   const canSubmit = mode !== 'recovery'
     && emailValid
     && passwordValid
+    && (mode !== 'signup' || agreedToTerms)
     && !isBlocked
     && !submitting
     && !googleSubmitting
@@ -185,6 +188,8 @@ export default function AuthModal() {
             showPasswordError={showPasswordError}
             passwordRules={passwordRules}
             requiresChallenge={authError?.requiresChallenge ?? false}
+            agreedToTerms={agreedToTerms}
+            onAgreedToTermsChange={setAgreedToTerms}
             onSubmit={handleSubmit}
             onEmailChange={(value) => {
               setEmail(value)
@@ -258,7 +263,7 @@ function GoogleAuthButton({
       {pending && (
         <div className="flex items-start gap-2 rounded-[8px] bg-white/[0.035] px-3 py-2 text-xs leading-5 text-[var(--moxzk-muted)]">
           <ShieldCheck size={14} className="mt-0.5 shrink-0 text-green-300" />
-          <span>รอการยืนยันจากเบราว์เซอร์ ระบบจะกลับมาที่แอปเมื่อเข้าสู่ระบบเสร็จ</span>
+          <span className="text-pretty">รอการยืนยันจากเบราว์เซอร์ แอปจะกลับมาอัตโนมัติเมื่อเข้าสู่ระบบเสร็จ</span>
         </div>
       )}
     </div>
@@ -277,6 +282,8 @@ function EmailPasswordForm({
   showPasswordError,
   passwordRules,
   requiresChallenge,
+  agreedToTerms,
+  onAgreedToTermsChange,
   onSubmit,
   onEmailChange,
   onPasswordChange,
@@ -295,6 +302,8 @@ function EmailPasswordForm({
   showPasswordError: boolean
   passwordRules: PasswordRules
   requiresChallenge: boolean
+  agreedToTerms: boolean
+  onAgreedToTermsChange: (value: boolean) => void
   onSubmit: (event: FormEvent) => void
   onEmailChange: (value: string) => void
   onPasswordChange: (value: string) => void
@@ -360,6 +369,37 @@ function EmailPasswordForm({
           <FieldError>รหัสผ่านต้องมีอย่างน้อย 8 ตัว</FieldError>
         ) : null}
       </AuthField>
+
+      {mode === 'signup' && (
+        <label className="flex cursor-pointer items-start gap-2.5">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-teal-500"
+            checked={agreedToTerms}
+            onChange={(e) => onAgreedToTermsChange(e.currentTarget.checked)}
+          />
+          <span className="text-xs leading-5 text-[var(--moxzk-muted)]">
+            ฉันยอมรับ{' '}
+            <a
+              href="/terms.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-teal-400 underline underline-offset-2 hover:text-teal-300"
+            >
+              ข้อกำหนดการใช้งาน
+            </a>
+            {' '}และ{' '}
+            <a
+              href="/privacy.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-teal-400 underline underline-offset-2 hover:text-teal-300"
+            >
+              นโยบายความเป็นส่วนตัว
+            </a>
+          </span>
+        </label>
+      )}
 
       {requiresChallenge && <TurnstileChallenge />}
 

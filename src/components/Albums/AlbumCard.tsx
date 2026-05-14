@@ -1,5 +1,6 @@
 import type { Album } from '../../types/database'
 import { BookOpen, Clock3, Languages, Settings2 } from 'lucide-react'
+import { LazyThumbnail } from './LazyThumbnail'
 
 interface AlbumCardProps {
   album: Album
@@ -44,11 +45,12 @@ export default function AlbumCard({ album, mode = 'browse', onOpen, onManage }: 
       className="group relative flex h-full flex-col overflow-visible rounded-[18px] bg-transparent transition duration-200 hover:-translate-y-1"
     >
       <figure className="relative flex aspect-[3/4] items-center justify-center overflow-hidden rounded-[16px] border border-white/10 bg-[#0b0b0b] shadow-[0_18px_44px_rgba(0,0,0,0.3)]">
-        {album.cover_key && (album.cover_key as string).startsWith('data:') ? (
-          <img
+        {album.cover_key ? (
+          <LazyThumbnail
             src={album.cover_key as string}
             alt={album.title}
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+            className="h-full w-full"
+            imgClassName="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#111111] text-[var(--moxzk-dim)]">

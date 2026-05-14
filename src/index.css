@@ -842,6 +842,28 @@ button:disabled {
   width: min(42rem, 100%);
 }
 
+.FirstRunSetupInstallLog {
+  background: color-mix(in oklch, var(--moxzk-bg) 70%, black);
+  border: 1px solid color-mix(in oklch, var(--moxzk-border) 60%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  max-height: 9rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.FirstRunSetupInstallLog p {
+  margin: 0;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.72rem;
+  color: var(--moxzk-muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
 .FirstRunSetupModelExtras {
   display: grid;
   gap: 0.85rem;
@@ -1791,38 +1813,40 @@ button:disabled {
   display: none;
 }
 
-.moxzk-icon-button,
-.moxzk-tool {
-  position: relative;
-  width: 2rem;
-  height: 2rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  color: var(--moxzk-muted);
-  cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
-}
+@layer components {
+  .moxzk-icon-button,
+  .moxzk-tool {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: var(--moxzk-muted);
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+  }
 
-.moxzk-icon-button::after,
-.moxzk-tool::after {
-  content: '';
-  position: absolute;
-  inset: -6px;
-}
+  .moxzk-icon-button::after,
+  .moxzk-tool::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+  }
 
-.moxzk-icon-button:not(.hidden),
-.moxzk-tool:not(.hidden) {
-  display: inline-flex;
-}
+  .moxzk-icon-button:not(.hidden),
+  .moxzk-tool:not(.hidden) {
+    display: inline-flex;
+  }
 
-.moxzk-icon-button.hidden,
-.moxzk-tool.hidden {
-  display: none;
+  .moxzk-icon-button.hidden,
+  .moxzk-tool.hidden {
+    display: none;
+  }
 }
 
 .moxzk-pill {

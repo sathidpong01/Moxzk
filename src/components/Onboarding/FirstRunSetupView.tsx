@@ -25,15 +25,16 @@ import type { OnboardingSetupItem } from '../../services/onboardingStorage'
 import { OLLAMA_DOWNLOAD_URL, OLLAMA_RECOMMENDED_MODEL } from './ollamaTutorial'
 
 const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/windows/'
+const BASE = import.meta.env.BASE_URL
 const SETUP_ICON_SRC = {
-  intro: '/setup-icons/moxzk.svg',
-  python: '/setup-icons/python.svg',
-  panelcleaner: '/setup-icons/panelcleaner.svg',
-  ollama: '/setup-icons/ollama.svg',
-  model: '/setup-icons/model.svg',
-  translation: '/setup-icons/translation.svg',
-  account: '/setup-icons/account-albums.svg',
-  workspace: '/setup-icons/workspace.svg',
+  intro: `${BASE}setup-icons/moxzk.svg`,
+  python: `${BASE}setup-icons/python.svg`,
+  panelcleaner: `${BASE}setup-icons/panelcleaner.svg`,
+  ollama: `${BASE}setup-icons/ollama.svg`,
+  model: `${BASE}setup-icons/model.svg`,
+  translation: `${BASE}setup-icons/translation.svg`,
+  account: `${BASE}setup-icons/account-albums.svg`,
+  workspace: `${BASE}setup-icons/workspace.svg`,
 } as const
 
 const SETUP_MODEL_OPTIONS = [
@@ -276,10 +277,12 @@ export default function FirstRunSetupView({
     }
   }, [appRuntime.panelCleaner, completed, onCompleteSetupItem, settings.panelCleanerBridgeUrl, settings.panelCleanerExecutablePath])
 
-  const installPanelCleaner = useCallback(async () => {
+  const installPanelCleaner = useCallback(async (repair = false) => {
     setBusyAction('panelcleaner-install')
     try {
-      const result = await appRuntime.localServices.installPanelCleaner()
+      const result = repair
+        ? await appRuntime.localServices.repairPanelCleaner()
+        : await appRuntime.localServices.installPanelCleaner()
       if (result.ok) {
         await refreshPanelCleanerDependency()
         await checkPanelCleaner()
@@ -416,6 +419,19 @@ export default function FirstRunSetupView({
   }, [checkOllama, isOpen, refreshPanelCleanerDependency])
 
   useEffect(() => {
+    if (busyAction !== 'panelcleaner-install') return
+    const timer = window.setInterval(async () => {
+      try {
+        const status = await appRuntime.localServices.getPanelCleanerDependencyStatus()
+        setPanelCleanerDependency(status)
+      } catch {
+        // ignore poll errors
+      }
+    }, 1500)
+    return () => window.clearInterval(timer)
+  }, [busyAction, appRuntime.localServices])
+
+  useEffect(() => {
     if (!isOpen) return
     void refreshModel()
   }, [isOpen, refreshModel])
@@ -449,8 +465,12 @@ export default function FirstRunSetupView({
     stepTitleRef.current?.focus()
   }, [currentSetupStep, isOpen, showIntro])
 
-  const pythonReady = completed.has('python') || panelCleanerDependency?.python.state === 'ready'
-  const panelCleanerReady = completed.has('panelcleaner') || panelCleanerDependency?.state === 'ready' || panelCleanerStatus?.ok === true
+  const pythonReady = panelCleanerDependency !== null
+    ? panelCleanerDependency.python.state === 'ready'
+    : completed.has('python')
+  const panelCleanerReady = panelCleanerDependency !== null
+    ? panelCleanerDependency.state === 'ready' || panelCleanerStatus?.ok === true
+    : completed.has('panelcleaner') || panelCleanerStatus?.ok === true
   const ollamaReady = completed.has('ollama') || ollamaStatus?.ok === true
   const translationReady = completed.has('translation') || Boolean(settings.sourceLang && settings.translationMode)
   const accountReady = completed.has('account') || isAccountReady
@@ -504,7 +524,7 @@ export default function FirstRunSetupView({
         {
           label: panelCleanerDependency?.state === 'broken' ? 'ซ่อม PanelCleaner' : 'ติดตั้ง PanelCleaner',
           icon: busyAction === 'panelcleaner-install' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />,
-          onClick: installPanelCleaner,
+          onClick: () => installPanelCleaner(panelCleanerDependency?.state === 'broken'),
           kind: 'primary',
           disabled: busyAction !== null || !pythonReady,
         },
@@ -672,6 +692,21 @@ export default function FirstRunSetupView({
   }
 
   const renderStepExtras = () => {
+    if (activeStep.id === 'panelcleaner' && busyAction === 'panelcleaner-install') {
+      const installLogs = panelCleanerDependency?.logs
+      return installLogs && installLogs.length > 0 ? (
+        <div className="FirstRunSetupStepExtras FirstRunSetupInstallLog" aria-live="polite" aria-label="ล็อกการติดตั้ง">
+          {installLogs.slice(-8).map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+      ) : (
+        <div className="FirstRunSetupStepExtras FirstRunSetupInstallLog">
+          <p>กำลังติดตั้ง PanelCleaner…</p>
+        </div>
+      )
+    }
+
     if (activeStep.id === 'model') {
       return (
         <div className="FirstRunSetupStepExtras FirstRunSetupModelExtras">

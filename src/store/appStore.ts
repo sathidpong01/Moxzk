@@ -189,12 +189,21 @@ async function hydrateAlbumEntryImage(entry: ImageEntry): Promise<{
 
   if (entry.originalR2Key) {
     originalUrl = await downloadImage(entry.originalR2Key)
-    const res = await fetch(originalUrl)
-    const blob = await res.blob()
-    file = new File([blob], `page-${entry.pageNumber ?? entry.id}.webp`, { type: blob.type || 'image/webp' })
+    try {
+      const res = await fetch(originalUrl)
+      const blob = await res.blob()
+      file = new File([blob], `page-${entry.pageNumber ?? entry.id}.webp`, { type: blob.type || 'image/webp' })
+    } catch {
+      // blob re-fetch failed — image displays but no File for local processing
+    }
   }
   if (entry.cleanedR2Key) {
-    cleanedUrl = await downloadImage(entry.cleanedR2Key)
+    try {
+      cleanedUrl = await downloadImage(entry.cleanedR2Key)
+    } catch {
+      // cleaned image unavailable — fall back to original only
+      console.warn('[hydrateAlbumEntryImage] cleaned image unavailable:', entry.cleanedR2Key)
+    }
   }
 
   return {
@@ -1092,7 +1101,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch (err) {
       console.error('[loadAlbumPages] download failed:', err)
       set({ isProcessing: false, processKind: null })
-      toast.error('โหลดรูปจาก R2 ล้มเหลว')
+      toast.error(`โหลดรูปจาก R2 ล้มเหลว: ${err instanceof Error ? err.message : String(err)}`)
     }
 
     void (async () => {

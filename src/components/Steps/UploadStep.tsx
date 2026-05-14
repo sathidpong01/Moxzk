@@ -1,20 +1,22 @@
 import ImageUploader from '../Upload/ImageUploader'
 import { Button } from '../ui/primitives'
-import { FolderOpen, ImageIcon } from 'lucide-react'
+import { FileUp, FolderOpen, ImageIcon } from 'lucide-react'
 
 interface UploadStepProps {
   images: File[]
   onImagesSelected: (files: File[]) => void
   onGoToEdit: () => void
   onOpenAlbums: () => void
+  onOpenProjectFile: () => void
 }
 
-export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpenAlbums }: UploadStepProps) {
+export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpenAlbums, onOpenProjectFile }: UploadStepProps) {
   const hasImages = images.length > 0
 
   return (
-    <div className="upload-canvas flex h-full items-start justify-center overflow-y-auto px-4 pb-10 pt-24 sm:px-6 sm:pb-14 lg:pb-20">
-      <section className="moxzk-upload-stage mx-auto w-full max-w-xl p-5 sm:p-6">
+    <div className="upload-canvas h-full overflow-y-auto">
+      <div className="flex min-h-full flex-col items-center justify-center px-4 pb-10 pt-10 sm:px-6 sm:pb-14 lg:pb-20">
+      <section className="moxzk-upload-stage w-full max-w-xl p-5 sm:p-6">
         <div className={`space-y-5 text-center ${hasImages ? '' : 'sm:space-y-6'}`}>
           <div className="space-y-1.5">
             <h1 className="text-2xl font-bold text-balance sm:text-3xl">
@@ -53,8 +55,17 @@ export default function UploadStep({ images, onImagesSelected, onGoToEdit, onOpe
               เปิดจากอัลบั้ม
             </Button>
           </div>
+          <button
+            type="button"
+            onClick={onOpenProjectFile}
+            className="mx-auto inline-flex items-center gap-1.5 text-xs text-[var(--moxzk-muted)] underline-offset-4 hover:text-[var(--moxzk-text)] hover:underline"
+          >
+            <FileUp size={12} />
+            เปิดไฟล์โครงการ (.moxzk)
+          </button>
         </div>
       </section>
+      </div>
     </div>
   )
 }

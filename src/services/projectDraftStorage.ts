@@ -1,5 +1,6 @@
 import type { AppSettings, AppStep, BrushStroke, ImageEntry, TextRegion } from '../types'
 import type { RuntimeProjectDraft } from '../runtime/types'
+import { useAppStore } from '../store/appStore'
 
 const DB_NAME = 'moxzk-project-drafts'
 const STORE_NAME = 'drafts'
@@ -70,6 +71,18 @@ async function loadProjectDraftFromDb(dbName: string): Promise<RuntimeProjectDra
       const req = tx.objectStore(STORE_NAME).get(DRAFT_KEY)
       req.onsuccess = () => resolve(normalizeProjectDraft(req.result))
       req.onerror = () => resolve(null)
+  })
+}
+
+export function restoreProjectDraftToState(draft: RuntimeProjectDraft): void {
+  useAppStore.setState({
+    currentStep: draft.currentStep,
+    imageEntries: draft.imageEntries,
+    activeImageId: draft.activeImageId,
+    regions: draft.regions,
+    brushStrokes: draft.brushStrokes,
+    cleanedImageUrl: draft.cleanedImageUrl,
+    originalImageUrl: draft.originalImageUrl,
   })
 }
 

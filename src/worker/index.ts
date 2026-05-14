@@ -9,10 +9,7 @@ import {
   logout,
   me,
   register,
-  requestPasswordReset,
   requireUser,
-  resetPassword,
-  verifyEmail,
 } from './auth'
 import { changePassword, deleteAccount, getProfile, revokeSessions, updateProfile } from './profile'
 import { redeemSupporterKey } from './supporter'
@@ -57,9 +54,6 @@ async function route(ctx: RequestContext): Promise<Response> {
   if (path === '/api/auth/login' && request.method === 'POST') return login(ctx)
   if (path === '/api/auth/logout' && request.method === 'POST') return logout(ctx)
   if (path === '/api/auth/me' && request.method === 'GET') return me(ctx)
-  if (path === '/api/auth/verify-email' && request.method === 'POST') return verifyEmail(ctx)
-  if (path === '/api/auth/request-password-reset' && request.method === 'POST') return requestPasswordReset(ctx)
-  if (path === '/api/auth/reset-password' && request.method === 'POST') return resetPassword(ctx)
   if (path === '/api/auth/google/start' && request.method === 'GET') return googleStart(ctx)
   if (path === '/api/auth/google/desktop/start' && request.method === 'GET') return googleDesktopStart(ctx)
   if (path === '/api/auth/google/desktop/claim' && request.method === 'POST') return googleDesktopClaim(ctx)

@@ -313,11 +313,13 @@ function runProcess(
 
     child.stdout.setEncoding('utf8')
     child.stderr.setEncoding('utf8')
-    child.stdout.on('data', (chunk) => {
+    child.stdout.on('data', (chunk: string) => {
       stdout += chunk
+      if (options.logs) streamChunkToLogs(chunk, options.logs)
     })
-    child.stderr.on('data', (chunk) => {
+    child.stderr.on('data', (chunk: string) => {
       stderr += chunk
+      if (options.logs) streamChunkToLogs(chunk, options.logs)
     })
     child.once('error', (error) => {
       clearTimeout(timer)
@@ -325,15 +327,22 @@ function runProcess(
     })
     child.once('exit', (code) => {
       clearTimeout(timer)
-      const output = compactOutput(stdout, stderr)
-      if (output && options.logs) options.logs.push(output)
       if (code === 0) {
         resolve({ stdout, stderr })
         return
       }
-      reject(new Error(`${label} failed with code ${code}: ${output || 'no output'}`))
+      const summary = compactOutput(stdout, stderr)
+      reject(new Error(`${label} failed with code ${code}: ${summary || 'no output'}`))
     })
   })
+}
+
+function streamChunkToLogs(chunk: string, logs: string[]): void {
+  const lines = chunk.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  for (const line of lines) {
+    logs.push(line)
+  }
+  if (logs.length > 120) logs.splice(0, logs.length - 80)
 }
 
 function compactOutput(stdout: string, stderr: string): string {

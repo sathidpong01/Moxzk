@@ -482,6 +482,19 @@ export default function SettingsPanel({
     void refreshOllamaModels()
   }, [isOpen, refreshOllamaModels, tab])
 
+  useEffect(() => {
+    if (!installingPanelCleaner) return
+    const timer = window.setInterval(async () => {
+      try {
+        const status = await appRuntime.localServices.getPanelCleanerDependencyStatus()
+        if (status.logs?.length) setPanelCleanerInstallLogs(status.logs)
+      } catch {
+        // ignore poll errors
+      }
+    }, 1500)
+    return () => window.clearInterval(timer)
+  }, [installingPanelCleaner, appRuntime.localServices])
+
   const handleSave = async () => {
     setSavingSettings(true)
     try {

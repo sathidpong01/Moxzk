@@ -33,9 +33,22 @@ export function resolveAlbumSaveTarget(
   }
 }
 
-export function getPersistedPageStatus(entry: Pick<ImageEntry, 'cleanedImageUrl' | 'status'>): AlbumPage['status'] {
-  if (entry.status === 'error') return 'error'
-  if (entry.status === 'clean_done') return 'clean_done'
-  if (entry.cleanedImageUrl) return 'translated'
-  return 'pending'
+export function getPersistedPageStatus(entry: Pick<ImageEntry, 'status'>): AlbumPage['status'] {
+  switch (entry.status) {
+    case 'error':
+      return 'error'
+    case 'clean_done':
+      return 'clean_done'
+    case 'done':
+      return 'translated'
+    case 'clean_queued':
+    case 'cleaning':
+    case 'translate_queued':
+    case 'translating':
+    case 'processing':
+      return 'processing'
+    case 'pending':
+    default:
+      return 'pending'
+  }
 }

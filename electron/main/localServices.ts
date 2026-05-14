@@ -3,7 +3,10 @@ import { existsSync } from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import * as electron from 'electron'
 import { getManagedPanelCleanerVenvDir } from './panelCleanerDependency'
+
+const { app } = electron
 
 export type LocalServiceName = 'panelcleaner' | 'ollama'
 
@@ -407,23 +410,35 @@ export function shutdownOwnedServices(): Promise<NativeServiceActionResult> {
 }
 
 function spawnPanelCleanerBridgeProcess(): ChildProcess {
-  const projectRoot = resolveProjectRoot()
-  const scriptPath = path.join(projectRoot, 'scripts', 'panelcleaner-bridge.mjs')
+  const scriptPath = resolveBridgeScriptPath()
   if (!existsSync(scriptPath)) {
     throw new Error(`PanelCleaner bridge script not found: ${scriptPath}`)
   }
 
   return spawn(process.platform === 'win32' ? 'node.exe' : 'node', [scriptPath], {
-    cwd: projectRoot,
     detached: true,
     env: {
       ...process.env,
-      PANELCLEANER_ALLOWED_ORIGIN: process.env.PANELCLEANER_ALLOWED_ORIGIN || 'http://localhost:5173',
+      PANELCLEANER_ALLOWED_ORIGIN: process.env.PANELCLEANER_ALLOWED_ORIGIN || resolveRendererOrigin(),
       PANELCLEANER_MANAGED_VENV_DIR: getManagedPanelCleanerVenvDir(),
     },
     stdio: 'ignore',
     windowsHide: true,
   })
+}
+
+function resolveBridgeScriptPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'panelcleaner-bridge.mjs')
+  }
+  return path.join(resolveProjectRoot(), 'scripts', 'panelcleaner-bridge.mjs')
+}
+
+function resolveRendererOrigin(): string {
+  if (app.isPackaged) {
+    return 'null'
+  }
+  return 'http://localhost:5173'
 }
 
 function spawnOllamaProcess(): ChildProcess {
@@ -582,7 +597,7 @@ function compactProcessOutput(stdout: string, stderr: string): string {
 }
 
 function resolveProjectRoot(): string {
-  return process.cwd()
+  return app.isPackaged ? app.getAppPath() : process.cwd()
 }
 
 function resolveOllamaCommand(): string | null {

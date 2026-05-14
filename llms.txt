@@ -7,6 +7,7 @@ Moxzk uses Konva/react-konva for the canvas editor, local PanelCleaner and Ollam
 ## Start Here
 
 - [Agent guide](AGENTS.md): repo entrypoint for AI coding agents
+- [Moxzk Wiki](docs/wiki/README.md): user guide, download copy, FAQ, troubleshooting, developer entrypoint
 - [Current agent policy](.agents/AGENTS.md): workflow, context, and verification rules
 - [Active project state](.agents/active.md): current task state and next action
 - [Agent team](.agents/team.md): specialist roles, ownership boundaries, and routing rules

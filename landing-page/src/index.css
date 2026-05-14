@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #050507;
+  --color-surface: #0d0d10;
+  --color-accent: #14b8a6;
+  --color-accent-blue: #0ea5e9;
+  --color-glass: rgba(13, 13, 16, 0.6);
+  --color-border: rgba(255, 255, 255, 0.06);
+}
+
+body {
+  background-color: var(--color-bg);
+  color: white;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.glass-card {
+  background: var(--color-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+  border-radius: 0.875rem;
+}
+
+.text-gradient {
+  background: linear-gradient(90deg, #14b8a6, #38bdf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
