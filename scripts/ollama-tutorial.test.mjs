@@ -70,7 +70,7 @@ test('Ollama tutorial images match their steps instead of reusing the same docs 
     'gemma-model.webp',
     'moxzk-save-settings.webp',
   ]) {
-    assert.match(tutorialSource, new RegExp(`/tutorial/ollama/${expectedImage}`))
+    assert.match(tutorialSource, new RegExp(`tutorial/ollama/${expectedImage}`))
   }
 
   assert.doesNotMatch(tutorialSource, /installer\.webp|windows-requirements\.webp|api-check\.webp|quickstart\.webp|moxzk-model\.webp/)
@@ -118,8 +118,8 @@ test('first-run setup is a per-step wizard and persists outside AppSettings', ()
   assert.match(firstRunSource, /showIntro/)
   assert.match(firstRunSource, /ตั้งค่า Moxzk ให้พร้อมใช้งาน/)
   assert.match(firstRunSource, /SETUP_ICON_SRC/)
-  assert.match(firstRunSource, /\/setup-icons\/python\.svg/)
-  assert.match(firstRunSource, /\/setup-icons\/ollama\.svg/)
+  assert.match(firstRunSource, /setup-icons\/python\.svg/)
+  assert.match(firstRunSource, /setup-icons\/ollama\.svg/)
   assert.match(firstRunSource, /<img className="FirstRunSetupIcon"/)
   assert.match(firstRunSource, /ถัดไป/)
   assert.match(firstRunSource, /Skip/)
