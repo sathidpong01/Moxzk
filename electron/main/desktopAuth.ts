@@ -244,7 +244,8 @@ export function initDesktopNetworkBridge(): void {
         callback({ responseHeaders: details.responseHeaders })
         return
       }
-      const requestOrigin = (details.requestHeaders?.Origin ?? details.requestHeaders?.origin) as string | undefined
+      const reqHeaders = (details as unknown as { requestHeaders?: Record<string, string> }).requestHeaders
+      const requestOrigin = reqHeaders?.Origin ?? reqHeaders?.origin
       callback({
         responseHeaders: {
           ...details.responseHeaders,
