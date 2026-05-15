@@ -1,9 +1,23 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import { createProjectDraftSnapshot, normalizeProjectDraft } from '../src/services/projectDraftStorage.ts'
-import { decodeDesktopProjectDraft, encodeDesktopProjectDraft } from '../src/runtime/desktopDraftCodec.ts'
-import { buildOcrReviewSummary, sortRegionsForReview } from '../src/services/translationReview.ts'
+import { createServer } from 'vite'
+
+async function loadViteModules() {
+  const server = await createServer({ appType: 'custom', logLevel: 'silent', server: { middlewareMode: true } })
+  try {
+    const [draftStorage, draftCodec, review] = await Promise.all([
+      server.ssrLoadModule('/src/services/projectDraftStorage.ts'),
+      server.ssrLoadModule('/src/runtime/desktopDraftCodec.ts'),
+      server.ssrLoadModule('/src/services/translationReview.ts'),
+    ])
+    return { draftStorage, draftCodec, review }
+  } finally {
+    await server.close()
+  }
+}
+
+const viteModulesPromise = loadViteModules()
 
 function region(overrides = {}) {
   return {
@@ -66,7 +80,8 @@ test('runtime contract covers pre-Electron native seams', () => {
   assert.match(webRuntime, /defaultPanelCleanerClient\.getStatus/)
 })
 
-test('project draft snapshot keeps full page list and active page edits', () => {
+test('project draft snapshot keeps full page list and active page edits', async () => {
+  const { draftStorage: { createProjectDraftSnapshot } } = await viteModulesPromise
   const activeRegion = region({ id: 'active-region', translatedText: 'หลังแก้' })
   const inactiveRegion = region({ id: 'inactive-region', translatedText: 'เดิม' })
   const draft = createProjectDraftSnapshot({
@@ -91,7 +106,8 @@ test('project draft snapshot keeps full page list and active page edits', () => 
   assert.equal(draft.imageEntries[1].cleanedImageUrl, 'blob:cleaned')
 })
 
-test('legacy export-step drafts normalize back to edit mode', () => {
+test('legacy export-step drafts normalize back to edit mode', async () => {
+  const { draftStorage: { normalizeProjectDraft } } = await viteModulesPromise
   const draft = normalizeProjectDraft({
     version: 1,
     savedAt: Date.now(),
@@ -109,7 +125,8 @@ test('legacy export-step drafts normalize back to edit mode', () => {
   assert.equal(draft.currentStep, 'edit')
 })
 
-test('translation review flags low confidence and sorts review-first', () => {
+test('translation review flags low confidence and sorts review-first', async () => {
+  const { review: { buildOcrReviewSummary, sortRegionsForReview } } = await viteModulesPromise
   const good = region({ id: 'good', confidence: 0.95 })
   const low = region({ id: 'low', confidence: 0.4 })
   const empty = region({ id: 'empty', originalText: '', confidence: 0.99 })
@@ -473,7 +490,7 @@ test('Electron Google login uses system browser and loopback ticket claim', () =
   assert.match(webRuntime, /window\.moxzkRuntime/)
   assert.equal(webRuntime.includes(removedBridgeAccess), false)
   assert.match(webRuntime, /isElectronUserAgent/)
-  assert.match(webRuntime, /Electron auth bridge is not available/)
+  assert.match(webRuntime, /electron:dev/)
 })
 
 test('Electron native service launcher is loopback-only and keeps external dependencies explicit', () => {
@@ -518,6 +535,7 @@ test('Electron native service launcher is loopback-only and keeps external depen
 })
 
 test('desktop draft codec round-trips multi-page image assets and edits', async () => {
+  const { draftStorage: { createProjectDraftSnapshot }, draftCodec: { encodeDesktopProjectDraft, decodeDesktopProjectDraft } } = await viteModulesPromise
   const originalFile = new File([new Blob(['original image bytes'], { type: 'image/webp' })], 'page-001.webp', { type: 'image/webp' })
   const cleanedBlob = new Blob(['cleaned image bytes'], { type: 'image/webp' })
   const cleanedUrl = URL.createObjectURL(cleanedBlob)
