@@ -62,7 +62,7 @@ export default function App() {
         <div className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
           <a href="#features" className="hover:text-white transition-colors">Features</a>
           <a href="#compare" className="hover:text-white transition-colors">How it Works</a>
-          <a href="https://github.com/sathidpong01/Moxzk/wiki" className="hover:text-white transition-colors">Docs</a>
+          <a href="https://github.com/sathidpong01/Moxzk/tree/master/docs/wiki" className="hover:text-white transition-colors">Docs</a>
         </div>
 
         <div className="flex items-center gap-3">
@@ -181,8 +181,8 @@ export default function App() {
               }}
             >
               <img
-                src="/App.png"
-                alt="Moxzk app — manga editor"
+                src="/manga-th.png"
+                alt="Moxzk — translated manga output"
                 className="w-full h-auto block"
                 draggable={false}
               />
@@ -430,7 +430,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-6 text-zinc-500">
             <a href="https://github.com/sathidpong01/Moxzk" className="hover:text-white transition-colors">GitHub</a>
-            <a href="https://github.com/sathidpong01/Moxzk/wiki" className="hover:text-white transition-colors">Docs</a>
+            <a href="https://github.com/sathidpong01/Moxzk/tree/master/docs/wiki" className="hover:text-white transition-colors">Docs</a>
             <a href="https://github.com/sathidpong01/Moxzk/issues" className="hover:text-white transition-colors">Issues</a>
             <a href="https://github.com/sathidpong01/Moxzk/releases" className="hover:text-white transition-colors">Releases</a>
           </div>

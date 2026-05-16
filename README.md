@@ -1,472 +1,134 @@
-# Moxzk
+<img src="assets/icon.png" alt="" height="44"> **Moxzk**
 
-React/Vite image editor สำหรับคลีนภาพมังงะและแปลเป็นภาษาไทย โดยใช้ PanelCleaner, Ollama vision model และ Cloudflare Worker/D1/R2 เป็นแกนหลัก
+แอปพลิเคชัน Windows สำหรับทำความสะอาดบอลลูนมังงะและแปลเป็นภาษาไทย — ด้วย PanelCleaner, Ollama และ Cloudflare
 
-Windows Electron desktop คือ target เดียวของแอปนี้. React/Vite รันเป็น renderer ภายใน Windows Electron shell และ Electron V1 shipped แล้ว รองรับ native IPC สำหรับ export, desktop draft persistence, local service start helpers สำหรับ PanelCleaner/Ollama, Google OAuth ผ่าน system browser, frameless window controls และ GitHub Releases updater ผ่าน `AppRuntime`. Web runtime ยังใช้เป็น fallback และสำหรับ CI; Linux/macOS ไม่ใช่ planned target.
+[![Download](https://img.shields.io/badge/Download-Windows%20Installer-14b8a6?style=for-the-badge)](https://github.com/sathidpong01/Moxzk/releases/latest)
+[![License](https://img.shields.io/badge/License-MIT-grey?style=flat-square)](./LICENSE)
+[![CI](https://github.com/sathidpong01/Moxzk/actions/workflows/ci.yml/badge.svg)](https://github.com/sathidpong01/Moxzk/actions/workflows/ci.yml)
 
-สำหรับคู่มือผู้ใช้, หน้า download/landing copy, FAQ, troubleshooting, และ developer entrypoint แบบอ่านเร็ว ดู [Moxzk Wiki](docs/wiki/README.md)
+---
 
-## Current Direction
+## ทำอะไรได้บ้าง
 
-- Frontend: React 19 + Vite 8 + TypeScript
-- Windows desktop shell: Electron + electron-vite ผ่าน `AppRuntime`
-- UI: Tailwind CSS 4 + Headless UI primitives + custom studio-dark design system
-- Editor: Konva/react-konva พร้อม multi-artboard workspace
-- Cleanup: PanelCleaner external CLI ผ่าน local bridge
-- AI: Ollama `/api/chat` สำหรับ OCR/translation/vision JSON
-- Storage/Auth: Cloudflare Worker API + D1 + R2
-- Schema: Drizzle เป็น source of truth สำหรับ Cloudflare D1
-- Legacy backend ถูกถอดออกแล้ว เส้นทางหลักคือ PanelCleaner bridge เท่านั้น
+- **ทำความสะอาดบอลลูน** ด้วย PanelCleaner — รัน local ไม่ส่งข้อมูลออกนอกเครื่อง
+- **OCR + แปลภาษา** ด้วย Ollama vision model บนเครื่องคุณ
+- **แก้ไข text region** บน canvas — font, สี, stroke, ขนาด, rotation
+- **Batch pipeline** — clean → OCR → แปล หลายหน้าพร้อมกันในคลิกเดียว
+- **Story context** รักษาคำเรียก ความสัมพันธ์ และศัพท์ให้ต่อเนื่องระหว่างหน้า
+- **Cloud sync** บน Cloudflare D1/R2 (optional)
+- **Export** เป็นไฟล์ทีละหน้าหรือ ZIP
 
-## Features
+## ต้องมีอะไรบ้าง
 
-- Upload หลายรูปแล้วเปิดเป็น artboard workspace แนวนอน
-- แสดงหลายหน้าใน canvas เดียว พร้อมเลขหน้า, active page, status และ filmstrip ที่เปิด/ปิดได้
-- Reorder page แบบล็อกตำแหน่งรูปภาพ ไม่ลากภาพอิสระจนชนกับ text regions
-- แก้ text region บน Konva canvas: font, color, stroke, stroke corner, size, rotation, layout mode
-- PanelCleaner clean ผ่าน local bridge และรองรับ native batch clean endpoint
-- Batch AI queue: clean หลายหน้าก่อน แล้วแปลทีละหน้าเพื่อลดการแย่ง VRAM/โมเดล
-- Story context across pages: ส่งบทพูดหน้าก่อนหน้าและ style guide เข้า Ollama เพื่อรักษาคำเรียก ความสัมพันธ์ และศัพท์ให้ต่อเนื่อง
-- Translation memory ผ่าน IndexedDB
-- Albums บน Cloudflare D1/R2 พร้อม Google OAuth, email/password, session cookie และ ownership checks
-- Export หลายหน้า โดยเลือกทุกหน้าเป็นค่าเริ่มต้น หรือเลือกเฉพาะบางหน้า
-- Export ผ่าน File System Access API เมื่อ browser รองรับ และ fallback เป็น ZIP
-- Electron dev shell รองรับ native save dialog, folder export, desktop draft restore และ Windows frameless title bar
-- Production updater ใช้ GitHub Releases ดาวน์โหลดเบื้องหลัง แล้วถามผู้ใช้ก่อนรีสตาร์ทติดตั้ง
+| สิ่งที่ต้องการ | หมายเหตุ |
+|---|---|
+| Windows 10/11 x64 | เป้าหมายเดียวของ app |
+| [Ollama](https://ollama.com) | OCR + แปลภาษา — ติดตั้งแยก |
+| Vision model | เช่น `ollama pull gemma4` |
+| Python 3 | PanelCleaner ต้องการ — app ติดตั้ง venv ให้เอง |
 
-## Architecture
+## ดาวน์โหลด
 
-```text
-React + Vite + TypeScript
-        |
-        | upload / edit / export
-        v
-Konva Multi-Artboard Editor
-        |
-        +--> PanelCleaner bridge :5055
-        |       - spawn external pcleaner CLI
-        |       - single clean and batch clean
-        |       - optional OCR fallback CSV
-        |
-        +--> Ollama API
-        |       - /api/chat for vision OCR/translation
-        |       - /api/version health check
-        |       - /api/tags model list
-        |       - story context + style guide prompt layer
-        |
-        +--> Cloudflare Worker :8787
-                - auth/session
-                - albums/pages metadata in D1
-                - image ownership and streaming through R2
-```
+ไปที่ **[Releases](https://github.com/sathidpong01/Moxzk/releases/latest)** แล้วดาวน์โหลด `Moxzk-*.exe`
 
-## Tech Stack
+> **หมายเหตุ SmartScreen:** Windows จะแจ้งเตือนเพราะ installer ไม่ได้ sign — เลือก "More info → Run anyway" ได้เลย ตรวจสอบ SHA256 checksum ในหน้า release ก่อนติดตั้ง
 
-| Layer | Technology |
-| --- | --- |
-| Frontend | React 19, Vite 8, TypeScript |
-| Styling | Tailwind CSS 4, Headless UI, custom studio-dark tokens |
-| Canvas | Konva, react-konva |
-| State | Zustand |
-| Cleanup | PanelCleaner external CLI through local bridge |
-| OCR/Translation | Ollama vision/chat API |
-| Backend | Cloudflare Workers |
-| Database | Cloudflare D1 + Drizzle |
-| Object Storage | Cloudflare R2 |
-| Auth | Custom Worker auth, Google OAuth, email/password |
-| Export | File System Access API, file-saver, jszip |
+## เริ่มใช้งาน
 
-## Project Structure
+1. เปิดแอป → ติดตั้ง PanelCleaner จาก **Settings > Cleanup**
+2. ตั้ง Ollama URL + model จาก **Settings > AI / Models**
+3. Upload ภาพมังงะ → กด **Clean All** → กด **Translate All**
+4. แก้ text region ตามต้องการ → **Export**
 
-```text
-drizzle/
-  0000_parallel_stranger.sql
-  0001_artboard_layout.sql
-docs/
-  cloudflare-d1-schema.md
-scripts/
-  panelcleaner-bridge.mjs
-  *.test.mjs
-src/
-  runtime/
-    electronRuntime.ts
-    webRuntime.ts
-  components/
-    Albums/
-    Auth/
-    Editor/
-    Processing/
-    Settings/
-    Steps/
-    ui/
-electron/
-  main/
-  preload/
-  shared/
-  services/
-    batch-processing.ts
-    cleanup-provider.ts
-    cloudflareApi.ts
-    exporter.ts
-    ollama.ts
-    panelcleaner-api.ts
-    story-context.ts
-    translationMemory.ts
-  store/
-    albumStore.ts
-    appStore.ts
-    authStore.ts
-  worker/
-    index.ts
-    auth.ts
-    albums.ts
-    storage.ts
-    db/schema.ts
-  types/
-    index.ts
-    database.ts
-```
+---
 
-## Prerequisites
+## สำหรับนักพัฒนา
 
-- Node.js 20+
-- Python 3 สำหรับให้แอปสร้าง managed PanelCleaner venv ในเครื่องผู้ใช้
-- Ollama local app หรือ Ollama Cloud account
-- Vision-capable Ollama model เช่น `gemma4`
-- Cloudflare account ที่มี Worker, D1 และ R2
-- Wrangler authentication สำหรับ deploy Worker และ apply D1 migrations
-
-## Install
+### ติดตั้ง
 
 ```bash
 npm install
 ```
 
-PanelCleaner เป็น external GPLv3 dependency และไม่ถูก vendor หรือ bundle เข้าแอป. ใน Electron ให้ติดตั้ง/ซ่อมจาก Settings > Cleanup; แอปจะสร้าง managed venv ที่ user profile ของ Moxzk และติดตั้ง `pcleaner-cli==2.11.9` ให้เอง. นักพัฒนายังสามารถติดตั้งเองด้วย `pip install pcleaner-cli` หรือใช้ repo-local `.venv-panelcleaner` ได้
+> repo นี้ใช้ `legacy-peer-deps=true` เพราะ `electron-vite@5` ยังประกาศ peer range ถึง Vite 7 แต่โปรเจคใช้ Vite 8
 
-หมายเหตุ: repo นี้ตั้ง `.npmrc` เป็น `legacy-peer-deps=true` เพราะ `electron-vite@5` ยังประกาศ peer range ถึง Vite 7 แต่โปรเจคใช้ Vite 8 และผ่าน build/test ด้วย stack นี้แล้ว
+### รัน / Build
 
-สำหรับ Codex cloud ให้ใช้ `bash scripts/codex-cloud-setup.sh` เป็น environment setup script และดูรายละเอียดที่ [Codex Cloud Environment](docs/codex-cloud-environment.md)
+```bash
+npm run electron:dev    # เปิด Electron dev shell
+npm run dev             # เปิด Vite renderer อย่างเดียว (http://localhost:5173)
+npm run electron:build  # build Electron
+npm run release:build   # build Windows installer
+npm run release:publish # publish ไป GitHub Releases (ต้องมี GH_TOKEN)
+```
 
-## Local Environment
+### Test
 
-สร้าง `.env.local` เฉพาะสำหรับ dev/local/smoke override ถ้าต้องการ. ไฟล์นี้ห้าม commit และห้าม bundle เข้า production app:
+```bash
+npm test
+npx tsc --noEmit
+npm run worker:check
+```
+
+### Environment
+
+สร้าง `.env.local` สำหรับ dev:
 
 ```env
 VITE_CLOUDFLARE_API_URL=https://moxzk-api.<your-subdomain>.workers.dev
-VITE_PANELCLEANER_BRIDGE_URL=http://localhost:5055
-VITE_TRANSLATOR_API_URL=http://localhost:5003
 VITE_OLLAMA_URL=http://localhost:11434
 VITE_OLLAMA_MODEL=gemma4
 ```
 
-ใน dev mode ค่า `VITE_CLOUDFLARE_API_URL` ใช้เป็น target ของ Vite proxy สำหรับ `/api` เพื่อให้ browser ยังเรียก same-origin `/api/...` และ session cookie ทำงานเหมือน app เดียวกัน. ถ้าไม่ตั้งค่านี้ proxy จะ fallback ไปที่ local Worker `http://localhost:8787` สำหรับ debug เฉพาะกรณี
+Electron dev ใช้ remote Worker หลัก `https://moxzk-api.sathidpong01.workers.dev` เป็นค่า default
 
-ห้ามใส่ secrets ใน `VITE_*` env เพราะค่าจะถูก bundle เข้า browser/Electron renderer. Ollama Cloud API key ให้ใส่ใน Settings; Google OAuth secrets ต้องอยู่บน Cloudflare Worker เท่านั้น
+### Cloudflare Worker
 
-ตั้ง Worker secrets บน Cloudflare:
+```bash
+npm run db:migrate:remote   # apply D1 migration
+npm run worker:deploy       # deploy Worker
+```
+
+Worker secrets ที่ต้องตั้ง:
 
 ```bash
 wrangler secret put GOOGLE_CLIENT_ID
 wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
-สร้าง `.dev.vars` เฉพาะเมื่อต้อง debug ด้วย Wrangler local dev:
-
-```env
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-```
-
-Resend ไม่จำเป็นใน build ปัจจุบัน เพราะ email verification/reset ถูกปิดไว้ และ email/password register ถูก mark verified ทันที ดูรายละเอียดใน [Cloudflare D1 Schema](docs/cloudflare-d1-schema.md)
-
-## Run Locally
-
-ก่อนใช้งาน backend remote ครั้งแรก ให้ apply migration และ deploy Worker:
-
-```bash
-npm run db:migrate:remote
-npm run worker:deploy
-```
-
-เปิด Ollama เอง หรือให้ Electron dev shell เริ่มจาก Settings > AI / Models:
-
-```bash
-ollama serve
-ollama pull gemma4
-```
-
-เปิด PanelCleaner bridge เอง หรือให้ Electron dev shell เริ่มจาก Settings > Cleanup. ถ้าเครื่องยังไม่มี PanelCleaner ให้กด "ติดตั้ง PanelCleaner" ในหน้า Cleanup ก่อน:
-
-```bash
-npm run backend:panelcleaner
-```
-
-เปิด Vite frontend:
-
-```bash
-npm run dev
-```
-
-เปิด `http://localhost:5173`
-
-Vite proxy จะส่ง `/api` ไปที่ `VITE_CLOUDFLARE_API_URL`. ถ้าไม่ได้ตั้งค่าไว้ จะ fallback ไป `http://localhost:8787` เพื่อให้ยังเปิด local Worker debug ได้ด้วย `npx wrangler dev --local --port 8787`
-
-เปิด Electron dev shell:
-
-```bash
-npm run electron:dev
-```
-
-Build Electron shell:
-
-```bash
-npm run electron:build
-```
-
-Build Windows installer พร้อม update metadata:
-
-```bash
-npm run release:build
-npm run release:checksums
-```
-
-Publish installer และ metadata ไป GitHub Releases ต้องมี `GH_TOKEN`:
-
-```bash
-npm run release:publish
-```
-
-Electron dev/build ใช้ remote Worker หลัก `https://moxzk-api.sathidpong01.workers.dev` เป็นค่า default ถ้าไม่ได้ตั้ง `VITE_CLOUDFLARE_API_URL`. ตั้ง env เฉพาะเมื่อต้องการชี้ไป Worker อื่น.
-
-Electron local service start เป็นตัวช่วยสำหรับเครื่อง dev และ production: PanelCleaner ยังเป็น external dependency ที่ติดตั้งใน managed venv จากในแอป ส่วน Ollama ยังเป็น external app/CLI และไม่ได้ถูก bundle เข้า release. Production app ไม่ต้องใช้ `.env.local`; Worker URL มีค่า default ผ่าน electron-vite และ secrets อยู่บน Cloudflare Worker.
-
-Auto-update ใช้ `electron-builder` NSIS + `electron-updater` ผ่าน GitHub Releases. แอปจะเช็คอัปเดตหลังเปิดโปรแกรม ดาวน์โหลดเบื้องหลัง และถามก่อนรีสตาร์ทติดตั้ง. ตอนนี้ Moxzk เป็น unsigned indie build จึงต้องใส่ SmartScreen note, SHA256 checksum, และ manual installer fallback ในทุก release. ดูรายละเอียดที่ [Release And Updates](docs/electron/release-and-updates.md)
-
-## Cloudflare Resources
-
-ค่าใน `wrangler.jsonc`:
-
-- Worker: `moxzk-api`
-- D1: `moxzk-db`
-- R2: `moxzk-images`
-- D1 binding: `DB`
-- R2 binding: `IMAGES`
-
-Generate migration:
-
-```bash
-npm run db:generate
-```
-
-Apply local migration:
-
-```bash
-npm run db:migrate:local
-```
-
-Apply remote migration:
-
-```bash
-npm run db:migrate:remote
-```
-
-Worker dry run:
-
-```bash
-npm run worker:check
-```
-
-Deploy Worker:
-
-```bash
-npm run worker:deploy
-```
-
-Required Worker secrets:
-
-```bash
-wrangler secret put GOOGLE_CLIENT_ID
-wrangler secret put GOOGLE_CLIENT_SECRET
-```
-
-Google OAuth authorized redirect URIs:
-
-```text
-http://localhost:5173/api/auth/google/callback
-http://localhost:5174/api/auth/google/callback
-https://moxzk-api.<your-subdomain>.workers.dev/api/auth/google/callback
-```
-
-Local web dev uses the localhost callback through Vite proxy so the session cookie belongs to the local app. The workers.dev callback remains useful for direct Worker/API smoke tests and future hosted frontend flows.
-
-Electron Google login uses the system browser instead of embedded Chromium navigation. The browser receives only a one-time loopback ticket; Electron main claims it with the Worker and stores the resulting session cookie in the Electron session.
-
-## Usage Flow
-
-```text
-1. Upload manga images
-2. Open editor as multi-artboard workspace
-3. Run AI:
-   - PanelCleaner batch clean
-   - derive text boxes from cleanup diff
-   - Ollama boxed vision translation
-   - fallback to vision OCR/translation when needed
-4. Edit text regions, font, stroke, layout and page order
-5. Save pages to Cloudflare album
-6. Export all pages or selected pages
-```
-
-## AI Translation Notes
-
-The translation pipeline is intentionally not page-isolated anymore.
-
-- `story-context.ts` collects previous translated lines during batch translation.
-- `translationStyleGuide` in Settings controls relationships, pronouns, tone and recurring terms.
-- The default guide covers broad relationships: family, siblings, partners, friends, rivals, hierarchy, workplace roles, school roles, customer/staff and strangers.
-- If a relationship is established by earlier pages or image context, prompts tell Ollama to keep it consistent.
-- If the relationship is uncertain, prompts prefer neutral Thai phrasing instead of forcing a wrong relationship.
-
-Recommended workflow for better continuity:
-
-```text
-1. Sort pages correctly
-2. Add project-specific glossary/style guide in Settings > Ollama
-3. Run AI for all pages in order
-4. Review OCR correction / text regions
-5. Re-run specific pages only when needed
-```
-
-## PanelCleaner Bridge Notes
-
-- Bridge รับรูปเป็น base64 JSON แล้วเขียน temp files ต่อ job
-- Health endpoint: `GET /health` สำหรับเช็คว่า bridge process ยังตอบอยู่
-- Deep status endpoint: `POST /panelcleaner/status` สำหรับเช็ค CLI/executable และ cache ผลช่วงสั้นเพื่อลดการ spawn ซ้ำ
-- Single endpoint: `/panelcleaner/process`
-- Batch endpoint: `/panelcleaner/batch`
-- ลำดับการหา executable คือ explicit path จาก Settings -> managed venv -> repo-local dev venv -> PATH
-- managed venv default อยู่ที่ `%APPDATA%\Moxzk\panelcleaner-venv` บน Windows
-- เรียก PanelCleaner ด้วย `spawn(..., { shell: false })`; managed/dev venv ใช้ `python -c "from pcleaner.main import main; main()"` เพื่อไม่พึ่ง stale console launcher
-- จำกัด origin เฉพาะ local dev origins โดย default
-- รองรับ `PANELCLEANER_BRIDGE_PORT`, `PANELCLEANER_MAX_BODY_BYTES`, `PANELCLEANER_ALLOWED_ORIGIN`, `PANELCLEANER_MANAGED_VENV_DIR`
-- รองรับ `PANELCLEANER_STATUS_CACHE_TTL_MS` สำหรับปรับ cache ของ deep status check
-- ลบ temp directory หลังจบงาน เว้นแต่ตั้ง `PANELCLEANER_KEEP_TEMP=1`
-
-## Auth And Albums
-
-Worker API routes:
-
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
-- `GET /api/auth/google/start`
-- `GET /api/auth/google/desktop/start`
-- `POST /api/auth/google/desktop/claim`
-- `GET /api/auth/google/callback`
-- `GET /api/albums`
-- `POST /api/albums`
-- `GET /api/albums/:albumId/pages`
-- `POST /api/albums/:albumId/pages`
-- `POST /api/albums/:albumId/pages/reorder`
-- `PATCH /api/pages/:pageId`
-- `DELETE /api/pages/:pageId`
-- `POST /api/storage/upload`
-- `GET /api/storage/object/:key`
-- `DELETE /api/storage/object/:key`
-
-R2 object access is checked through D1 `objects` metadata before download/delete. Album and page deletes are hard deletes.
-
-## Verification
-
-```bash
-npm test
-npm run build
-npm run worker:check
-npm run db:migrate:remote
-npm run worker:deploy
-```
-
-Expected current test coverage includes:
-
-- album save target behavior
-- D1 migration/schema checks
-- PanelCleaner CSV parser
-- story context continuity rules
-- text layout sizing
-
-Manual smoke tests:
-
-```text
-upload 6 images -> editor opens -> 5 artboards in first row -> page 6 second row
-run AI all pages -> clean status updates -> translation runs page by page
-save to existing album -> no duplicate pages
-open album -> pages load with consistent layout
-delete page from album/canvas -> page disappears from editor state
-export all pages -> folder export or ZIP fallback
-```
-
-Auth smoke user:
-
-The command uses the real public auth API: register the smoke user if missing, log in if it already exists, then call `GET /api/auth/me` with the returned session cookie. Set the online Worker API URL and credential before running it:
-
-```powershell
-$env:MOXZK_AUTH_SMOKE_BASE_URL = "https://moxzk-api.<your-subdomain>.workers.dev"
-$env:MOXZK_AUTH_SMOKE_EMAIL = "<your-smoke-user-email>"
-$env:MOXZK_AUTH_SMOKE_PASSWORD = "<your-smoke-user-password>"
-$env:MOXZK_AUTH_SMOKE_USERNAME = "Moxzk Smoke Test"
-npm run auth:smoke-user
-```
-
-If `MOXZK_AUTH_SMOKE_BASE_URL` is not set, the script falls back to `VITE_CLOUDFLARE_API_URL`. It intentionally does not default to localhost because this check is meant for the deployed Worker path. The smoke email and password must come from environment variables; do not commit real smoke credentials to the repo.
-
-Production smoke tests:
-
-```powershell
-npm run smoke:worker
-npm run smoke:browser
-```
-
-`smoke:worker` uses the deployed Worker and the smoke user to verify auth session behavior, album CRUD, page CRUD/reorder, R2 upload/download, ownership blocking for a foreign object key, and cleanup. `smoke:browser` expects `npm run dev` to be running on `http://localhost:5173`; it logs in through the UI, uploads a sample page, saves it to an album, opens that album again, and verifies ZIP export download. Both commands load `.env.local` plus process env, but do not print the smoke password or session cookie.
-
-## Skills
-
-Installed skills that are relevant to this project:
-
-| Skill | Use |
-| --- | --- |
-| `baoyu-comic` | comic/storyboard thinking and character continuity ideas |
-| `context-extraction` | translator context, glossary and ambiguity handling |
-| `thai-interpreter` | Thai wording, intent and encoding safety |
-| `ocr` | OCR/PaddleOCR guidance |
-| `ollama` | Ollama API and structured vision responses |
-| `d1-drizzle-schema` | Cloudflare D1 schema design with Drizzle |
-| `d1-migration` | D1 migration workflow |
-| `cloudflare:workers-best-practices` | Worker code and deployment checks |
-| `frontend-ui-engineering` | React UI implementation |
-| `frontend-design` | visual direction and layout polish |
-| `accessibility` | dialog/focus/keyboard checks |
-| `webapp-testing` / `playwright` | browser smoke tests |
+ดูรายละเอียดเพิ่มเติมที่ [docs/wiki](docs/wiki/README.md)
+
+---
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Desktop shell | Electron + electron-vite |
+| Frontend | React 19, Vite 8, TypeScript |
+| Styling | Tailwind CSS 4, Headless UI |
+| Canvas | Konva, react-konva |
+| State | Zustand |
+| Cleanup | PanelCleaner (external GPLv3 CLI) |
+| OCR/Translation | Ollama vision/chat API |
+| Backend | Cloudflare Workers |
+| Database | Cloudflare D1 + Drizzle |
+| Storage | Cloudflare R2 |
+| Auth | Custom Worker auth, Google OAuth, email/password |
 
 ## Roadmap
 
-- [x] Replace daisyUI with Headless UI + project primitives
-- [x] Cloudflare Worker auth/session API
-- [x] D1 schema with Drizzle migrations
-- [x] R2 upload/download ownership checks
-- [x] PanelCleaner bridge and batch clean endpoint
+- [x] Electron shell (V1) — native IPC, frameless window, GitHub Releases updater
 - [x] Multi-artboard editor workspace
+- [x] PanelCleaner bridge + batch clean endpoint
+- [x] Batch translation pipeline with story context
 - [x] Export all/selected pages
-- [x] Story context prompt layer for batch translation
-- [ ] Album-level story bible and glossary UI
+- [x] OCR confidence review summary
+- [ ] Album-level story bible + glossary UI
 - [ ] Translation review pass for pronoun/relationship consistency
-- [x] OCR confidence review summary in correction flow
-- [x] Remove legacy backend after PanelCleaner flow is verified
-- [x] Electron shell with native typed IPC (V1)
-- [x] Native executable discovery, version check, and local service start helper
 
 ## License
 
-Moxzk source code is licensed under the MIT License. See [LICENSE](./LICENSE).
+MIT — ดู [LICENSE](./LICENSE) และ [NOTICE.md](./NOTICE.md)
 
-The MIT license applies to the app source code and project documentation unless a file states a different license. It does not cover the Moxzk name/logo/branding, manga images, translated pages, user files, Magga website content, third-party tools, model artifacts, or external services. See [NOTICE.md](./NOTICE.md) for the current rights and third-party dependency boundary.
+PanelCleaner เป็น GPLv3 external CLI — ไม่ถูก bundle เข้าแอป

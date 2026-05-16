@@ -244,10 +244,12 @@ export function initDesktopNetworkBridge(): void {
         callback({ responseHeaders: details.responseHeaders })
         return
       }
+      const reqHeaders = (details as unknown as { requestHeaders?: Record<string, string> }).requestHeaders
+      const requestOrigin = reqHeaders?.Origin ?? reqHeaders?.origin
       callback({
         responseHeaders: {
           ...details.responseHeaders,
-          'access-control-allow-origin': ['null'],
+          'access-control-allow-origin': [requestOrigin ?? 'null'],
           'access-control-allow-credentials': ['true'],
         },
       })

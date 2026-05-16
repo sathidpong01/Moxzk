@@ -173,6 +173,12 @@ export async function importProjectFile(file: File): Promise<boolean> {
     return false
   }
 
+  const prevEntries = useAppStore.getState().imageEntries
+  for (const entry of prevEntries) {
+    if (entry.originalUrl?.startsWith('blob:')) URL.revokeObjectURL(entry.originalUrl)
+    if (entry.cleanedImageUrl?.startsWith('blob:')) URL.revokeObjectURL(entry.cleanedImageUrl)
+  }
+
   const active = entries[0]
   useAppStore.setState({
     currentStep: 'edit',

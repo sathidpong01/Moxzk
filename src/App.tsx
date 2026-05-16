@@ -37,7 +37,7 @@ import { Toaster } from 'sonner'
 import { createPortal } from 'react-dom'
 import { BookOpen, ChevronDown, Download, FileDown, FileUp, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
 import { exportProjectFile, importProjectFile } from './services/projectFile'
-import { clearProjectDraft, loadProjectDraft, restoreProjectDraftToState } from './services/projectDraftStorage'
+import { restoreProjectDraftToState } from './services/projectDraftStorage'
 import { toast as sonnerToast } from 'sonner'
 import type { ProcessingMode } from './types'
 
@@ -116,13 +116,13 @@ function App() {
   useEffect(() => {
     let dismissed = false
     void (async () => {
-      const draft = await loadProjectDraft()
+      const draft = await appRuntime.projectDraft.load()
       if (dismissed || !draft) return
       const state = useAppStore.getState()
       if (state.imageEntries.length > 0) return
       const ageDays = (Date.now() - draft.savedAt) / 86_400_000
       if (ageDays > 7) {
-        void clearProjectDraft()
+        void appRuntime.projectDraft.clear()
         return
       }
       const when = new Date(draft.savedAt).toLocaleString('th-TH')
@@ -138,7 +138,7 @@ function App() {
         cancel: {
           label: 'ลบทิ้ง',
           onClick: () => {
-            void clearProjectDraft()
+            void appRuntime.projectDraft.clear()
           },
         },
       })
