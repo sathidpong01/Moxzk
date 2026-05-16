@@ -103,7 +103,7 @@
         "ext": "moxzk",
         "name": "Moxzk Project",
         "description": "Moxzk manga project file",
-        "icon": "assets/icon",
+        "icon": "assets/paper",
         "role": "Editor"
       }
     ],
