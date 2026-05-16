@@ -97,7 +97,7 @@ function App() {
   const [ollamaTutorialOpen, setOllamaTutorialOpen] = useState(false)
   const appRuntime = getAppRuntime()
   const authUser = useAuthStore((state) => state.user)
-  const hasCustomChrome = appRuntime.kind === 'electron' && appRuntime.capabilities.canUseCustomWindowControls
+  const hasCustomChrome = appRuntime.capabilities.canUseCustomWindowControls
   const albumTitle = currentAlbumTitle?.trim() || 'โปรเจกต์ใหม่'
   const activePageIndex = Math.max(0, store.imageEntries.findIndex((entry) => entry.id === store.activeImageId))
   const headerStatus = getHeaderStatus({
