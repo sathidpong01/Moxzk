@@ -846,10 +846,10 @@ export default function FirstRunSetupView({
     }
 
     if (activeStep.id === 'workspace') {
-      const isElectron = appRuntime.capabilities.canStartLocalServices
+      const canStartLocalServices = appRuntime.capabilities.canStartLocalServices
       return (
         <div className="FirstRunSetupStepExtras FirstRunSetupWorkspaceExtras">
-          {isElectron ? (
+          {canStartLocalServices ? (
             <div className="FirstRunSetupWorkspaceFolders">
               <button type="button" onClick={() => { void appRuntime.app.openDraftsFolder(); if (!completed.has('workspace')) onCompleteSetupItem('workspace') }}>
                 <FolderOpen size={16} aria-hidden="true" />
