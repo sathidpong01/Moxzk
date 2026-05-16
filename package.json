@@ -98,6 +98,15 @@
     "detectUpdateChannel": false,
     "generateUpdatesFilesForAllChannels": false,
     "forceCodeSigning": false,
+    "fileAssociations": [
+      {
+        "ext": "moxzk",
+        "name": "Moxzk Project",
+        "description": "Moxzk manga project file",
+        "icon": "assets/icon",
+        "role": "Editor"
+      }
+    ],
     "win": {
       "target": [
         {
