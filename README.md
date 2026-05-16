@@ -100,6 +100,22 @@ wrangler secret put GOOGLE_CLIENT_SECRET
 
 ---
 
+## Release And Updates
+
+releases ทำผ่าน `npm run release:publish` ซึ่ง build Windows installer แล้ว publish ขึ้น GitHub Releases พร้อมกัน
+
+```bash
+npm run release:build    # build installer อย่างเดียว
+npm run release:publish  # build + publish ไป GitHub Releases (ต้องมี GH_TOKEN)
+npm run release:checksums  # สร้าง SHA256SUMS.txt สำหรับ release
+```
+
+ดาวน์โหลด installer จาก [Releases](https://github.com/sathidpong01/Moxzk/releases/latest) แล้วตรวจ SHA256 checksum ก่อนติดตั้ง
+
+> **SmartScreen:** Windows จะแจ้งเตือนเพราะ installer ไม่ได้ sign (unsigned indie Windows app) — เลือก "More info → Run anyway" ได้เลย
+
+เมื่อมี update แอปจะแจ้งเตือนใน UI — กด "รีสตาร์ท" เพื่อติดตั้ง update ได้ทันที หรือตรวจสอบด้วยตัวเองได้ใน **Settings**
+
 ## Stack
 
 | Layer | Technology |
