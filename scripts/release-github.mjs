@@ -41,21 +41,23 @@ if (!fs.existsSync(outDir)) {
 
 const dirEntries = fs.readdirSync(outDir)
 
+// Only publish artifacts for the current version. Stale .nupkg/.exe files from
+// earlier builds may linger in the output folder; uploading them would point
+// auto-update clients at the wrong version.
 const releasesManifest = dirEntries.find((name) => name === 'RELEASES')
-const nupkgs = dirEntries.filter((name) => name.toLowerCase().endsWith('.nupkg'))
-const setupExe = dirEntries.find((name) => name.toLowerCase().endsWith('.exe'))
+const nupkgs = dirEntries.filter((name) => (
+  name.toLowerCase().endsWith('.nupkg') && name.includes(version)
+))
+const setupExe = dirEntries.find((name) => (
+  name.toLowerCase().endsWith('.exe') && name.includes(version)
+))
 
 if (!releasesManifest) fail('Missing RELEASES manifest. Run "npm run electron:package" first.')
-if (nupkgs.length === 0) fail('Missing .nupkg package. Run "npm run electron:package" first.')
-if (!setupExe) fail('Missing Setup .exe installer. Run "npm run electron:package" first.')
+if (nupkgs.length === 0) fail(`Missing .nupkg package for ${version}. Run "npm run electron:package" first.`)
+if (!setupExe) fail(`Missing Setup .exe installer for ${version}. Run "npm run electron:package" first.`)
 
-// Guard: the full package must describe this exact version, otherwise
-// auto-update clients would be told the wrong version is current.
 const fullNupkg = nupkgs.find((name) => name.toLowerCase().includes('-full.nupkg'))
-if (!fullNupkg) fail('Missing -full.nupkg package. Run "npm run electron:package" first.')
-if (!fullNupkg.includes(version)) {
-  fail(`Full package "${fullNupkg}" does not contain version "${version}". Rebuild with "npm run electron:package".`)
-}
+if (!fullNupkg) fail(`Missing -full.nupkg package for ${version}. Run "npm run electron:package" first.`)
 
 const artifacts = [releasesManifest, ...nupkgs, setupExe]
 const files = artifacts.map((name) => path.join(outDir, name))
