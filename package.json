@@ -3,7 +3,7 @@
   "private": true,
   "description": "Windows desktop editor for manga cleanup and Thai translation.",
   "author": "sathidpong01",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-beta.3",
   "license": "MIT",
   "type": "module",
   "main": "out/main/index.js",
