@@ -71,7 +71,6 @@ export interface Database {
           original_key: string | null
           cleaned_key: string | null
           thumbnail_key: string | null
-          original_hash: string | null
           artboard_x: number | null
           artboard_y: number | null
           regions: unknown
@@ -89,7 +88,6 @@ export interface Database {
           original_key?: string | null
           cleaned_key?: string | null
           thumbnail_key?: string | null
-          original_hash?: string | null
           artboard_x?: number | null
           artboard_y?: number | null
           regions?: unknown
@@ -103,7 +101,6 @@ export interface Database {
           original_key?: string | null
           cleaned_key?: string | null
           thumbnail_key?: string | null
-          original_hash?: string | null
           artboard_x?: number | null
           artboard_y?: number | null
           regions?: unknown

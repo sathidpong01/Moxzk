@@ -36,13 +36,6 @@
       "when": 1746748800000,
       "tag": "0005_supporter_keys",
       "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1779003146204,
-      "tag": "0006_crazy_deathbird",
-      "breakpoints": true
     }
   ]
 }

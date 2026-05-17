@@ -155,7 +155,6 @@ export const albumPages = sqliteTable('album_pages', {
   originalKey: text('original_key'),
   cleanedKey: text('cleaned_key'),
   thumbnailKey: text('thumbnail_key'),
-  originalHash: text('original_hash'),
   artboardX: integer('artboard_x'),
   artboardY: integer('artboard_y'),
   regionsJson: text('regions_json').notNull().default('[]'),

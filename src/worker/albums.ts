@@ -83,7 +83,6 @@ export async function listPages(ctx: RequestContext, user: AuthUser, albumId: st
       originalKey: schema.albumPages.originalKey,
       cleanedKey: schema.albumPages.cleanedKey,
       thumbnailKey: schema.albumPages.thumbnailKey,
-      originalHash: schema.albumPages.originalHash,
       artboardX: schema.albumPages.artboardX,
       artboardY: schema.albumPages.artboardY,
       status: schema.albumPages.status,
@@ -163,7 +162,6 @@ export async function updatePage(ctx: RequestContext, user: AuthUser, pageId: st
   if (typeof input.originalKey === 'string' || input.originalKey === null) updates.originalKey = input.originalKey
   if (typeof input.cleanedKey === 'string' || input.cleanedKey === null) updates.cleanedKey = input.cleanedKey
   if (typeof input.thumbnailKey === 'string' || input.thumbnailKey === null) updates.thumbnailKey = input.thumbnailKey
-  if (typeof input.originalHash === 'string' || input.originalHash === null) updates.originalHash = input.originalHash
   if (typeof input.artboardX === 'number' && Number.isFinite(input.artboardX)) updates.artboardX = Math.round(input.artboardX)
   if (input.artboardX === null) updates.artboardX = null
   if (typeof input.artboardY === 'number' && Number.isFinite(input.artboardY)) updates.artboardY = Math.round(input.artboardY)

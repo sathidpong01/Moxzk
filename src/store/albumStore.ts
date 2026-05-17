@@ -39,7 +39,7 @@ interface AlbumStore {
 
   fetchPages: (albumId: string, detail?: 'summary' | 'full') => Promise<AlbumPage[]>
   createPage: (albumId: string, pageNumber: number) => Promise<AlbumPage | null>
-  updatePage: (pageId: string, updates: Partial<Pick<AlbumPage, 'page_number' | 'original_key' | 'cleaned_key' | 'thumbnail_key' | 'original_hash' | 'artboard_x' | 'artboard_y' | 'regions' | 'brush_strokes' | 'status' | 'processing_mode' | 'error_message'>>) => Promise<void>
+  updatePage: (pageId: string, updates: Partial<Pick<AlbumPage, 'page_number' | 'original_key' | 'cleaned_key' | 'thumbnail_key' | 'artboard_x' | 'artboard_y' | 'regions' | 'brush_strokes' | 'status' | 'processing_mode' | 'error_message'>>) => Promise<void>
   deletePage: (pageId: string) => Promise<boolean>
   reorderPages: (albumId: string, pageIds: string[]) => Promise<void>
 
@@ -53,7 +53,6 @@ interface AlbumStore {
     originalKey?: string | null
     cleanedKey?: string | null
     thumbnailKey?: string | null
-    originalHash?: string | null
   }) => Promise<AlbumPage | null>
 }
 
@@ -261,7 +260,6 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       ...(data.originalKey !== undefined ? { original_key: data.originalKey } : {}),
       ...(data.cleanedKey !== undefined ? { cleaned_key: data.cleanedKey } : {}),
       ...(data.thumbnailKey !== undefined ? { thumbnail_key: data.thumbnailKey } : {}),
-      ...(data.originalHash !== undefined ? { original_hash: data.originalHash } : {}),
     }
 
     if (existing) {

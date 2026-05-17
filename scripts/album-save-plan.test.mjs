@@ -7,7 +7,7 @@ import {
 } from '../src/services/albumSavePlan.ts'
 import { resolveHydratedAlbumImageUrls } from '../src/services/albumImageUrls.ts'
 
-function page(id, pageNumber, originalHash = null) {
+function page(id, pageNumber) {
   return {
     id,
     album_id: 'album-1',
@@ -15,7 +15,6 @@ function page(id, pageNumber, originalHash = null) {
     original_key: null,
     cleaned_key: null,
     thumbnail_key: null,
-    original_hash: originalHash,
     artboard_x: null,
     artboard_y: null,
     regions: [],
@@ -42,22 +41,6 @@ test('resolveAlbumSaveTarget appends when the entry does not belong to the targe
 
   assert.equal(target.existingPage, null)
   assert.equal(target.pageNumber, 3)
-})
-
-test('resolveAlbumSaveTarget matches a freshly imported image by content hash', () => {
-  const pages = [page('page-1', 1, 'hash-abc'), page('page-2', 2, 'hash-def')]
-  const target = resolveAlbumSaveTarget({ albumPageId: undefined, pageNumber: 1 }, pages, 3, 'hash-def')
-
-  assert.equal(target.existingPage?.id, 'page-2')
-  assert.equal(target.pageNumber, 2)
-})
-
-test('resolveAlbumSaveTarget appends when no page shares the content hash', () => {
-  const pages = [page('page-1', 1, 'hash-abc')]
-  const target = resolveAlbumSaveTarget({ albumPageId: undefined, pageNumber: 1 }, pages, 2, 'hash-new')
-
-  assert.equal(target.existingPage, null)
-  assert.equal(target.pageNumber, 2)
 })
 
 test('getNextAlbumPageNumber appends after the highest current page number', () => {

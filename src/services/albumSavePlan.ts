@@ -15,18 +15,10 @@ export function resolveAlbumSaveTarget(
   entry: Pick<ImageEntry, 'albumPageId' | 'pageNumber'>,
   pages: AlbumPage[],
   nextPageNumber: number,
-  originalHash?: string | null,
 ): AlbumSaveTarget {
-  // Match an existing page by its page id first, then fall back to matching the
-  // original image content hash. The hash fallback prevents a freshly imported
-  // copy of an image (no albumPageId) from being saved as a duplicate page.
-  const existingPage = (entry.albumPageId
-    ? pages.find((page) => page.id === entry.albumPageId)
-    : undefined)
-    ?? (originalHash
-      ? pages.find((page) => page.original_hash != null && page.original_hash === originalHash)
-      : undefined)
-    ?? null
+  const existingPage = entry.albumPageId
+    ? pages.find((page) => page.id === entry.albumPageId) ?? null
+    : null
 
   if (existingPage) {
     return {

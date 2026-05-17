@@ -39,19 +39,12 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
 
   for (const entry of images) {
     try {
-      // Hash the original up front so a freshly imported copy of an image
-      // (which has no albumPageId) can still be matched to its existing page.
-      let preparedOriginal: Awaited<ReturnType<typeof prepareImageUpload>> | null = null
-      let originalHash = entry.originalHash
-      if (!originalHash && entry.file) {
-        preparedOriginal = await prepareImageUpload(fileToBlob(entry.file))
-        originalHash = preparedOriginal.sha256
-      }
-      const target = resolveAlbumSaveTarget(entry, existingPages, nextPageNum, originalHash)
+      const target = resolveAlbumSaveTarget(entry, existingPages, nextPageNum)
       const pageNumber = target.pageNumber
       let originalKey = entry.originalR2Key ?? (target.existingPage?.original_key as string | null) ?? undefined
       let cleanedKey = entry.cleanedR2Key ?? (target.existingPage?.cleaned_key as string | null) ?? undefined
       let thumbnailKey = (target.existingPage?.thumbnail_key as string | null) ?? undefined
+      let originalHash = entry.originalHash
       let cleanedHash = entry.cleanedHash
       let thumbnailHash = entry.thumbnailHash
       let cleanedBlobForThumbnail: Blob | null = null
@@ -75,9 +68,9 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
         thumbnailBlob = await generateThumbnail(thumbnailSource)
       }
 
-      if (entry.file && !originalKey) {
+      if (entry.file && (!originalKey || !originalHash)) {
         const origKey = buildStorageKey(userId, album.id, pageNumber, 'original')
-        const prepared = preparedOriginal ?? await prepareImageUpload(fileToBlob(entry.file))
+        const prepared = await prepareImageUpload(fileToBlob(entry.file))
         const origResult = await uploadPreparedImage(prepared, origKey)
         originalKey = origResult.key
         originalHash = prepared.sha256
@@ -105,7 +98,6 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
         status,
         artboardX: entry.artboardX ?? null,
         artboardY: entry.artboardY ?? null,
-        originalHash: originalHash ?? undefined,
       }
 
       let result = target.existingPage
@@ -121,7 +113,6 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
           processing_mode: 'full',
           artboard_x: pagePayload.artboardX,
           artboard_y: pagePayload.artboardY,
-          ...(originalHash ? { original_hash: originalHash } : {}),
         })
       } else {
         result = await saveCurrentToPage(album.id, pageNumber, {
