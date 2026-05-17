@@ -53,6 +53,7 @@ interface ApiPage {
   originalKey: string | null
   cleanedKey: string | null
   thumbnailKey: string | null
+  originalHash: string | null
   artboardX: number | null
   artboardY: number | null
   regionsJson?: string
@@ -321,7 +322,7 @@ export async function createPage(albumId: string, input: { pageNumber: number })
 
 export async function updatePage(
   pageId: string,
-  updates: Partial<Pick<AlbumPage, 'page_number' | 'original_key' | 'cleaned_key' | 'thumbnail_key' | 'artboard_x' | 'artboard_y' | 'regions' | 'brush_strokes' | 'status' | 'processing_mode' | 'error_message'>>,
+  updates: Partial<Pick<AlbumPage, 'page_number' | 'original_key' | 'cleaned_key' | 'thumbnail_key' | 'original_hash' | 'artboard_x' | 'artboard_y' | 'regions' | 'brush_strokes' | 'status' | 'processing_mode' | 'error_message'>>,
 ): Promise<void> {
   await apiFetch(`/api/pages/${encodeURIComponent(pageId)}`, {
     method: 'PATCH',
@@ -330,6 +331,7 @@ export async function updatePage(
       originalKey: updates.original_key,
       cleanedKey: updates.cleaned_key,
       thumbnailKey: updates.thumbnail_key,
+      originalHash: updates.original_hash,
       artboardX: updates.artboard_x,
       artboardY: updates.artboard_y,
       regions: updates.regions,
@@ -400,6 +402,7 @@ function toPage(row: ApiPage): AlbumPage {
     original_key: row.originalKey,
     cleaned_key: row.cleanedKey,
     thumbnail_key: row.thumbnailKey,
+    original_hash: row.originalHash,
     artboard_x: row.artboardX,
     artboard_y: row.artboardY,
     regions: parseJson(row.regionsJson ?? '[]', []),

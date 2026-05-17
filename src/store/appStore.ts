@@ -1046,6 +1046,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         albumPageId: page.id,
         originalR2Key: (page.original_key as string) ?? undefined,
         cleanedR2Key: (page.cleaned_key as string) ?? undefined,
+        originalHash: (page.original_hash as string | null) ?? undefined,
         imageLoaded: false,
       }
     })
