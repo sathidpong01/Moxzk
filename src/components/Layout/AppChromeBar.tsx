@@ -15,7 +15,7 @@ export default function AppChromeBar({ hideDivider = false }: AppChromeBarProps)
   const runtime = useMemo<AppRuntime>(() => getAppRuntime(), [])
   const [windowState, setWindowState] = useState<RuntimeWindowState>(DEFAULT_WINDOW_STATE)
 
-  const canUseWindowControls = runtime.kind === 'electron' && runtime.capabilities.canUseCustomWindowControls
+  const canUseWindowControls = runtime.capabilities.canUseCustomWindowControls
 
   useEffect(() => {
     if (!canUseWindowControls) return

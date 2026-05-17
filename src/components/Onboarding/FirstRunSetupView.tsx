@@ -494,7 +494,7 @@ export default function FirstRunSetupView({
           icon: busyAction === 'python-install' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />,
           onClick: installPython,
           kind: 'primary',
-          disabled: busyAction !== null || appRuntime.kind !== 'electron',
+          disabled: busyAction !== null || !appRuntime.capabilities.canStartLocalServices,
         },
         {
           label: 'ตรวจอีกครั้ง',
@@ -559,7 +559,7 @@ export default function FirstRunSetupView({
           icon: busyAction === 'ollama-install' ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />,
           onClick: installOllama,
           kind: 'primary',
-          disabled: busyAction !== null || appRuntime.kind !== 'electron',
+          disabled: busyAction !== null || !appRuntime.capabilities.canStartLocalServices,
         },
         { label: 'ดูวิธีติดตั้ง', icon: <BookOpen size={13} />, onClick: onOpenTutorial, kind: 'secondary' },
         { label: 'เริ่ม Ollama', icon: <Terminal size={13} />, onClick: startOllama, kind: 'secondary', disabled: busyAction !== null },
@@ -846,10 +846,10 @@ export default function FirstRunSetupView({
     }
 
     if (activeStep.id === 'workspace') {
-      const isElectron = appRuntime.kind === 'electron'
+      const canStartLocalServices = appRuntime.capabilities.canStartLocalServices
       return (
         <div className="FirstRunSetupStepExtras FirstRunSetupWorkspaceExtras">
-          {isElectron ? (
+          {canStartLocalServices ? (
             <div className="FirstRunSetupWorkspaceFolders">
               <button type="button" onClick={() => { void appRuntime.app.openDraftsFolder(); if (!completed.has('workspace')) onCompleteSetupItem('workspace') }}>
                 <FolderOpen size={16} aria-hidden="true" />

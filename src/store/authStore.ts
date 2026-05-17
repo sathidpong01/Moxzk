@@ -80,12 +80,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   signInWithGoogle: async () => {
     const runtime = getAppRuntime()
-    const hasElectronBridge = typeof window !== 'undefined' && Boolean(window.moxzkRuntime)
     set({ loading: true, authError: null })
     try {
       const result = await runtime.auth.signInWithGoogle()
       if (!result.ok) throw new Error(result.error || 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ')
-      if (runtime.kind === 'electron' || hasElectronBridge) {
+      if (runtime.capabilities.canUseCustomProtocolAuth) {
         await get().fetchProfile()
         set({ showAuthModal: false, authError: null })
         toast.success('เข้าสู่ระบบด้วย Google สำเร็จ!')
