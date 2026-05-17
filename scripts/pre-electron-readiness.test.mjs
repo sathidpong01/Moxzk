@@ -486,7 +486,7 @@ test('Electron Google login uses system browser and loopback ticket claim', () =
   assert.match(desktopAuth, /activeGoogleLogin/)
   assert.match(authStore, /getAppRuntime/)
   assert.match(authStore, /runtime\.auth\.signInWithGoogle/)
-  assert.match(authStore, /hasElectronBridge/)
+  assert.match(authStore, /canUseCustomProtocolAuth/)
   assert.match(webRuntime, /window\.moxzkRuntime/)
   assert.equal(webRuntime.includes(removedBridgeAccess), false)
   assert.match(webRuntime, /isElectronUserAgent/)
