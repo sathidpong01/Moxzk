@@ -237,7 +237,7 @@ Cloudflare Worker เป็น API layer หลักของระบบ:
 
 runtime abstraction คือหัวใจของ design ระยะกลางของโปรเจคนี้
 
-interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที่ browser fallback ทำได้กับ capability ที่ Windows native shell ทำได้
+interface `AppRuntime` ใน `src/runtime/types.ts` กำหนด native capability ทั้งหมดที่ Windows Electron shell ต้องจัดให้ renderer โดย renderer ไม่ผูกกับ browser/native API ตรง
 
 ขอบเขตหลักของ runtime:
 
@@ -256,9 +256,9 @@ interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที
 - `capabilities`
   - ประกาศว่า runtime นี้ทำ native action อะไรได้บ้าง
 
-### Windows Electron runtime (primary)
+### Windows Electron runtime (only runtime)
 
-`src/runtime/electronRuntime.ts` คือ primary runtime ที่ใช้ใน production Windows desktop build
+`src/runtime/electronRuntime.ts` คือ runtime เดียวของระบบ ใช้ใน production Windows desktop build
 
 - native save dialog สำหรับ ZIP/single-file export
 - native folder export ผ่าน main process
@@ -268,22 +268,7 @@ interface `AppRuntime` ใน `src/runtime/types.ts` แยก capability ที
 - Google OAuth ผ่าน system browser + loopback one-time ticket
 - Windows frameless window พร้อม React-rendered title bar
 
-### Web runtime (fallback / CI)
-
-`src/runtime/webRuntime.ts` ใช้ในกรณี fallback และสำหรับ CI
-
-- `canStartLocalServices = false`
-- `canPickNativeFolders = true` เฉพาะ browser ที่รองรับ `showDirectoryPicker`
-- `canSecureStoreSecrets = false`
-- `canUseCustomProtocolAuth = false`
-- `canUseCustomWindowControls = false`
-
-ผลเชิง design:
-
-- web phase ยังสั่ง start Ollama/PanelCleaner เองไม่ได้
-- การ export ใช้ File System Access API ถ้า browser รองรับ ไม่เช่นนั้น fallback เป็น ZIP
-- project draft ใช้ IndexedDB
-- secret ระดับระบบยังไม่ถือว่าปลอดภัยพอใน browser shell
+renderer โหลดผ่าน `installElectronRuntime()` ใน `src/main.tsx` ซึ่งต้องเจอ `window.moxzkRuntime` bridge เสมอ ถ้าไม่เจอจะ throw ทันที เพราะระบบรันได้เฉพาะใน Electron shell ไม่มี web fallback อีกแล้ว
 
 ### Windows Electron target
 
@@ -460,7 +445,7 @@ album ไม่ใช่แค่ชื่อโฟลเดอร์ แต่�
 - Electron V1 shipped พร้อม native IPC, draft persistence, local service start, Google OAuth ผ่าน system browser, และ Windows frameless window controls
 - production distribution ใช้ Windows NSIS installer และ GitHub Releases auto-update แล้ว แต่ยังไม่มี code signing เพราะโปรเจคเป็น indie build
 - secure secret storage และ custom protocol auth (`moxzk://auth/callback`) ยังเป็นเฟสถัดไป
-- verification สำคัญหลายอย่างยังต้องพึ่ง browser smoke test นอกเหนือจาก unit/script tests
+- verification สำคัญหลายอย่างยังต้องพึ่ง desktop smoke test บน Electron นอกเหนือจาก unit/script tests
 
 ## Next Design Step
 
@@ -484,7 +469,7 @@ Moxzk ได้ขยับจาก web-first editor มาเป็น Windows
 - `src/components/Editor/ExportDrawer.tsx`
 - `src/services/projectDraftStorage.ts`
 - `src/runtime/types.ts`
-- `src/runtime/webRuntime.ts`
+- `src/runtime/electronRuntime.ts`
 - `src/worker/index.ts`
 - `src/worker/db/schema.ts`
 - `docs/cloudflare-d1-schema.md`

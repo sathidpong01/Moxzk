@@ -37,53 +37,6 @@ function createAbortableFetch() {
   })
 }
 
-test('web runtime is exposed as an AppRuntime class instance', async () => {
-  const { WebRuntime, webRuntime } = await loadViteModule('/src/runtime/webRuntime.ts')
-
-  assert.ok(webRuntime instanceof WebRuntime)
-  assert.equal(webRuntime.kind, 'web')
-  assert.equal(webRuntime.capabilities.canStartLocalServices, false)
-  assert.equal(typeof webRuntime.ollama.getServerStatus, 'function')
-  assert.equal(typeof webRuntime.files.saveExportFiles, 'function')
-  assert.equal(typeof webRuntime.ollama.pullModel, 'function')
-  assert.equal(typeof webRuntime.localServices.beginUsage, 'function')
-  assert.equal(typeof webRuntime.localServices.getManagedStatus, 'function')
-})
-
-test('web runtime local service lifecycle helpers stay inert and explicit', async () => {
-  const { webRuntime } = await loadViteModule('/src/runtime/webRuntime.ts')
-
-  await webRuntime.localServices.beginUsage('ollama')
-  await webRuntime.localServices.endUsage('panelcleaner')
-  assert.deepEqual(
-    await webRuntime.localServices.getManagedStatus(),
-    {
-      panelcleaner: {
-        running: false,
-        ownedByApp: false,
-        inFlightCount: 0,
-        idleTimeoutMs: null,
-        idleDeadlineAt: null,
-        command: null,
-        lastError: null,
-      },
-      ollama: {
-        running: false,
-        ownedByApp: false,
-        inFlightCount: 0,
-        idleTimeoutMs: null,
-        idleDeadlineAt: null,
-        command: null,
-        lastError: null,
-      },
-    },
-  )
-  assert.deepEqual(
-    await webRuntime.localServices.stopOwnedServices(),
-    { ok: false, error: 'Web runtime cannot stop local services.' },
-  )
-})
-
 test('OllamaClient preserves cloud API key and api path behavior', async () => {
   const { OllamaClient } = await loadViteModule('/src/services/ollama.ts')
   const client = new OllamaClient()

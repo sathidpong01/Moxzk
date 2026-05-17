@@ -63,6 +63,6 @@ Release notes must include:
 - Updater ownership: `electron/main/updater.ts`.
 - IPC registration: `electron/main/ipc.ts`.
 - Preload bridge: `electron/preload/index.ts`.
-- Renderer runtime contract: `src/runtime/types.ts`, `src/runtime/electronBridge.ts`, `src/runtime/electronRuntime.ts`, `src/runtime/webRuntime.ts`.
+- Renderer runtime contract: `src/runtime/types.ts`, `src/runtime/electronBridge.ts`, `src/runtime/electronRuntime.ts`.
 - UI prompt: `src/components/Layout/UpdateRestartPrompt.tsx`.
 - Settings/About status: `src/components/Settings/SettingsPanel.tsx`.

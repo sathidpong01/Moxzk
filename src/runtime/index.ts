@@ -1,9 +1,11 @@
 import type { AppRuntime } from './types'
-import { webRuntime } from './webRuntime'
 
-let currentRuntime: AppRuntime = webRuntime
+let currentRuntime: AppRuntime | null = null
 
 export function getAppRuntime(): AppRuntime {
+  if (!currentRuntime) {
+    throw new Error('App runtime is not installed. installElectronRuntime() must run before getAppRuntime().')
+  }
   return currentRuntime
 }
 

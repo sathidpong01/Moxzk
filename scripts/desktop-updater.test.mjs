@@ -12,7 +12,6 @@ test('Electron updater is wired through main process and typed runtime IPC', () 
   const bridge = fs.readFileSync('src/runtime/electronBridge.ts', 'utf8')
   const contract = fs.readFileSync('src/runtime/types.ts', 'utf8')
   const electronRuntime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
-  const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
 
   assert.equal(Boolean(packageJson.dependencies?.['electron-updater']), true)
   assert.equal(Boolean(packageJson.devDependencies?.['electron-builder']), true)
@@ -51,7 +50,6 @@ test('Electron updater is wired through main process and typed runtime IPC', () 
   assert.match(contract, /RuntimeUpdateStatus/)
   assert.match(electronRuntime, /bridge\.updates\.checkForUpdates/)
   assert.match(electronRuntime, /bridge\.updates\.installDownloadedUpdate/)
-  assert.match(webRuntime, /Desktop updates are available only in the Windows app/)
 })
 
 test('Updater UI and docs use user-facing release language', () => {

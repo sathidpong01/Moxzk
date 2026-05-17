@@ -213,10 +213,11 @@ export class ElectronRuntime implements AppRuntime {
   constructor(private readonly bridge: MoxzkRuntimeBridge) {}
 }
 
-export function installElectronRuntimeIfAvailable(): void {
-  if (typeof window === 'undefined') return
-  const bridge = window.moxzkRuntime
-  if (!bridge) return
+export function installElectronRuntime(): void {
+  const bridge = typeof window === 'undefined' ? undefined : window.moxzkRuntime
+  if (!bridge) {
+    throw new Error('Moxzk runtime bridge is unavailable. The app must run inside the Electron shell.')
+  }
   setAppRuntime(new ElectronRuntime(bridge))
 }
 

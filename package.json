@@ -8,7 +8,7 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/electron-dev.mjs",
     "electron:dev": "node scripts/electron-dev.mjs",
     "electron:build": "tsc -b && electron-vite build",
     "electron:package": "npm run electron:build && electron-builder --win nsis",
@@ -17,7 +17,7 @@
     "release:publish": "npm run electron:build && electron-builder --win nsis --publish always",
     "electron:preview": "electron-vite preview",
     "backend:panelcleaner": "node scripts/panelcleaner-bridge.mjs",
-    "build": "tsc -b && vite build",
+    "build": "npm run electron:build",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply moxzk-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply moxzk-db --remote",
@@ -26,8 +26,7 @@
     "worker:deploy": "wrangler deploy",
     "auth:smoke-user": "node scripts/auth-smoke-user.mjs",
     "smoke:worker": "node scripts/worker-smoke.mjs",
-    "smoke:browser": "node scripts/browser-smoke.mjs",
-    "smoke:production": "npm run smoke:worker && npm run smoke:browser",
+    "smoke:production": "npm run smoke:worker",
     "context:refresh": "python scripts/update_repo_context.py --max-depth 5",
     "test": "node --test scripts/*.test.mjs",
     "test:album": "node --test scripts/album-*.test.mjs",
@@ -36,8 +35,7 @@
     "test:editor": "node --test scripts/editor-*.test.mjs scripts/inline-text-editor.test.mjs scripts/text-*.test.mjs scripts/viewer-zoom.test.mjs scripts/workspace-viewport.test.mjs",
     "test:export": "node --test scripts/export-*.test.mjs scripts/exporter.test.mjs",
     "test:runtime": "node --test scripts/oop-boundaries.test.mjs scripts/pre-electron-readiness.test.mjs scripts/desktop-oauth.test.mjs scripts/desktop-secure-store.test.mjs scripts/desktop-updater.test.mjs",
-    "test:settings": "node --test scripts/oop-boundaries.test.mjs scripts/settings-model-guide.test.mjs scripts/ollama-tutorial.test.mjs scripts/desktop-secure-store.test.mjs",
-    "preview": "vite preview"
+    "test:settings": "node --test scripts/oop-boundaries.test.mjs scripts/settings-model-guide.test.mjs scripts/ollama-tutorial.test.mjs scripts/desktop-secure-store.test.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",

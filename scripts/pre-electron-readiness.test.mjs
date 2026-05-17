@@ -67,7 +67,7 @@ function settings() {
 
 test('runtime contract covers pre-Electron native seams', () => {
   const contract = fs.readFileSync('src/runtime/types.ts', 'utf8')
-  const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
+  const electronRuntime = fs.readFileSync('src/runtime/electronRuntime.ts', 'utf8')
 
   assert.match(contract, /interface AppRuntime/)
   assert.match(contract, /canStartLocalServices/)
@@ -75,9 +75,9 @@ test('runtime contract covers pre-Electron native seams', () => {
   assert.match(contract, /saveFile/)
   assert.match(contract, /saveExportFiles/)
   assert.match(contract, /projectDraft/)
-  assert.match(webRuntime, /class WebRuntime implements AppRuntime/)
-  assert.match(webRuntime, /canStartLocalServices:\s*false/)
-  assert.match(webRuntime, /defaultPanelCleanerClient\.getStatus/)
+  assert.match(electronRuntime, /class ElectronRuntime implements AppRuntime/)
+  assert.match(electronRuntime, /canStartLocalServices:\s*true/)
+  assert.match(electronRuntime, /defaultPanelCleanerClient\.getStatus/)
 })
 
 test('project draft snapshot keeps full page list and active page edits', async () => {
@@ -233,20 +233,19 @@ test('export flow exposes an explicit zip-first destination choice before Electr
   assert.match(drawer, /ระบบจะขอสิทธิ์เลือกโฟลเดอร์/)
 })
 
-test('feature code uses runtime provider instead of importing webRuntime directly', () => {
+test('feature code uses the runtime provider instead of a concrete runtime', () => {
   const settingsPanel = fs.readFileSync('src/components/Settings/SettingsPanel.tsx', 'utf8')
   const exporter = fs.readFileSync('src/services/exporter.ts', 'utf8')
   const runtimeIndex = fs.readFileSync('src/runtime/index.ts', 'utf8')
 
-  assert.doesNotMatch(settingsPanel, /webRuntime/)
-  assert.doesNotMatch(exporter, /webRuntime/)
+  assert.doesNotMatch(settingsPanel, /electronRuntime/)
+  assert.doesNotMatch(exporter, /electronRuntime/)
   assert.match(runtimeIndex, /getAppRuntime/)
   assert.match(runtimeIndex, /setAppRuntime/)
 })
 
 test('runtime contract names native service and secure desktop capabilities', () => {
   const contract = fs.readFileSync('src/runtime/types.ts', 'utf8')
-  const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
 
   assert.match(contract, /canUseCustomWindowControls/)
   assert.match(contract, /localServices/)
@@ -259,8 +258,6 @@ test('runtime contract names native service and secure desktop capabilities', ()
   assert.match(contract, /customProtocolAuth/)
   assert.match(contract, /windowControls/)
   assert.match(contract, /toggleMaximize/)
-  assert.match(webRuntime, /unsupportedRuntimeAction/)
-  assert.match(webRuntime, /Web runtime cannot control native windows/)
 })
 
 test('pre-Electron IPC contract and desktop smoke path are documented', () => {
@@ -420,7 +417,7 @@ test('Electron runtime installs through the window bridge with secure store and 
   const chromeBar = fs.readFileSync('src/components/Layout/AppChromeBar.tsx', 'utf8')
   const css = fs.readFileSync('src/index.css', 'utf8')
 
-  assert.match(main, /installElectronRuntimeIfAvailable\(\)/)
+  assert.match(main, /installElectronRuntime\(\)/)
   assert.match(app, /AppChromeBar/)
   assert.match(app, /moxzk-has-custom-chrome/)
   assert.match(app, /moxzk-app-chrome/)
@@ -467,8 +464,6 @@ test('Electron runtime installs through the window bridge with secure store and 
 test('Electron Google login uses system browser and loopback ticket claim', () => {
   const desktopAuth = fs.readFileSync('electron/main/desktopAuth.ts', 'utf8')
   const authStore = fs.readFileSync('src/store/authStore.ts', 'utf8')
-  const webRuntime = fs.readFileSync('src/runtime/webRuntime.ts', 'utf8')
-  const removedBridgeAccess = ['window.moxzkRuntime ?? window.', 'm', 'g', 'Runtime'].join('')
 
   assert.match(desktopAuth, /shell\.openExternal/)
   assert.match(desktopAuth, /createServer/)
@@ -487,10 +482,6 @@ test('Electron Google login uses system browser and loopback ticket claim', () =
   assert.match(authStore, /getAppRuntime/)
   assert.match(authStore, /runtime\.auth\.signInWithGoogle/)
   assert.match(authStore, /canUseCustomProtocolAuth/)
-  assert.match(webRuntime, /window\.moxzkRuntime/)
-  assert.equal(webRuntime.includes(removedBridgeAccess), false)
-  assert.match(webRuntime, /isElectronUserAgent/)
-  assert.match(webRuntime, /electron:dev/)
 })
 
 test('Electron native service launcher is loopback-only and keeps external dependencies explicit', () => {
