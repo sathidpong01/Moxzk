@@ -14,7 +14,7 @@
     "electron:package": "npm run electron:build && electron-builder --win nsis",
     "release:build": "npm run electron:package",
     "release:checksums": "node scripts/release-checksums.mjs",
-    "release:publish": "npm run electron:build && electron-builder --win nsis --publish always",
+    "release:publish": "npm run electron:package && node scripts/release-github.mjs",
     "electron:preview": "electron-vite preview",
     "backend:panelcleaner": "node scripts/panelcleaner-bridge.mjs",
     "build": "npm run electron:build",
