@@ -19,6 +19,14 @@ function launcherStubPath(): string {
   return path.resolve(path.dirname(process.execPath), '..', 'Moxzk.exe')
 }
 
+function documentIconPath(): string {
+  // The .moxzk document icon ships as an extraResource next to the versioned
+  // app-<version>\Moxzk.exe. The path is version-specific, but registration
+  // re-runs on every --squirrel-updated event, so it always points at the
+  // current version's resources.
+  return path.join(path.dirname(process.execPath), 'resources', 'assets', 'paper.ico')
+}
+
 function reg(args: string[]): void {
   try {
     execFileSync('reg', args, { stdio: 'ignore' })
@@ -30,7 +38,7 @@ function reg(args: string[]): void {
 function registerFileAssociation(): void {
   const exe = launcherStubPath()
   reg(['add', `${CLASSES_ROOT}\\${PROG_ID}`, '/ve', '/d', 'Moxzk Project', '/f'])
-  reg(['add', `${CLASSES_ROOT}\\${PROG_ID}\\DefaultIcon`, '/ve', '/d', `${exe},0`, '/f'])
+  reg(['add', `${CLASSES_ROOT}\\${PROG_ID}\\DefaultIcon`, '/ve', '/d', documentIconPath(), '/f'])
   reg(['add', `${CLASSES_ROOT}\\${PROG_ID}\\shell\\open\\command`, '/ve', '/d', `"${exe}" "%1"`, '/f'])
   reg(['add', `${CLASSES_ROOT}\\${FILE_EXT}`, '/ve', '/d', PROG_ID, '/f'])
 }

@@ -94,6 +94,10 @@
         "to": "assets/icon.png"
       },
       {
+        "from": "assets/paper.ico",
+        "to": "assets/paper.ico"
+      },
+      {
         "from": "scripts/panelcleaner-bridge.mjs",
         "to": "panelcleaner-bridge.mjs"
       }
