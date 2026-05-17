@@ -9,36 +9,58 @@ Root: `Moxzk`
 |   |   `-- repo-tree.md
 |   |-- private/
 |   |   `-- .gitkeep
+|   |-- rules/
+|   |   `-- graphify.md
 |   |-- sessions/
 |   |   `-- .gitkeep
 |   |-- topics/
 |   |   `-- service-overview.md
 |   |-- workflows/
 |   |   |-- dev.md
+|   |   |-- graphify.md
 |   |   `-- skills.md
 |   |-- active.md
 |   |-- AGENTS.md
 |   `-- team.md
 |-- .claude/
+|   |-- worktrees/
+|   |-- settings.json
+|   `-- settings.local.json
 |-- .codex/
 |   |-- config.toml
 |   `-- hooks.json
 |-- .cursor/
 |   `-- rules/
 |       `-- moxzk-skills.mdc
+|-- .vscode/
+|   `-- settings.json
 |-- .windsurf/
 |   `-- workflows/
 |       |-- dev.md
 |       |-- review.md
 |       `-- skills.md
+|-- assets/
+|   |-- icon-32.png
+|   `-- icon.png
 |-- docs/
 |   |-- electron/
 |   |   |-- desktop-smoke-test.md
-|   |   `-- ipc-contract.md
+|   |   |-- ipc-contract.md
+|   |   `-- release-and-updates.md
 |   |-- llm/
 |   |   `-- konva.md
 |   |-- prototypes/
 |   |   `-- first-run-setup-ui-options.html
+|   |-- wiki/
+|   |   |-- albums-and-sync.md
+|   |   |-- core-workflows.md
+|   |   |-- developer-guide.md
+|   |   |-- faq.md
+|   |   |-- first-run-setup.md
+|   |   |-- install-windows.md
+|   |   |-- landing-page-content.md
+|   |   |-- README.md
+|   |   `-- troubleshooting.md
 |   |-- auth-profile-security.md
 |   |-- cloudflare-d1-schema.md
 |   `-- codex-cloud-environment.md
@@ -53,7 +75,8 @@ Root: `Moxzk`
 |   |-- 0001_artboard_layout.sql
 |   |-- 0002_bizarre_zodiak.sql
 |   |-- 0003_gray_lucky_pierre.sql
-|   `-- 0004_auth_profile_security.sql
+|   |-- 0004_auth_profile_security.sql
+|   `-- 0005_supporter_keys.sql
 |-- electron/
 |   |-- main/
 |   |   |-- appPaths.ts
@@ -63,11 +86,34 @@ Root: `Moxzk`
 |   |   |-- localServices.ts
 |   |   |-- panelCleanerDependency.ts
 |   |   |-- secureStore.ts
-|   |   `-- secureStoreCore.ts
+|   |   |-- secureStoreCore.ts
+|   |   `-- updater.ts
 |   |-- preload/
 |   |   `-- index.ts
 |   `-- shared/
 |       `-- ipcChannels.ts
+|-- landing-page/
+|   |-- landing-page/
+|   |   |-- src/
+|   |   `-- package.json
+|   |-- public/
+|   |   |-- App.png
+|   |   |-- logo-mark.svg
+|   |   |-- logo.svg
+|   |   |-- manga-en.png
+|   |   `-- manga-th.png
+|   |-- src/
+|   |   |-- App.tsx
+|   |   |-- AppMockup.tsx
+|   |   |-- ComparisonMockup.tsx
+|   |   |-- index.css
+|   |   `-- main.tsx
+|   |-- .gitignore
+|   |-- index.html
+|   |-- package.json
+|   |-- postcss.config.cjs
+|   |-- tailwind.config.js
+|   `-- vite.config.ts
 |-- out/
 |   |-- main/
 |   |   `-- index.js
@@ -75,11 +121,51 @@ Root: `Moxzk`
 |   |   `-- index.cjs
 |   `-- renderer/
 |       |-- assets/
-|       |   |-- index-BIkPIQxk.css
-|       |   `-- index-wxvOKI4c.js
+|       |   |-- index-BFu5NyeL.js
+|       |   `-- index-DWMAZppc.css
+|       |-- fonts/
+|       |   |-- BaiJamjuree-Bold.woff2
+|       |   |-- K2D-Bold.woff2
+|       |   |-- K2D-Regular.woff2
+|       |   |-- Kanit-Bold.woff2
+|       |   |-- Mitr-Regular.woff2
+|       |   |-- Prompt-Light.woff2
+|       |   |-- Prompt-Regular.woff2
+|       |   |-- Sarabun-Bold.woff2
+|       |   |-- Sarabun-Italic.woff2
+|       |   `-- Sarabun-Regular.woff2
+|       |-- setup-icons/
+|       |   |-- account-albums.svg
+|       |   |-- model.svg
+|       |   |-- moxzk.svg
+|       |   |-- ollama.svg
+|       |   |-- panelcleaner.svg
+|       |   |-- python.svg
+|       |   |-- translation.svg
+|       |   `-- workspace.svg
+|       |-- tutorial/
+|       |   `-- ollama/
+|       |       |-- download.webp
+|       |       |-- gemma-model.webp
+|       |       |-- installer-file.webp
+|       |       |-- moxzk-check-status.webp
+|       |       |-- moxzk-save-settings.webp
+|       |       `-- ollama-running.webp
+|       |-- icon.png
 |       |-- index.html
 |       `-- vite.svg
 |-- public/
+|   |-- fonts/
+|   |   |-- BaiJamjuree-Bold.woff2
+|   |   |-- K2D-Bold.woff2
+|   |   |-- K2D-Regular.woff2
+|   |   |-- Kanit-Bold.woff2
+|   |   |-- Mitr-Regular.woff2
+|   |   |-- Prompt-Light.woff2
+|   |   |-- Prompt-Regular.woff2
+|   |   |-- Sarabun-Bold.woff2
+|   |   |-- Sarabun-Italic.woff2
+|   |   `-- Sarabun-Regular.woff2
 |   |-- setup-icons/
 |   |   |-- account-albums.svg
 |   |   |-- model.svg
@@ -97,6 +183,9 @@ Root: `Moxzk`
 |   |       |-- moxzk-check-status.webp
 |   |       |-- moxzk-save-settings.webp
 |   |       `-- ollama-running.webp
+|   |-- icon.png
+|   |-- privacy.html
+|   |-- terms.html
 |   `-- vite.svg
 |-- scripts/
 |   |-- album-modal.test.mjs
@@ -114,6 +203,7 @@ Root: `Moxzk`
 |   |-- d1-schema.test.mjs
 |   |-- desktop-oauth.test.mjs
 |   |-- desktop-secure-store.test.mjs
+|   |-- desktop-updater.test.mjs
 |   |-- editor-history-service.test.mjs
 |   |-- editor-model.test.mjs
 |   |-- editor-processing-ui.test.mjs
@@ -123,6 +213,7 @@ Root: `Moxzk`
 |   |-- export-preview-viewport.test.mjs
 |   |-- export-preview.test.mjs
 |   |-- exporter.test.mjs
+|   |-- generate-supporter-keys.mjs
 |   |-- inline-text-editor.test.mjs
 |   |-- local-service-autostart.test.mjs
 |   |-- local-services-manager.test.mjs
@@ -134,6 +225,7 @@ Root: `Moxzk`
 |   |-- panelcleaner-csv.test.mjs
 |   |-- pre-electron-readiness.test.mjs
 |   |-- profile-security.test.mjs
+|   |-- release-checksums.mjs
 |   |-- rename-compat.test.mjs
 |   |-- settings-model-guide.test.mjs
 |   |-- smoke-env.mjs
@@ -151,7 +243,8 @@ Root: `Moxzk`
 |   |   |   |-- AlbumCard.tsx
 |   |   |   |-- AlbumListModal.tsx
 |   |   |   |-- AlbumPageGrid.tsx
-|   |   |   `-- ConfirmModal.tsx
+|   |   |   |-- ConfirmModal.tsx
+|   |   |   `-- LazyThumbnail.tsx
 |   |   |-- Auth/
 |   |   |   |-- AuthModal.tsx
 |   |   |   |-- ProfileDialog.tsx
@@ -162,6 +255,7 @@ Root: `Moxzk`
 |   |   |   |-- ArtboardWorkspace.tsx
 |   |   |   |-- CanvasEditor.tsx
 |   |   |   |-- ContextualTextHud.tsx
+|   |   |   |-- EmotionFontSettings.tsx
 |   |   |   |-- ExportDrawer.tsx
 |   |   |   |-- FloatingInspector.tsx
 |   |   |   |-- FontSelector.tsx
@@ -176,6 +270,7 @@ Root: `Moxzk`
 |   |   |   |-- AppChromeBar.tsx
 |   |   |   |-- LogPanel.tsx
 |   |   |   |-- PanelToggleBar.tsx
+|   |   |   |-- UpdateRestartPrompt.tsx
 |   |   |   `-- WorkspaceBackdrop.tsx
 |   |   |-- Onboarding/
 |   |   |   |-- FirstRunSetupView.tsx
@@ -239,6 +334,7 @@ Root: `Moxzk`
 |   |   |-- onboardingStorage.ts
 |   |   |-- panelcleaner-api.ts
 |   |   |-- projectDraftStorage.ts
+|   |   |-- projectFile.ts
 |   |   |-- request-timeout.ts
 |   |   |-- settingsStorage.ts
 |   |   |-- sourceLanguage.ts
@@ -275,6 +371,7 @@ Root: `Moxzk`
 |   |   |-- profile.ts
 |   |   |-- security.ts
 |   |   |-- storage.ts
+|   |   |-- supporter.ts
 |   |   `-- types.ts
 |   |-- App.tsx
 |   |-- index.css

@@ -6,6 +6,7 @@ Use it to keep project state close to the codebase instead of burying it in chat
 ## How To Use This Directory
 
 - Start each coding session by reading `AGENTS.md`, `.agents/active.md`, and the relevant topic note.
+- For user-facing help, download-page copy, FAQ, troubleshooting, or Magga landing sync, read `docs/wiki/README.md` and `docs/wiki/landing-page-content.md`.
 - For multi-agent or specialist work, read `.agents/team.md` and assign ownership before editing.
 - Use `.agents/index/repo-tree.md` for quick orientation, but treat it as generated context.
 - Store resumable task checkpoints in `.agents/sessions/`.
