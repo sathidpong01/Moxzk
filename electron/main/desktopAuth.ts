@@ -238,24 +238,41 @@ export function initDesktopNetworkBridge(): void {
   })
 
   const apiOrigin = resolveWorkerOrigin()
-  if (apiOrigin) {
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      if (!isWorkerApiUrl(details.url, apiOrigin)) {
-        callback({ responseHeaders: details.responseHeaders })
-        return
-      }
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders: Record<string, string[]> = { ...details.responseHeaders }
+
+    if (app.isPackaged && (details.resourceType === 'mainFrame' || details.resourceType === 'subFrame')) {
+      delete responseHeaders['content-security-policy']
+      delete responseHeaders['Content-Security-Policy']
+      responseHeaders['content-security-policy'] = [RENDERER_CONTENT_SECURITY_POLICY]
+    }
+
+    if (apiOrigin && isWorkerApiUrl(details.url, apiOrigin)) {
       const reqHeaders = (details as unknown as { requestHeaders?: Record<string, string> }).requestHeaders
       const requestOrigin = reqHeaders?.Origin ?? reqHeaders?.origin
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'access-control-allow-origin': [requestOrigin ?? 'null'],
-          'access-control-allow-credentials': ['true'],
-        },
-      })
-    })
-  }
+      responseHeaders['access-control-allow-origin'] = [requestOrigin ?? 'null']
+      responseHeaders['access-control-allow-credentials'] = ['true']
+    }
+
+    callback({ responseHeaders })
+  })
 }
+
+// Applied to packaged renderer documents only. Dev runs through the Vite dev
+// server, which needs 'unsafe-eval' for HMR, so CSP is left to Electron's
+// dev-only warning there. https is allowed for the Worker API and R2 images;
+// loopback http covers the local Ollama and PanelCleaner bridges.
+const RENDERER_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-src 'none'",
+].join('; ')
 
 export async function restoreDesktopSessionIfNeeded(): Promise<void> {
   if (desktopSessionCookie) return
