@@ -40,6 +40,25 @@ function unregisterFileAssociation(): void {
   reg(['delete', `${CLASSES_ROOT}\\${FILE_EXT}`, '/f'])
 }
 
+// Tell the Windows shell that file associations changed (SHCNE_ASSOCCHANGED).
+// Without this, Explorer keeps showing the stale/generic icon for .moxzk files
+// until the icon cache is rebuilt or the user signs out.
+function notifyShellAssociationChanged(): void {
+  try {
+    execFileSync('powershell', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      "Add-Type -Namespace Shell -Name Notify -MemberDefinition "
+        + "'[DllImport(\"shell32.dll\")] public static extern void "
+        + "SHChangeNotify(int eventId, int flags, IntPtr item1, IntPtr item2);'; "
+        + '[Shell.Notify]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)',
+    ], { stdio: 'ignore' })
+  } catch {
+    // Best-effort: the icon still refreshes on next sign-in if this fails.
+  }
+}
+
 // Called while a Squirrel event flag is being handled, before the process
 // exits. electron-squirrel-startup separately handles shortcut creation.
 export function applySquirrelFileAssociations(): void {
@@ -47,7 +66,9 @@ export function applySquirrelFileAssociations(): void {
   const squirrelEvent = process.argv[1]
   if (squirrelEvent === '--squirrel-install' || squirrelEvent === '--squirrel-updated') {
     registerFileAssociation()
+    notifyShellAssociationChanged()
   } else if (squirrelEvent === '--squirrel-uninstall') {
     unregisterFileAssociation()
+    notifyShellAssociationChanged()
   }
 }
