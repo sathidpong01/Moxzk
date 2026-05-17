@@ -260,15 +260,17 @@ export function initDesktopNetworkBridge(): void {
 
 // Applied to packaged renderer documents only. Dev runs through the Vite dev
 // server, which needs 'unsafe-eval' for HMR, so CSP is left to Electron's
-// dev-only warning there. https is allowed for the Worker API and R2 images;
-// loopback http covers the local Ollama and PanelCleaner bridges.
+// dev-only warning there. Fonts are bundled locally, so no font CDN is needed.
+// https covers the Worker API and R2 images; loopback http covers the local
+// Ollama and PanelCleaner bridges; blob: and file: are needed because
+// draft/album encoding fetches local asset URLs.
 const RENDERER_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
+  "connect-src 'self' https: blob: data: file: http://localhost:* http://127.0.0.1:*",
   "object-src 'none'",
   "base-uri 'self'",
   "frame-src 'none'",

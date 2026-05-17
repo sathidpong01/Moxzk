@@ -38,6 +38,7 @@ import { createPortal } from 'react-dom'
 import { BookOpen, ChevronDown, Download, FileDown, FileUp, FolderOpen, ImagePlus, MoreHorizontal, RotateCcw, Save, Settings, Type, Wand2 } from 'lucide-react'
 import { exportProjectFile, importProjectFile } from './services/projectFile'
 import { restoreProjectDraftToState } from './services/projectDraftStorage'
+import { preloadEditorFonts } from './services/fontPreloader'
 import { toast as sonnerToast } from 'sonner'
 import type { ProcessingMode } from './types'
 
@@ -111,6 +112,9 @@ function App() {
 
   // Init: restore custom fonts + auth
   useEffect(() => { store.init() }, [])
+
+  // Load built-in editor fonts so the Konva canvas can render them
+  useEffect(() => { void preloadEditorFonts() }, [])
 
   // Restore draft prompt — once on mount, only if no project loaded
   useEffect(() => {
