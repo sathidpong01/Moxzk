@@ -29,15 +29,20 @@ export default function UpdateRestartPrompt({ busy }: UpdateRestartPromptProps) 
     }
   }, [appRuntime.updates])
 
-  // Reset dismissed state only when a genuinely new version becomes available,
-  // not on every periodic status poll that still reports the same downloaded version.
+  // Reset the dismissed flag only when a genuinely new version appears, not on
+  // every periodic status poll that still reports the same version.
   useEffect(() => {
-    if (status?.state === 'downloaded') {
-      setDismissedVersion(null)
-    }
+    setDismissedVersion(null)
   }, [status?.version])
 
-  if (!status || status.state !== 'downloaded' || dismissedVersion === status.version) return null
+  // The prompt appears as soon as an update is being downloaded so the user is
+  // notified immediately, then turns into a restart action once it is ready.
+  const isDownloading = status?.state === 'available' || status?.state === 'downloading'
+  const isDownloaded = status?.state === 'downloaded'
+  if (!status || (!isDownloading && !isDownloaded)) return null
+  // The "later" dismissal only applies to the actionable (downloaded) prompt;
+  // the download-in-progress notice is informational and not dismissable.
+  if (isDownloaded && dismissedVersion === status.version) return null
 
   const handleInstall = async () => {
     if (busy) return
@@ -55,34 +60,48 @@ export default function UpdateRestartPrompt({ busy }: UpdateRestartPromptProps) 
   }
 
   return (
-    <aside className="moxzk-update-prompt" aria-live="polite" aria-label="อัปเดต Moxzk พร้อมติดตั้ง">
+    <aside className="moxzk-update-prompt" aria-live="polite" aria-label="อัปเดต Moxzk">
       <div className="grid size-9 shrink-0 place-items-center rounded-[8px] bg-white/8 text-[var(--moxzk-text)]">
-        <Download size={16} />
+        {isDownloaded ? <Download size={16} /> : <Loader2 size={16} className="animate-spin" />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-[var(--moxzk-text)]">มี Moxzk เวอร์ชันใหม่</p>
         <p className="mt-1 text-xs leading-5 text-[var(--moxzk-muted)]">
-          {busy
-            ? 'ดาวน์โหลดเสร็จแล้ว จบงานที่กำลังทำอยู่ก่อนแล้วค่อยรีสตาร์ท'
-            : `ดาวน์โหลด ${status.version ?? 'เวอร์ชันใหม่'} เสร็จแล้ว รีสตาร์ทเมื่อต้องการติดตั้ง`}
+          {isDownloading
+            ? `กำลังดาวน์โหลด ${status.version ?? 'เวอร์ชันใหม่'} อยู่เบื้องหลัง`
+            : busy
+              ? 'ดาวน์โหลดเสร็จแล้ว จบงานที่กำลังทำอยู่ก่อนแล้วค่อยรีสตาร์ท'
+              : `ดาวน์โหลด ${status.version ?? 'เวอร์ชันใหม่'} เสร็จแล้ว รีสตาร์ทเมื่อต้องการติดตั้ง`}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setDismissedVersion(status.version ?? 'unknown')}
-        >
-          ภายหลัง
-        </Button>
+        {isDownloaded && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDismissedVersion(status.version ?? 'unknown')}
+          >
+            ภายหลัง
+          </Button>
+        )}
         <Button
           variant="primary"
           size="sm"
           onClick={handleInstall}
-          disabled={busy || installing}
-          title={busy ? 'รอให้งานที่กำลังทำอยู่เสร็จก่อน' : undefined}
+          disabled={isDownloading || busy || installing}
+          title={
+            isDownloading
+              ? 'กำลังดาวน์โหลด รอสักครู่'
+              : busy
+                ? 'รอให้งานที่กำลังทำอยู่เสร็จก่อน'
+                : undefined
+          }
         >
-          {installing ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+          {installing || isDownloading ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <RotateCcw size={13} />
+          )}
           รีสตาร์ท
         </Button>
       </div>
