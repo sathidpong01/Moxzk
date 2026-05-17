@@ -1,5 +1,5 @@
 import { toast } from 'sonner'
-import { useAppStore } from '../store/appStore'
+import { getDefaultArtboardPosition, useAppStore } from '../store/appStore'
 import { useAlbumStore } from '../store/albumStore'
 import { useAuthStore } from '../store/authStore'
 import type { Album, AlbumPage } from '../types/database'
@@ -92,12 +92,19 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
       }
 
       const status: AlbumPage['status'] = getPersistedPageStatus(entry)
+      // A new page is appended to the album, so place it at its own slot by
+      // album page number. Reusing the entry's editor-session artboard
+      // position would stack every separately-saved page on the same spot.
+      // An existing page keeps whatever position the user arranged it at.
+      const artboardPosition = target.existingPage
+        ? { x: entry.artboardX ?? null, y: entry.artboardY ?? null }
+        : getDefaultArtboardPosition(pageNumber - 1)
       const pagePayload = {
         regions: entry.regions ?? appState.regions,
         brushStrokes: entry.brushStrokes ?? appState.brushStrokes,
         status,
-        artboardX: entry.artboardX ?? null,
-        artboardY: entry.artboardY ?? null,
+        artboardX: artboardPosition.x,
+        artboardY: artboardPosition.y,
       }
 
       let result = target.existingPage
@@ -133,6 +140,8 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
           cleanedHash,
           thumbnailHash,
           pageNumber,
+          artboardX: artboardPosition.x ?? undefined,
+          artboardY: artboardPosition.y ?? undefined,
         })
         if (savedCount === 0 && !album.cover_key && thumbnailKey) {
           await updateAlbum(album.id, { cover_key: thumbnailKey })
