@@ -3,7 +3,7 @@ import { ChevronDown, Eraser, Hand, MousePointer2, Paintbrush, Pipette, Redo2, S
 import { useAppStore } from '../../store/appStore'
 import type { EditorHistoryEntry, TextHistoryEntry } from '../../store/appStore'
 import type { ActiveTool, TextRegion } from '../../types'
-import type { CanvasEditorHandle } from '../Editor/CanvasEditor'
+import type { CanvasEditorHandle } from '../Editor/editorHandle'
 import { DropdownItem, DropdownMenu, TooltipSurface, cn } from '../ui/primitives'
 
 const TOOL_ICONS: { id: ActiveTool; icon: typeof MousePointer2; label: string; shortcut?: string }[] = [

@@ -8,7 +8,9 @@ import {
   type OllamaOptions,
 } from '../../services/ollama'
 import {
+  alignRegionsToCleanupBoxes,
   deriveTextBoxesFromCleanupDiff,
+  refineRegionsWithBalloons,
 } from '../../services/cleanup-diff-bboxes'
 import type { BoundingBox } from '../../types'
 import type { StreamProgress } from '../../services/translator-api'
@@ -260,6 +262,20 @@ export default function ProcessingView({
         }
 
         addLog(`แปลเสร็จ: ${translatedRegions.length} กล่อง`)
+
+        // Snap model boxes onto the accurate cleanup-diff text boxes, then
+        // expand each box out to its speech balloon so Thai text has room.
+        if (cleanupBoxes && cleanupBoxes.length > 0) {
+          translatedRegions = alignRegionsToCleanupBoxes(translatedRegions, cleanupBoxes)
+        }
+        if (cleanedImageBlob && hasUsableRegions(translatedRegions)) {
+          try {
+            translatedRegions = await refineRegionsWithBalloons(translatedRegions, cleanedImageBlob)
+            addLog('ปรับกรอบข้อความให้พอดีบอลลูน')
+          } catch (err) {
+            addLog(`ปรับกรอบบอลลูนไม่ได้: ${err instanceof Error ? err.message : String(err)}`)
+          }
+        }
 
         setCurrentStep('done')
         setState({ status: 'done', progress: 100, message: 'เสร็จสิ้น!' })

@@ -2,11 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   getArtisticInlineTextEditorLayerSize,
+  getInlineTextEditorCommitGeometry,
   getInlineTextEditorCommitValue,
   getInlineTextEditorBboxSize,
   getInlineTextEditorFontSize,
   getInlineTextEditorLayerSize,
-  getInlineTextEditorTheme,
   getTextBoxResizeResult,
   normalizeInlineTextEditorValue,
   shouldFinishInlineTextEditorOnPointerDown,
@@ -129,7 +129,7 @@ test('inline text editor commits normalized frame text only after a real edit', 
   )
 })
 
-test('balloon resize result returns the fitted font used by live transform preview', () => {
+test('balloon resize persists the scaled preferred font, not the fitted size', () => {
   const result = getTextBoxResizeResult({
     region: {
       bbox: { x: 0, y: 0, width: 320, height: 180 },
@@ -153,12 +153,14 @@ test('balloon resize result returns the fitted font used by live transform previ
   assert.deepEqual(result.updates.bbox, { x: 0, y: 0, width: 140, height: 92 })
   assert.equal(result.updates.rotation, 3)
   assert.ok(result.layout)
-  assert.equal(result.updates.fontSize, result.layout.fontSize)
-  assert.ok(result.layout.fontSize < 36)
+  // Persisted fontSize is the scaled preferred ceiling (36 * box ratio),
+  // never the text-dependent fitted size — otherwise resizing would ratchet.
+  assert.ok(Math.abs(result.updates.fontSize - 36 * (92 / 180)) < 0.001)
+  assert.ok(result.layout.fontSize <= result.updates.fontSize + 0.001)
   assert.ok(result.layout.lines.length > 1)
 })
 
-test('balloon resize result can grow font when the fit box expands', () => {
+test('balloon resize scales the preferred font up when the fit box expands', () => {
   const result = getTextBoxResizeResult({
     region: {
       bbox: { x: 0, y: 0, width: 140, height: 92 },
@@ -179,32 +181,52 @@ test('balloon resize result can grow font when the fit box expands', () => {
   })
 
   assert.ok(result.layout)
-  assert.equal(result.updates.fontSize, result.layout.fontSize)
+  // box doubled on both axes → preferred ceiling scales 18 → 36
+  assert.equal(result.updates.fontSize, 36)
+  assert.ok(result.layout.fontSize <= 36 + 0.001)
   assert.ok(result.layout.fontSize > 18)
 })
 
-test('inline text editor uses a light editing surface for dark text', () => {
-  assert.deepEqual(
-    getInlineTextEditorTheme('#000000'),
-    {
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-      textColor: '#111827',
-      caretColor: '#111827',
-      textShadow: '0 0 3px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.65)',
+test('commit geometry keeps a balloon_fit box fixed and never persists fontSize', () => {
+  const geometry = getInlineTextEditorCommitGeometry({
+    region: {
+      bbox: { x: 12, y: 20, width: 140, height: 92 },
+      textLayoutMode: 'balloon_fit',
+      artisticFit: 'free',
     },
-  )
+    metrics: { width: 900, height: 700 },
+    scale: 1,
+  })
+
+  assert.deepEqual(geometry, {})
 })
 
-test('inline text editor uses a dark editing surface for light text', () => {
-  assert.deepEqual(
-    getInlineTextEditorTheme('#ffffff'),
-    {
-      backgroundColor: 'rgba(0, 0, 0, 0.18)',
-      textColor: '#f9fafb',
-      caretColor: '#f9fafb',
-      textShadow: '0 0 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.65)',
+test('commit geometry grows the box for artistic free text', () => {
+  const geometry = getInlineTextEditorCommitGeometry({
+    region: {
+      bbox: { x: 12, y: 20, width: 140, height: 92 },
+      textLayoutMode: 'artistic',
+      artisticFit: 'free',
     },
-  )
+    metrics: { width: 300, height: 120 },
+    scale: 0.5,
+  })
+
+  assert.deepEqual(geometry, { bbox: { x: 12, y: 20, width: 600, height: 240 } })
+})
+
+test('commit geometry keeps an artistic bubble-guided box fixed', () => {
+  const geometry = getInlineTextEditorCommitGeometry({
+    region: {
+      bbox: { x: 12, y: 20, width: 140, height: 92 },
+      textLayoutMode: 'artistic',
+      artisticFit: 'bubble_guided',
+    },
+    metrics: { width: 900, height: 700 },
+    scale: 1,
+  })
+
+  assert.deepEqual(geometry, {})
 })
 
 test('inline text editor outside pointer finishes edit session', () => {

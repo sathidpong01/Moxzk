@@ -26,8 +26,8 @@ import {
 } from '../../services/konvaInteraction'
 import {
   getArtisticInlineTextEditorLayerSize,
+  getInlineTextEditorCommitGeometry,
   getInlineTextEditorFontSize,
-  getInlineTextEditorBboxSize,
   getInlineTextEditorLayerSize,
   getTextTransformerAnchors,
   getTextTransformerKeepRatio,
@@ -41,7 +41,7 @@ import {
   getViewportZoomPercent,
   getZoomFromViewportPercent,
 } from '../../services/workspaceViewport'
-import type { CanvasEditorHandle } from './CanvasEditor'
+import type { CanvasEditorHandle } from './editorHandle'
 import InlineTextEditor from './InlineTextEditor'
 import ContextualTextHud from './ContextualTextHud'
 import OversetTextBadge from './OversetTextBadge'
@@ -645,10 +645,12 @@ export default function ArtboardWorkspace({
   const inlineEditSize = inlineEditRegion && inlineEditFont
     ? inlineEditConstrainToFrame
       ? getInlineTextEditorLayerSize({
+          // Frame-constrained editing surface must match the balloon box
+          // exactly so the transparent caret overlays the rendered glyphs.
           bbox: inlineEditRegion.bbox,
           scale: inlineEditScale,
-          minWidth: 96 / zoom,
-          minHeight: 44 / zoom,
+          minWidth: 0,
+          minHeight: 0,
         })
       : getArtisticInlineTextEditorLayerSize({
           text: inlineEdit?.text ?? '',
@@ -698,23 +700,12 @@ export default function ArtboardWorkspace({
       return
     }
     const region = activeEntry.regions.find((item) => item.id === inlineEdit.id)
-    const bboxSize = metrics
-      ? getInlineTextEditorBboxSize({ metrics, scale: inlineEditScale })
-      : null
-    const layoutMode = normalizeTextLayoutMode(region?.textLayoutMode)
-    const font = region ? resolveRegionFont(region) : null
-    const nextBbox = region && bboxSize ? { ...region.bbox, ...bboxSize } : null
-    const nextFontSize = region && font && nextBbox && layoutMode === 'balloon_fit'
-      ? getRegionTextLayout({ ...region, bbox: nextBbox }, finalText || ' ', {
-          fontFamily: font.family,
-          fontWeight: font.weight,
-          fontStyle: font.style,
-        }).fontSize
-      : undefined
+    const geometry = region
+      ? getInlineTextEditorCommitGeometry({ region, metrics, scale: inlineEditScale })
+      : {}
     applyEntryRegionUpdate(activeEntry.id, inlineEdit.id, {
       translatedText: finalText,
-      ...(nextBbox ? { bbox: nextBbox } : {}),
-      ...(nextFontSize !== undefined ? { fontSize: nextFontSize } : {}),
+      ...(geometry.bbox ? { bbox: geometry.bbox } : {}),
     }, {
       historyBefore: inlineEdit.beforeRegions,
     })

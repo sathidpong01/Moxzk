@@ -1,4 +1,5 @@
 import type { BoundingBox, TextRegion } from '../types'
+import { growBalloonBox } from './balloon-detect'
 
 interface CandidateBox extends BoundingBox {
   changedPixels: number
@@ -76,6 +77,59 @@ export function alignRegionsToCleanupBoxes(
   return regions.map((region) => {
     const bbox = boxByRegionId.get(region.id)
     if (!bbox) return region
+    return {
+      ...region,
+      bbox,
+      fontSize: calcAutoFontSize(region.translatedText || region.originalText, bbox),
+    }
+  })
+}
+
+/**
+ * Expands each region's box from the text extent out to its speech balloon by
+ * flood filling the balloon-fill colour in the cleaned image. Regions whose
+ * balloon cannot be confidently detected keep their incoming box, so this only
+ * ever improves the layout box, never degrades it.
+ */
+export async function refineRegionsWithBalloons(
+  regions: TextRegion[],
+  cleanedBlob: Blob,
+): Promise<TextRegion[]> {
+  if (regions.length === 0) return regions
+
+  const cleaned = await loadImage(cleanedBlob)
+  const width = cleaned.naturalWidth || cleaned.width
+  const height = cleaned.naturalHeight || cleaned.height
+  if (width <= 0 || height <= 0) return regions
+
+  const scale = Math.min(1, Math.sqrt(MAX_SCAN_PIXELS / (width * height)))
+  const scanWidth = Math.max(1, Math.round(width * scale))
+  const scanHeight = Math.max(1, Math.round(height * scale))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = scanWidth
+  canvas.height = scanHeight
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return regions
+  ctx.drawImage(cleaned, 0, 0, scanWidth, scanHeight)
+  const { data } = ctx.getImageData(0, 0, scanWidth, scanHeight)
+
+  return regions.map((region) => {
+    const seed: BoundingBox = {
+      x: region.bbox.x * scale,
+      y: region.bbox.y * scale,
+      width: region.bbox.width * scale,
+      height: region.bbox.height * scale,
+    }
+    const grown = growBalloonBox(data, scanWidth, scanHeight, seed)
+    if (grown === seed) return region
+
+    const bbox: BoundingBox = {
+      x: grown.x / scale,
+      y: grown.y / scale,
+      width: grown.width / scale,
+      height: grown.height / scale,
+    }
     return {
       ...region,
       bbox,
