@@ -11,6 +11,7 @@ import { downloadImage } from '../services/storageService'
 import { saveEditorImagesToAlbum } from '../services/albumEditorSave'
 import { toast } from 'sonner'
 import { autoStartRequiredLocalServices } from '../services/localServiceAutoStart'
+import { parseApiError } from '../utils/parseApiError'
 
 interface UseEditorActionsOptions {
   onOpenExportDrawer: () => void
@@ -61,7 +62,8 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
         return true
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
-        toast.error(error instanceof Error ? error.message : 'export ล้มเหลว')
+        console.error('[export] failed:', error)
+      toast.error('export ไม่สำเร็จ — ลองเลือกปลายทางอื่นหรือ export ใหม่อีกครั้ง')
         return false
       }
     }
@@ -85,7 +87,8 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
       toast.success(mode === 'folder' ? 'export ลงโฟลเดอร์สำเร็จ' : 'export เป็น ZIP สำเร็จ')
       return true
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'export ล้มเหลว')
+      console.error('[export] failed:', error)
+      toast.error('export ไม่สำเร็จ — ลองเลือกปลายทางอื่นหรือ export ใหม่อีกครั้ง')
       return false
     }
   }, [store])
@@ -186,7 +189,9 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
       })
       toast.success('แปลหลายหน้าเสร็จแล้ว')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'แปลหลายหน้าไม่สำเร็จ')
+      console.error('[batch-translate] failed:', error)
+      const raw = error instanceof Error ? error.message : String(error)
+      toast.error(`แปลหลายหน้าไม่สำเร็จ — ${parseApiError(raw).shortMessage}`)
     } finally {
       setIsBatchProcessing(false)
       setBatchStatus((current) => current ? { ...current, progress: current.phase === 'done' ? 100 : current.progress } : null)
@@ -223,7 +228,12 @@ export function useEditorActions({ onOpenExportDrawer }: UseEditorActionsOptions
       toast.info('เลือกอัลบั้มปลายทางก่อนบันทึก')
       return
     }
-    await saveEditorImagesToAlbum(currentAlbum)
+    const toastId = toast.loading(`กำลังบันทึกลงอัลบั้ม "${currentAlbum.title}"…`)
+    try {
+      await saveEditorImagesToAlbum(currentAlbum)
+    } finally {
+      toast.dismiss(toastId)
+    }
   }, [store])
 
   const handleSaveAsAlbum = useCallback(() => {

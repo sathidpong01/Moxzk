@@ -12,6 +12,7 @@ export const IPC_CHANNELS = {
   localServicesPanelCleanerDependencyStatus: 'runtime:localServices.panelCleanerDependencyStatus',
   localServicesInstallPython: 'runtime:localServices.installPython',
   localServicesInstallOllama: 'runtime:localServices.installOllama',
+  localServicesOllamaInstallStatus: 'runtime:localServices.ollamaInstallStatus',
   localServicesInstallPanelCleaner: 'runtime:localServices.installPanelCleaner',
   localServicesRepairPanelCleaner: 'runtime:localServices.repairPanelCleaner',
   localServicesPickPanelCleanerExecutable: 'runtime:localServices.pickPanelCleanerExecutable',

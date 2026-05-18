@@ -893,7 +893,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         } catch (err) {
           console.error('[switchImage] lazy download failed:', err)
           set({ isProcessing: false, processKind: null })
-          toast.error('โหลดรูปจาก R2 ล้มเหลว')
+          toast.error('โหลดรูปจากคลังออนไลน์ไม่สำเร็จ')
         }
       })()
     }
@@ -1101,7 +1101,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     } catch (err) {
       console.error('[loadAlbumPages] download failed:', err)
       set({ isProcessing: false, processKind: null })
-      toast.error(`โหลดรูปจาก R2 ล้มเหลว: ${err instanceof Error ? err.message : String(err)}`)
+      toast.error(`โหลดรูปจากคลังออนไลน์ไม่สำเร็จ: ${err instanceof Error ? err.message : String(err)}`)
     }
 
     void (async () => {

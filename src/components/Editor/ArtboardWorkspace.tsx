@@ -16,6 +16,7 @@ import {
 import { useAlbumStore } from '../../store/albumStore'
 import { resolveRegionFont } from '../../config/fonts'
 import { getRegionTextLayout, normalizeTextAlign, normalizeTextLayoutMode } from '../../utils/textLayout'
+import { parseApiError } from '../../utils/parseApiError'
 import { computeBrushFeather } from '../../services/brushStrokes'
 import { getEditorToolCursor } from '../../services/editorCursor'
 import {
@@ -782,7 +783,9 @@ export default function ArtboardWorkspace({
       applyEntryRegionUpdate(entryId, regionId, { translatedText }, { historyKey: `hud:translate:${regionId}` })
       toast.success('แปลใหม่แล้ว')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'แปลใหม่ไม่สำเร็จ')
+      console.error('[hud-translate] failed:', error)
+      const raw = error instanceof Error ? error.message : String(error)
+      toast.error(`แปลใหม่ไม่สำเร็จ — ${parseApiError(raw).shortMessage}`)
     } finally {
       setHudTranslating(false)
     }
@@ -1653,11 +1656,17 @@ function ArtboardText({
   const layoutMode = normalizeTextLayoutMode(region.textLayoutMode)
   const isArtistic = layoutMode === 'artistic'
   const text = (previewOriginal ? region.originalText : region.translatedText) || ' '
-  const regionLayout = getRegionTextLayout(region, text, {
-    fontFamily: font.family,
-    fontWeight: font.weight,
-    fontStyle: font.style,
-  })
+  // Text layout runs a binary-search font fit + canvas measureText; it depends
+  // only on region geometry/font, never on viewport zoom — so cache it to keep
+  // zooming smooth when many regions are on screen.
+  const regionLayout = useMemo(
+    () => getRegionTextLayout(region, text, {
+      fontFamily: font.family,
+      fontWeight: font.weight,
+      fontStyle: font.style,
+    }),
+    [region, text, font.family, font.weight, font.style],
+  )
   const isArtisticFree = isArtistic && regionLayout.artisticFit === 'free'
   const fontSize = regionLayout.fontSize * scale
   const transformStartRegionsRef = useRef<TextRegion[] | null>(null)

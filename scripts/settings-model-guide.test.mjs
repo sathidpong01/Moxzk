@@ -44,7 +44,7 @@ test('settings keeps Ollama setup compact', () => {
   assert.match(source, /ถ้าชื่อโมเดลผิดให้แก้ชื่อ/)
   assert.match(source, /โหลดเข้า Ollama/)
   assert.match(source, /โมเดลจะอยู่ในที่เก็บของ Ollama ไม่อยู่ในโฟลเดอร์ Moxzk/)
-  assert.match(source, /เหมือนคำสั่ง ollama pull/)
+  assert.match(source, /ระบบจัดการโมเดลให้ผ่าน Ollama โดยตรง/)
   assert.match(source, /คัดลอกคำสั่ง/)
   assert.match(source, /onCheckStatus=\{handleCheckOllama\}/)
   assert.match(source, /onPullRecommendedModel=\{handlePullModel\}/)

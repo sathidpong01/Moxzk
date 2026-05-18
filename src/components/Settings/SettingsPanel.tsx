@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { AppSettings, FontMoodMap, TranslationMode } from '../../types'
 import EmotionFontSettings from '../Editor/EmotionFontSettings'
@@ -74,6 +74,9 @@ const OLLAMA_STATUS_TIMEOUT_MS = 8000
 const OLLAMA_MODELS_TIMEOUT_MS = 15000
 const PANELCLEANER_STATUS_TIMEOUT_MS = 15000
 const LOCAL_SERVICE_STATUS_POLL_MS = 1000
+// Ghost Polling: auto-detect Ollama reachability on the Models tab so the user
+// does not have to press a manual "check status" button.
+const OLLAMA_STATUS_POLL_MS = 4000
 
 const MODEL_PRESETS = [
   {
@@ -352,6 +355,13 @@ export default function SettingsPanel({
   const [authCallbackUrl, setAuthCallbackUrl] = useState<string | null>(null)
   const [showOllamaTutorial, setShowOllamaTutorial] = useState(false)
 
+  // Refs let the background status poll read live values without re-arming
+  // its interval on every keystroke or state change.
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+  const ollamaBusyRef = useRef(false)
+  ollamaBusyRef.current = checkingOllama || startingOllama
+
   const installedModels = useMemo(() => new Set(modelNames), [modelNames])
   const selectedModelName = draft.ollamaModel.trim()
   const visibleModelNames = useMemo(() => {
@@ -481,6 +491,30 @@ export default function SettingsPanel({
     if (!isOpen || tab !== 'models') return
     void refreshOllamaModels()
   }, [isOpen, refreshOllamaModels, tab])
+
+  // Ghost Polling: silently re-check Ollama reachability while the Models tab
+  // is open. Pauses while a manual check/start is running so it does not race.
+  useEffect(() => {
+    if (!isOpen || tab !== 'models') return
+    let cancelled = false
+    const pollOnce = async () => {
+      if (cancelled || ollamaBusyRef.current) return
+      try {
+        const status = await appRuntime.ollama.getServerStatus({
+          ollamaUrl: draftRef.current.ollamaUrl,
+          ollamaApiKey: draftRef.current.ollamaApiKey,
+          timeoutMs: OLLAMA_STATUS_TIMEOUT_MS,
+        })
+        if (!cancelled) setOllamaStatus(status)
+      } catch { /* keep last known value */ }
+    }
+    void pollOnce()
+    const timer = window.setInterval(() => void pollOnce(), OLLAMA_STATUS_POLL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [appRuntime.ollama, isOpen, tab])
 
   useEffect(() => {
     if (!installingPanelCleaner) return
@@ -989,10 +1023,6 @@ export default function SettingsPanel({
                           เริ่ม Ollama
                         </Button>
                       )}
-                      <Button variant="soft" size="sm" onClick={handleCheckOllama} disabled={checkingOllama}>
-                        {checkingOllama ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                        ตรวจสถานะ
-                      </Button>
                       <Button variant="ghost" size="sm" onClick={handleLoadModels} disabled={loadingModels}>
                         {loadingModels ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
                         รีเฟรชรายชื่อ
@@ -1069,7 +1099,7 @@ export default function SettingsPanel({
                     </Field>
                     <div className="moxzk-notice">
                       <HardDriveDownload size={14} />
-                      <span>{isOllamaCloud ? 'Ollama Cloud ไม่ต้องโหลดไฟล์ในเครื่อง' : 'การโหลดใช้ Ollama API เหมือนคำสั่ง ollama pull และให้ Ollama จัดการตำแหน่งไฟล์เอง'}</span>
+                      <span>{isOllamaCloud ? 'Ollama Cloud ไม่ต้องเก็บไฟล์ในเครื่อง' : 'ระบบจัดการโมเดลให้ผ่าน Ollama โดยตรง ไม่ต้องยุ่งกับไฟล์เอง'}</span>
                     </div>
                     {selectedModelIsPulling && (
                       <ModelPullProgress model={selectedModelName} percent={pullPercent} progress={pullProgress} />

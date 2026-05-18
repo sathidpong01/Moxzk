@@ -151,8 +151,7 @@ export async function saveEditorImagesToAlbum(album: Album): Promise<SaveEditorI
       }
     } catch (err) {
       console.error('[save] Error saving page:', err)
-      const reason = err instanceof Error ? err.message : String(err)
-      toast.error(`บันทึกหน้า ${entry.pageNumber ?? nextPageNum} ล้มเหลว: ${reason}`)
+      toast.error(`บันทึกหน้า ${entry.pageNumber ?? nextPageNum} ไม่สำเร็จ — ตรวจการเชื่อมต่อเน็ตแล้วบันทึกใหม่อีกครั้ง`)
     }
   }
 

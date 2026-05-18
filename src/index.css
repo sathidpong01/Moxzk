@@ -869,6 +869,68 @@ button:disabled {
   gap: 0.85rem;
 }
 
+.FirstRunSetupModelRecommended {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.FirstRunSetupModelRecommendedInfo {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.FirstRunSetupModelRecommendedTag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #93c5fd;
+}
+
+.FirstRunSetupModelRecommendedInfo strong {
+  font-size: 0.95rem;
+  color: var(--moxzk-text);
+}
+
+.FirstRunSetupModelRecommendedInfo small {
+  font-size: 0.75rem;
+  color: var(--moxzk-dim);
+}
+
+.FirstRunSetupModelRecommendedInfo p {
+  margin: 0.1rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--moxzk-muted);
+}
+
+.FirstRunSetupModelRecommendedAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 0.55rem 1.1rem;
+  border-radius: 0.6rem;
+  border: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--moxzk-accent);
+  transition: opacity 0.15s ease;
+}
+
+.FirstRunSetupModelRecommendedAction:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .FirstRunSetupModelSearch {
   position: relative;
   display: grid;
@@ -1496,6 +1558,37 @@ button:disabled {
 
 .OllamaTutorialActions {
   min-height: 2.25rem;
+}
+
+.OcrSplitImageStage {
+  transform-origin: 0 0;
+  transition: transform 0.28s ease;
+}
+
+.OllamaDetectBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--moxzk-muted);
+}
+
+.OllamaDetectBannerOk {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+
+.OllamaDetectBannerWarn {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.35);
+  color: #fde047;
 }
 
 .OllamaTutorialFooter {

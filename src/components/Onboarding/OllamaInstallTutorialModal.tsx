@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { ArrowLeft, ArrowRight, CheckCircle2, Download, HardDriveDownload, Play, Settings } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ArrowRight, CheckCircle2, Download, HardDriveDownload, Loader2, Play, Settings } from 'lucide-react'
 import { Button, Modal } from '../ui/primitives'
+import { getOllamaStatus } from '../../services/ollama'
 import { markOllamaTutorialSeen } from '../../services/onboardingStorage'
 import {
   OLLAMA_DOWNLOAD_URL,
@@ -8,6 +9,10 @@ import {
   OLLAMA_TUTORIAL_STEPS,
   type OllamaTutorialStep,
 } from './ollamaTutorial'
+
+const OLLAMA_POLL_INTERVAL_MS = 2500
+const OLLAMA_POLL_TIMEOUT_MS = 3 * 60 * 1000
+const PULL_MODEL_STEP_INDEX = OLLAMA_TUTORIAL_STEPS.findIndex((step) => step.id === 'pull-model')
 
 interface OllamaInstallTutorialModalProps {
   isOpen: boolean
@@ -31,9 +36,50 @@ export default function OllamaInstallTutorialModal({
   onOpenSettings,
 }: OllamaInstallTutorialModalProps) {
   const [stepIndex, setStepIndex] = useState(0)
+  const [detected, setDetected] = useState(false)
+  const [pollTimedOut, setPollTimedOut] = useState(false)
+  const stepIndexRef = useRef(stepIndex)
+  stepIndexRef.current = stepIndex
   const step = OLLAMA_TUTORIAL_STEPS[stepIndex]
   const isFirst = stepIndex === 0
   const isLast = stepIndex === OLLAMA_TUTORIAL_STEPS.length - 1
+
+  // Ghost polling: detect Ollama in the background instead of asking the user to press Detect.
+  useEffect(() => {
+    if (!isOpen || detected) return
+    let cancelled = false
+
+    const poll = async () => {
+      const status = await getOllamaStatus().catch(() => null)
+      if (cancelled || !status?.ok) return
+      setDetected(true)
+      // Skip ahead to the model step, but never yank the user backwards.
+      if (PULL_MODEL_STEP_INDEX >= 0 && stepIndexRef.current < PULL_MODEL_STEP_INDEX) {
+        setTimeout(() => {
+          if (!cancelled) setStepIndex((current) => Math.max(current, PULL_MODEL_STEP_INDEX))
+        }, 1200)
+      }
+    }
+
+    void poll()
+    const intervalId = window.setInterval(() => void poll(), OLLAMA_POLL_INTERVAL_MS)
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) setPollTimedOut(true)
+    }, OLLAMA_POLL_TIMEOUT_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+      window.clearTimeout(timeoutId)
+    }
+  }, [isOpen, detected])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDetected(false)
+      setPollTimedOut(false)
+    }
+  }, [isOpen])
 
   const handleClose = () => {
     setStepIndex(0)
@@ -98,6 +144,8 @@ export default function OllamaInstallTutorialModal({
             <img src={`${import.meta.env.BASE_URL}${step.imageSrc}`} alt={step.imageAlt} loading="lazy" decoding="async" />
           </figure>
 
+          <OllamaDetectBanner detected={detected} timedOut={pollTimedOut} onOpenSettings={onOpenSettings} />
+
           <div className="OllamaTutorialActions">
             <StepAction
               step={step}
@@ -131,6 +179,45 @@ export default function OllamaInstallTutorialModal({
         </main>
       </div>
     </Modal>
+  )
+}
+
+function OllamaDetectBanner({
+  detected,
+  timedOut,
+  onOpenSettings,
+}: {
+  detected: boolean
+  timedOut: boolean
+  onOpenSettings?: () => void
+}) {
+  if (detected) {
+    return (
+      <div className="OllamaDetectBanner OllamaDetectBannerOk">
+        <CheckCircle2 size={16} />
+        <span>Moxzk เชื่อมต่อ Ollama แล้ว — ไปขั้นโหลดโมเดลได้เลย</span>
+      </div>
+    )
+  }
+
+  if (timedOut) {
+    return (
+      <div className="OllamaDetectBanner OllamaDetectBannerWarn">
+        <span>ยังไม่เจอ Ollama ลองเปิดโปรแกรม Ollama ในเครื่อง แล้วรอสักครู่</span>
+        {onOpenSettings ? (
+          <Button variant="ghost" onClick={onOpenSettings}>
+            <Settings size={14} /> เปิดหน้าตั้งค่า
+          </Button>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="OllamaDetectBanner">
+      <Loader2 size={16} className="animate-spin" />
+      <span>กำลังค้นหา Ollama ในเครื่องอัตโนมัติ…</span>
+    </div>
   )
 }
 

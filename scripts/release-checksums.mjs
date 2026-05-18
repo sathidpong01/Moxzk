@@ -2,9 +2,13 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-const outputDir = path.resolve('output/electron')
+// electron-builder writes Squirrel.Windows artifacts into a `squirrel-windows`
+// subfolder of the configured output directory.
+const outputDir = path.resolve('output/electron/squirrel-windows')
 const checksumFile = path.join(outputDir, 'SHA256SUMS.txt')
-const extensions = new Set(['.exe', '.blockmap', '.yml'])
+// Squirrel.Windows artifacts: the Setup .exe, the .nupkg packages, and the
+// extension-less RELEASES manifest.
+const extensions = new Set(['.exe', '.nupkg'])
 
 async function main() {
   const entries = await fs.readdir(outputDir, { withFileTypes: true })
@@ -12,7 +16,7 @@ async function main() {
     .filter((entry) => (
       entry.isFile()
       && entry.name !== 'builder-debug.yml'
-      && extensions.has(path.extname(entry.name).toLowerCase())
+      && (entry.name === 'RELEASES' || extensions.has(path.extname(entry.name).toLowerCase()))
     ))
     .map((entry) => path.join(outputDir, entry.name))
     .sort((a, b) => path.basename(a).localeCompare(path.basename(b)))

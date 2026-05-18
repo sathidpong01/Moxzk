@@ -23,8 +23,12 @@ import { getAppRuntime } from '../../runtime'
 import type { OnboardingSetupItem } from '../../services/onboardingStorage'
 
 import { OLLAMA_DOWNLOAD_URL, OLLAMA_RECOMMENDED_MODEL } from './ollamaTutorial'
+import { recommendOllamaModel } from '../../services/modelRecommendation'
 
 const PYTHON_DOWNLOAD_URL = 'https://www.python.org/downloads/windows/'
+// Ghost Polling: silently re-check service/model status so the user never has
+// to press a manual "check" button during onboarding.
+const SETUP_STATUS_POLL_MS = 3000
 const BASE = import.meta.env.BASE_URL
 const SETUP_ICON_SRC = {
   intro: `${BASE}setup-icons/moxzk.svg`,
@@ -48,7 +52,7 @@ const SETUP_MODEL_OPTIONS = [
     name: 'gemma3:12b',
     title: 'Gemma 3 12B',
     badge: 'แม่นขึ้น',
-    description: 'เหมาะกับเครื่องที่มี RAM/VRAM มากกว่า เมื่อต้องการอ่านภาพและภาษาให้ละเอียดขึ้น',
+    description: 'เหมาะกับเครื่องแรงหน่วยความจำเยอะ เมื่อต้องการอ่านภาพและภาษาให้ละเอียดขึ้น',
   },
   {
     name: 'llama3.2-vision:11b',
@@ -219,11 +223,16 @@ export default function FirstRunSetupView({
   const [modelSearchPending, setModelSearchPending] = useState(false)
   const [modelSearchFocused, setModelSearchFocused] = useState(false)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [ollamaInstallLogs, setOllamaInstallLogs] = useState<string[]>([])
   const [showIntro, setShowIntro] = useState(true)
   const completed = useMemo(() => new Set(completedSetupItems), [completedSetupItems])
   const skipped = useMemo(() => new Set(skippedSetupItems), [skippedSetupItems])
+  const completedRef = useRef(completed)
+  completedRef.current = completed
+  const busyActionRef = useRef(busyAction)
+  busyActionRef.current = busyAction
   const selectedModelName = resolveSetupModelName(modelSearchInput)
-  const debouncedSelectedModelName = resolveSetupModelName(debouncedModelSearch)
+  const modelRecommendation = useMemo(() => recommendOllamaModel(), [])
   const modelSearchCandidates = useMemo(() => uniqueModelNames([
     ...SETUP_MODEL_OPTIONS.map((option) => option.name),
     ...SETUP_MODEL_AUTOCOMPLETE_NAMES,
@@ -341,27 +350,6 @@ export default function FirstRunSetupView({
     }
   }, [appRuntime.localServices, checkOllama, startOllama])
 
-  const refreshModel = useCallback(async () => {
-    setBusyAction('model-check')
-    try {
-      const models = await appRuntime.ollama.listModels({
-        ollamaUrl: settings.ollamaUrl,
-        ollamaApiKey: settings.ollamaApiKey,
-        timeoutMs: 15000,
-      })
-      const names = uniqueModelNames(models.map((model) => model.name || model.model || '').filter(Boolean))
-      setModelNames(names)
-      const selectedModel = debouncedSelectedModelName
-      const found = models.some((model) => normalizeModelName(model.name || model.model || '') === normalizeModelName(selectedModel))
-      setModelReady(found)
-      if (found && !completed.has('model')) onCompleteSetupItem('model')
-    } catch {
-      setModelReady(false)
-    } finally {
-      setBusyAction((current) => current === 'model-check' ? null : current)
-    }
-  }, [appRuntime.ollama, completed, debouncedSelectedModelName, onCompleteSetupItem, settings.ollamaApiKey, settings.ollamaUrl])
-
   const pullModel = useCallback(async () => {
     setBusyAction('model-pull')
     setModelPullProgress({ status: 'กำลังเริ่มดาวน์โหลด' })
@@ -412,11 +400,86 @@ export default function FirstRunSetupView({
     setShowIntro(true)
   }, [isOpen])
 
+  // Ghost Polling: auto-detect service/model status in the background while the
+  // setup view is open, so the user never has to press a manual check button.
+  // Skips items already marked done and pauses while an install/start runs.
   useEffect(() => {
     if (!isOpen) return
-    void refreshPanelCleanerDependency()
-    void checkOllama()
-  }, [checkOllama, isOpen, refreshPanelCleanerDependency])
+    let cancelled = false
+    let polling = false
+
+    const pollOnce = async () => {
+      if (cancelled || polling || busyActionRef.current) return
+      polling = true
+      try {
+        await runPoll()
+      } finally {
+        polling = false
+      }
+    }
+
+    const runPoll = async () => {
+      const rt = getAppRuntime()
+      const s = settingsRef.current
+      const done = completedRef.current
+
+      if (!done.has('python') || !done.has('panelcleaner')) {
+        try {
+          const status = await rt.localServices.getPanelCleanerDependencyStatus()
+          if (cancelled) return
+          setPanelCleanerDependency(status)
+          if (status.python.state === 'ready' && !done.has('python')) onCompleteSetupItem('python')
+          if (status.state === 'ready' && !done.has('panelcleaner')) onCompleteSetupItem('panelcleaner')
+        } catch { /* keep last known value */ }
+      }
+      if (!cancelled && !completedRef.current.has('panelcleaner')) {
+        try {
+          const status = await rt.panelCleaner.getStatus({
+            bridgeUrl: s.panelCleanerBridgeUrl,
+            executablePath: s.panelCleanerExecutablePath,
+            timeoutMs: 8000,
+          })
+          if (cancelled) return
+          setPanelCleanerStatus(status)
+          if (status.ok && !completedRef.current.has('panelcleaner')) onCompleteSetupItem('panelcleaner')
+        } catch { /* keep last known value */ }
+      }
+      if (!cancelled && !completedRef.current.has('ollama')) {
+        try {
+          const status = await rt.ollama.getServerStatus({
+            ollamaUrl: s.ollamaUrl,
+            ollamaApiKey: s.ollamaApiKey,
+            timeoutMs: 8000,
+          })
+          if (cancelled) return
+          setOllamaStatus(status)
+          if (status.ok && !completedRef.current.has('ollama')) onCompleteSetupItem('ollama')
+        } catch { /* keep last known value */ }
+      }
+      if (!cancelled && !completedRef.current.has('model')) {
+        try {
+          const models = await rt.ollama.listModels({
+            ollamaUrl: s.ollamaUrl,
+            ollamaApiKey: s.ollamaApiKey,
+            timeoutMs: 12000,
+          })
+          if (cancelled) return
+          setModelNames(uniqueModelNames(models.map((model) => model.name || model.model || '').filter(Boolean)))
+          const target = resolveSetupModelName(settingsRef.current.ollamaModel)
+          const found = models.some((model) => normalizeModelName(model.name || model.model || '') === normalizeModelName(target))
+          setModelReady(found)
+          if (found && !completedRef.current.has('model')) onCompleteSetupItem('model')
+        } catch { /* keep last known value */ }
+      }
+    }
+
+    void pollOnce()
+    const timer = window.setInterval(() => void pollOnce(), SETUP_STATUS_POLL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [isOpen, onCompleteSetupItem])
 
   useEffect(() => {
     if (busyAction !== 'panelcleaner-install') return
@@ -431,10 +494,23 @@ export default function FirstRunSetupView({
     return () => window.clearInterval(timer)
   }, [busyAction, appRuntime.localServices])
 
+  // Surface live winget progress while Ollama installs, so the spinner is
+  // backed by a moving status line instead of looking frozen.
   useEffect(() => {
-    if (!isOpen) return
-    void refreshModel()
-  }, [isOpen, refreshModel])
+    if (busyAction !== 'ollama-install') {
+      setOllamaInstallLogs([])
+      return
+    }
+    const timer = window.setInterval(async () => {
+      try {
+        const status = await appRuntime.localServices.getOllamaInstallStatus()
+        setOllamaInstallLogs(status.logs)
+      } catch {
+        // ignore poll errors
+      }
+    }, 1200)
+    return () => window.clearInterval(timer)
+  }, [busyAction, appRuntime.localServices])
 
   useEffect(() => {
     const nextModel = resolveSetupModelName(settings.ollamaModel)
@@ -497,13 +573,6 @@ export default function FirstRunSetupView({
           disabled: busyAction !== null || !appRuntime.capabilities.canStartLocalServices,
         },
         {
-          label: 'ตรวจอีกครั้ง',
-          icon: busyAction === 'python-check' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />,
-          onClick: refreshPanelCleanerDependency,
-          kind: 'check',
-          disabled: busyAction !== null,
-        },
-        {
           label: 'เปิดหน้าโหลด Python',
           icon: <ExternalLink size={13} />,
           onClick: () => window.open(PYTHON_DOWNLOAD_URL, '_blank', 'noopener,noreferrer'),
@@ -535,13 +604,6 @@ export default function FirstRunSetupView({
           kind: 'secondary',
           disabled: busyAction !== null,
         },
-        {
-          label: 'ตรวจสถานะ',
-          icon: busyAction === 'panelcleaner-check' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />,
-          onClick: checkPanelCleaner,
-          kind: 'check',
-          disabled: busyAction !== null,
-        },
       ],
     },
     {
@@ -563,13 +625,6 @@ export default function FirstRunSetupView({
         },
         { label: 'ดูวิธีติดตั้ง', icon: <BookOpen size={13} />, onClick: onOpenTutorial, kind: 'secondary' },
         { label: 'เริ่ม Ollama', icon: <Terminal size={13} />, onClick: startOllama, kind: 'secondary', disabled: busyAction !== null },
-        {
-          label: 'ตรวจสถานะ',
-          icon: busyAction === 'ollama-check' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />,
-          onClick: checkOllama,
-          kind: 'check',
-          disabled: busyAction !== null,
-        },
         { label: 'เปิดหน้าโหลด Ollama', icon: <ExternalLink size={13} />, onClick: () => window.open(OLLAMA_DOWNLOAD_URL, '_blank', 'noopener,noreferrer'), kind: 'secondary' },
       ],
     },
@@ -590,13 +645,6 @@ export default function FirstRunSetupView({
           kind: 'primary',
           disabled: busyAction !== null || !ollamaReady,
         },
-        {
-          label: 'ตรวจอีกครั้ง',
-          icon: busyAction === 'model-check' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />,
-          onClick: refreshModel,
-          kind: 'check',
-          disabled: busyAction !== null,
-        },
       ],
     },
     {
@@ -614,8 +662,8 @@ export default function FirstRunSetupView({
     },
     {
       id: 'account',
-      title: 'สมัครสมาชิกเพื่อเก็บงานแปล',
-      description: 'สร้างบัญชีเพื่อเก็บอัลบั้ม รูปต้นฉบับ และงานที่แก้ไว้ให้กลับมาเปิดต่อได้ง่าย',
+      title: 'บัญชีสำหรับเก็บงานขึ้นคลาวด์ (ข้ามได้)',
+      description: 'ใช้ Moxzk แปลและ export ได้เลยโดยไม่ต้องสมัคร สมัครเมื่ออยากเก็บอัลบั้มและงานที่แก้ไว้ขึ้นคลาวด์ เปิดต่อข้ามเครื่องได้',
       required: false,
       ready: accountReady,
       statusText: accountReady ? 'เข้าสู่ระบบแล้ว' : 'ยังไม่ได้เข้าสู่ระบบ',
@@ -707,9 +755,46 @@ export default function FirstRunSetupView({
       )
     }
 
+    if (activeStep.id === 'ollama' && busyAction === 'ollama-install') {
+      return ollamaInstallLogs.length > 0 ? (
+        <div className="FirstRunSetupStepExtras FirstRunSetupInstallLog" aria-live="polite" aria-label="ความคืบหน้าการติดตั้ง Ollama">
+          {ollamaInstallLogs.slice(-8).map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+      ) : (
+        <div className="FirstRunSetupStepExtras FirstRunSetupInstallLog">
+          <p>กำลังเตรียมติดตั้ง Ollama…</p>
+        </div>
+      )
+    }
+
     if (activeStep.id === 'model') {
       return (
         <div className="FirstRunSetupStepExtras FirstRunSetupModelExtras">
+          {(() => {
+            const recommended = SETUP_MODEL_OPTIONS.find((option) => option.name === modelRecommendation.model)
+            const isPicked = selectedModelName === modelRecommendation.model
+            return (
+              <div className="FirstRunSetupModelRecommended">
+                <div className="FirstRunSetupModelRecommendedInfo">
+                  <span className="FirstRunSetupModelRecommendedTag">แนะนำสำหรับเครื่องนี้</span>
+                  <strong>{recommended?.title ?? modelRecommendation.model}</strong>
+                  <small>{recommended?.name ?? modelRecommendation.model}</small>
+                  <p>{modelRecommendation.reason}</p>
+                </div>
+                <button
+                  type="button"
+                  className="FirstRunSetupModelRecommendedAction"
+                  onClick={() => chooseModel(modelRecommendation.model)}
+                  disabled={busyAction !== null || isPicked}
+                >
+                  {isPicked ? <CheckCircle2 size={14} aria-hidden="true" /> : null}
+                  {isPicked ? 'เลือกไว้แล้ว' : 'ใช้โมเดลนี้'}
+                </button>
+              </div>
+            )
+          })()}
           <label className="FirstRunSetupModelSearch">
             <span>Search หรือใส่ชื่อโมเดลเอง</span>
             <div className="FirstRunSetupModelSearchBox">

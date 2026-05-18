@@ -53,6 +53,11 @@ export interface PanelCleanerDependencyStatus {
   python: PythonDependencyStatus
 }
 
+export interface OllamaInstallStatus {
+  installing: boolean
+  logs: string[]
+}
+
 export interface RuntimePathPickResult {
   ok: boolean
   path?: string
@@ -151,6 +156,7 @@ export interface AppRuntime {
     getPanelCleanerDependencyStatus(): Promise<PanelCleanerDependencyStatus>
     installPython(): Promise<RuntimeActionResult>
     installOllama(): Promise<RuntimeActionResult>
+    getOllamaInstallStatus(): Promise<OllamaInstallStatus>
     installPanelCleaner(): Promise<RuntimeActionResult>
     repairPanelCleaner(): Promise<RuntimeActionResult>
     pickPanelCleanerExecutable(): Promise<RuntimePathPickResult>

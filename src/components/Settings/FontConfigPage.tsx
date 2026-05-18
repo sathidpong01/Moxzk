@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FontDefinition, FontMoodMap, MoodType } from '../../types'
 import { BUILT_IN_FONTS, MOOD_LABELS, registerCustomFont, restoreCustomFont, fontToCss } from '../../config/fonts'
 import { getAllFonts, deleteFont as deleteFontFromDB } from '../../services/fontStorage'
-import { Type, RotateCcw, X as XIcon, Save } from 'lucide-react'
+import { Type, RotateCcw, X as XIcon, Save, UploadCloud } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge, Button, Field, Modal, SelectField } from '../ui/primitives'
+import { Badge, Button, Field, Modal, SelectField, cn } from '../ui/primitives'
+
+const FONT_FILE_PATTERN = /\.(ttf|otf|woff2?)$/i
+
+function describeFontWeight(weight: number): string {
+  if (weight >= 700) return 'หนา'
+  if (weight >= 600) return 'กึ่งหนา'
+  if (weight <= 300) return 'บาง'
+  return 'ปกติ'
+}
 
 interface FontConfigPageProps {
   moodMap: FontMoodMap
@@ -24,6 +33,8 @@ export default function FontConfigPage({
   const [draft, setDraft] = useState<FontMoodMap>({ ...moodMap })
   const [customFonts, setCustomFonts] = useState<FontDefinition[]>([])
   const [uploading, setUploading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     getAllFonts().then(async (storedFonts) => {
@@ -51,21 +62,45 @@ export default function FontConfigPage({
     [allFonts],
   )
 
-  const handleUploadFont = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const processFontFiles = useCallback(async (files: File[]) => {
+    const fontFiles = files.filter((file) => FONT_FILE_PATTERN.test(file.name))
+    if (fontFiles.length === 0) {
+      if (files.length > 0) toast.error('รองรับเฉพาะไฟล์ฟอนต์ .ttf / .otf / .woff2')
+      return
+    }
     setUploading(true)
+    let added = 0
     try {
-      const name = file.name.replace(/\.(ttf|otf|woff2?)$/i, '')
-      const font = await registerCustomFont(name, file)
-      setCustomFonts((prev) => [...prev, font])
-    } catch (err) {
-      console.error('Failed to register custom font:', err)
+      for (const file of fontFiles) {
+        const name = file.name.replace(FONT_FILE_PATTERN, '')
+        try {
+          const font = await registerCustomFont(name, file)
+          setCustomFonts((prev) => {
+            const next = prev.filter((current) => current.name !== font.name)
+            return [...next, font]
+          })
+          added += 1
+        } catch (err) {
+          console.error(`Failed to register custom font "${name}":`, err)
+          toast.error(`เพิ่มฟอนต์ "${name}" ไม่สำเร็จ`)
+        }
+      }
+      if (added > 0) toast.success(`เพิ่มฟอนต์ ${added} ไฟล์ ระบบอ่านน้ำหนัก/สไตล์ให้อัตโนมัติ`)
     } finally {
       setUploading(false)
-      e.target.value = ''
     }
   }, [])
+
+  const handleUploadFont = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await processFontFiles(Array.from(e.target.files ?? []))
+    e.target.value = ''
+  }, [processFontFiles])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragActive(false)
+    await processFontFiles(Array.from(e.dataTransfer.files))
+  }, [processFontFiles])
 
   const handleSave = async () => {
     await onSave(draft)
@@ -109,26 +144,53 @@ export default function FontConfigPage({
       </div>
 
       <div className="my-4 h-px bg-[var(--moxzk-border)]" />
-      <Field label="อัปโหลดฟอนต์เอง (.ttf / .otf / .woff2)">
+      <Field label="เพิ่มฟอนต์เอง">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={(e) => void handleDrop(e)}
+          onClick={() => fileInputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
+          className={cn(
+            'flex cursor-pointer flex-col items-center gap-2 rounded-[14px] border-2 border-dashed px-4 py-6 text-center transition',
+            dragActive
+              ? 'border-[var(--moxzk-accent)] bg-[rgba(37,99,235,0.1)]'
+              : 'border-[var(--moxzk-border)] hover:border-[var(--moxzk-muted)]',
+          )}
+        >
+          <UploadCloud size={26} className="text-[var(--moxzk-muted)]" aria-hidden="true" />
+          <span className="text-sm font-bold text-[var(--moxzk-text)]">
+            {uploading ? 'กำลังเพิ่มฟอนต์…' : 'ลากไฟล์ฟอนต์มาวาง หรือคลิกเพื่อเลือก'}
+          </span>
+          <span className="text-xs text-[var(--moxzk-muted)]">
+            รองรับ .ttf / .otf / .woff2 — ระบบอ่านน้ำหนักและสไตล์ให้อัตโนมัติ
+          </span>
+        </div>
         <input
+          ref={fileInputRef}
           type="file"
-          className="moxzk-control"
+          className="hidden"
           accept=".ttf,.otf,.woff,.woff2"
+          multiple
           onChange={handleUploadFont}
           disabled={uploading}
         />
-        {uploading && <span className="mt-2 text-xs text-[var(--moxzk-muted)]">กำลังอัปโหลด...</span>}
       </Field>
 
       {customFonts.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1 text-xs text-[var(--moxzk-muted)]">ฟอนต์ที่โหลดไว้:</p>
-          <div className="flex flex-wrap gap-1">
+          <p className="mb-1.5 text-xs text-[var(--moxzk-muted)]">ฟอนต์ที่โหลดไว้:</p>
+          <div className="flex flex-wrap gap-1.5">
             {customFonts.map((font) => (
               <Badge key={font.name}>
-                {font.name}
+                <span>{font.name}</span>
+                <span className="ml-1 text-[10px] text-[var(--moxzk-dim)]">
+                  {describeFontWeight(font.weight)}{font.style === 'italic' ? ' · เอียง' : ''}
+                </span>
                 <button
-                  className="ml-1 text-[var(--moxzk-danger)]"
+                  className="ml-1.5 text-[var(--moxzk-danger)]"
                   onClick={async () => {
                     await deleteFontFromDB(font.name)
                     setCustomFonts((prev) => prev.filter((current) => current.name !== font.name))

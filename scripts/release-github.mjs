@@ -1,12 +1,15 @@
-// Publishes the already-built Windows installer to a GitHub release.
+// Publishes the already-built Squirrel.Windows artifacts to a GitHub release.
 //
-// Runs after `electron:package`, which builds the installer and regenerates
-// `latest.yml` for the current package.json version. This script does NOT use
+// Runs after `electron:package`, which builds the Squirrel installer plus the
+// `RELEASES` manifest and `.nupkg` package(s). This script does NOT use
 // electron-builder's publisher: it shells out to the `gh` CLI so it relies on
 // gh's stored credentials instead of a GH_TOKEN env var (a misscoped GH_TOKEN
-// is what broke a previous release). It also refuses to publish when the build
-// artifacts do not match the current version, so a stale `latest.yml` can
-// never be uploaded again.
+// is what broke a previous release).
+//
+// The hosted update server at update.electronjs.org reads `RELEASES` and the
+// `.nupkg` files from the latest GitHub release, so every release MUST carry
+// those assets or auto-update clients break. The Setup .exe is the manual
+// download for new users.
 
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -28,23 +31,36 @@ function fail(message) {
 const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'))
 const version = pkg.version
 const tag = `v${version}`
-const outDir = path.join(repoRoot, pkg.build?.directories?.output ?? 'output/electron')
+// electron-builder writes Squirrel.Windows artifacts into a `squirrel-windows`
+// subfolder of the configured output directory.
+const outDir = path.join(repoRoot, pkg.build?.directories?.output ?? 'output/electron', 'squirrel-windows')
 
-const installer = `Moxzk-${version}-Windows-x64.exe`
-const artifacts = [installer, `${installer}.blockmap`, 'latest.yml']
-for (const name of artifacts) {
-  if (!fs.existsSync(path.join(outDir, name))) {
-    fail(`Missing build artifact: ${name}. Run "npm run electron:package" first.`)
-  }
+if (!fs.existsSync(outDir)) {
+  fail(`Output directory ${outDir} does not exist. Run "npm run electron:package" first.`)
 }
 
-// Guard: latest.yml must describe this exact version, otherwise auto-update
-// clients would be told the wrong version is current.
-const latestYml = fs.readFileSync(path.join(outDir, 'latest.yml'), 'utf8')
-const ymlVersion = latestYml.match(/^version:\s*(.+)$/m)?.[1]?.trim()
-if (ymlVersion !== version) {
-  fail(`latest.yml version "${ymlVersion}" does not match package.json "${version}". Rebuild with "npm run electron:package".`)
-}
+const dirEntries = fs.readdirSync(outDir)
+
+// Only publish artifacts for the current version. Stale .nupkg/.exe files from
+// earlier builds may linger in the output folder; uploading them would point
+// auto-update clients at the wrong version.
+const releasesManifest = dirEntries.find((name) => name === 'RELEASES')
+const nupkgs = dirEntries.filter((name) => (
+  name.toLowerCase().endsWith('.nupkg') && name.includes(version)
+))
+const setupExe = dirEntries.find((name) => (
+  name.toLowerCase().endsWith('.exe') && name.includes(version)
+))
+
+if (!releasesManifest) fail('Missing RELEASES manifest. Run "npm run electron:package" first.')
+if (nupkgs.length === 0) fail(`Missing .nupkg package for ${version}. Run "npm run electron:package" first.`)
+if (!setupExe) fail(`Missing Setup .exe installer for ${version}. Run "npm run electron:package" first.`)
+
+const fullNupkg = nupkgs.find((name) => name.toLowerCase().includes('-full.nupkg'))
+if (!fullNupkg) fail(`Missing -full.nupkg package for ${version}. Run "npm run electron:package" first.`)
+
+const artifacts = [releasesManifest, ...nupkgs, setupExe]
+const files = artifacts.map((name) => path.join(outDir, name))
 
 const gh = (args) => execFileSync('gh', args, { cwd: repoRoot, stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim()
 
@@ -56,8 +72,6 @@ try {
   releaseExists = false
 }
 
-const files = artifacts.map((name) => path.join(outDir, name))
-
 if (releaseExists) {
   console.log(`[release] ${tag} already exists — replacing assets`)
   execFileSync('gh', ['release', 'upload', tag, ...files, '--clobber'], { cwd: repoRoot, stdio: 'inherit' })
@@ -66,9 +80,10 @@ if (releaseExists) {
   execFileSync('gh', [
     'release', 'create', tag, ...files,
     '--title', `Moxzk ${tag}`,
-    '--notes', `Moxzk ${tag} — Windows x64 NSIS installer. Unsigned indie build; SmartScreen may warn on first run.`,
+    '--notes', `Moxzk ${tag} — Windows x64 Squirrel installer. Unsigned indie build; SmartScreen may warn on first run.`,
   ], { cwd: repoRoot, stdio: 'inherit' })
 }
 
+console.log(`[release] published assets: ${artifacts.join(', ')}`)
 console.log(`[release] done: ${tag}`)
 console.log('[release] edit the release notes on GitHub if needed.')

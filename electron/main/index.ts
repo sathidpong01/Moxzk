@@ -1,7 +1,9 @@
 import { app, BrowserWindow, nativeImage, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import squirrelStartup from 'electron-squirrel-startup'
 import { registerRuntimeIpcHandlers } from './ipc'
+import { applySquirrelFileAssociations } from './squirrelSetup'
 import { consumeDesktopProtocolCallback, initDesktopNetworkBridge, registerDesktopProtocol, restoreDesktopSessionIfNeeded } from './desktopAuth'
 import { shutdownOwnedServices } from './localServices'
 import { isUpdateQuitInProgress, scheduleUpdateChecks } from './updater'
@@ -15,6 +17,16 @@ const appIcon = nativeImage.createFromPath(
     ? path.join(process.resourcesPath, 'assets', 'icon.png')
     : path.join(mainDir, '../../assets/icon.png'),
 )
+
+// Squirrel.Windows fires the app with --squirrel-{install,updated,uninstall,
+// obsolete} flags during install/update/uninstall. electron-squirrel-startup
+// handles shortcut creation/removal for those flags and signals that the app
+// should exit immediately instead of opening a window. We additionally
+// register the .moxzk file association ourselves (Squirrel does not).
+if (squirrelStartup) {
+  applySquirrelFileAssociations()
+  app.quit()
+}
 
 app.setName(APP_DISPLAY_NAME)
 registerRuntimeIpcHandlers()

@@ -1,18 +1,20 @@
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, Download, ImageIcon, RotateCcw, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Download, ImageIcon, RotateCcw, Settings2, X, ZoomIn, ZoomOut } from 'lucide-react'
 import type { ExportFormat, ImageEntry } from '../../types'
 import type { RuntimeExportDestination } from '../../runtime'
 import {
   DEFAULT_EXPORT_DESTINATION,
   EXPORT_DESTINATION_OPTIONS,
   EXPORT_FORMAT_OPTIONS,
+  EXPORT_INTENT_OPTIONS,
   EXPORT_PREVIEW_MODE_OPTIONS,
   EXPORT_QUALITY_PRESETS,
   type ExportPreviewMode,
   getSmartQualityDefault,
   isExportQualityPreset,
   normalizeExportQualityPreset,
+  resolveExportIntent,
   supportsExportQuality,
 } from '../../services/exportDrawer'
 import {
@@ -168,6 +170,7 @@ export default function ExportDrawer({
   const [renderedPreviewErrors, setRenderedPreviewErrors] = useState<Record<string, string>>({})
   const [isRenderingPreview, setIsRenderingPreview] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [canScrollPreviewBackward, setCanScrollPreviewBackward] = useState(false)
   const [canScrollPreviewForward, setCanScrollPreviewForward] = useState(false)
   const renderedPreviewUrlsRef = useRef<Record<string, string>>({})
@@ -197,6 +200,7 @@ export default function ExportDrawer({
     setExportDestination(sortedEntries.length <= 1 ? 'folder' : 'zip')
     setFilename(defaultFilename)
     setIsExporting(false)
+    setAdvancedOpen(false)
   }, [activeImageId, defaultFilename, isOpen, sortedEntries])
 
   useEffect(() => {
@@ -404,6 +408,14 @@ export default function ExportDrawer({
     ? Boolean(activeTranslatedUrl)
     : Boolean(activeOriginalUrl && activeTranslatedUrl)
   const hasQualityControls = supportsExportQuality(exportFormat)
+  const activeIntent = resolveExportIntent(exportFormat, exportQuality)
+
+  const applyExportIntent = (intent: typeof EXPORT_INTENT_OPTIONS[number]) => {
+    onExportFormatChange(intent.format)
+    if (supportsExportQuality(intent.format)) {
+      onExportQualityChange(intent.quality)
+    }
+  }
 
   const toggleAll = () => {
     setSelectedIds(allSelected ? [] : sortedEntries.map((entry) => entry.id))
@@ -597,22 +609,97 @@ export default function ExportDrawer({
                   </div>
 
                   <div className="moxzk-scrollbar-hidden mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-                    <Field as="fieldset" label="รูปแบบไฟล์" className="gap-2">
-                      <SegmentedPicker
-                        value={exportFormat}
-                        options={EXPORT_FORMAT_OPTIONS}
-                        onChange={(format) => {
-                          onExportFormatChange(format)
-                          if (supportsExportQuality(format)) {
-                            onExportQualityChange(getSmartQualityDefault(format))
-                          }
-                        }}
-                        ariaLabel="รูปแบบไฟล์ export"
-                        className="grid grid-cols-3"
-                        buttonClassName="w-full justify-center px-2"
-                        stretch
-                      />
+                    <Field as="fieldset" label="ส่งออกเพื่ออะไร" className="gap-2">
+                      <div role="group" aria-label="จุดประสงค์การ export" className="space-y-2">
+                        {EXPORT_INTENT_OPTIONS.map((intent) => {
+                          const active = activeIntent === intent.value
+                          return (
+                            <button
+                              type="button"
+                              key={intent.value}
+                              aria-pressed={active}
+                              onClick={() => applyExportIntent(intent)}
+                              className={cn(
+                                'w-full cursor-pointer rounded-[16px] border px-4 py-3 text-left transition',
+                                active
+                                  ? 'border-[rgba(37,99,235,0.5)] bg-[rgba(37,99,235,0.14)]'
+                                  : 'border-white/8 bg-white/[0.03] hover:bg-white/[0.05]',
+                              )}
+                            >
+                              <span className="block text-sm font-bold text-[var(--moxzk-text)]">{intent.label}</span>
+                              <span className="mt-0.5 block text-xs text-[var(--moxzk-muted)]">{intent.hint}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
                     </Field>
+
+                    <button
+                      type="button"
+                      onClick={() => setAdvancedOpen((open) => !open)}
+                      aria-expanded={advancedOpen}
+                      className="flex w-full items-center justify-between gap-2 rounded-[14px] bg-white/[0.03] px-3 py-2.5 text-sm font-bold text-[var(--moxzk-text)] transition hover:bg-white/[0.05]"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Settings2 size={14} aria-hidden="true" />
+                        ตั้งค่าขั้นสูง
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={cn('transition-transform', advancedOpen && 'rotate-180')}
+                        aria-hidden="true"
+                      />
+                    </button>
+
+                    {advancedOpen && (
+                      <>
+                        <Field as="fieldset" label="รูปแบบไฟล์" className="gap-2">
+                          <SegmentedPicker
+                            value={exportFormat}
+                            options={EXPORT_FORMAT_OPTIONS}
+                            onChange={(format) => {
+                              onExportFormatChange(format)
+                              if (supportsExportQuality(format)) {
+                                onExportQualityChange(getSmartQualityDefault(format))
+                              }
+                            }}
+                            ariaLabel="รูปแบบไฟล์ export"
+                            className="grid grid-cols-3"
+                            buttonClassName="w-full justify-center px-2"
+                            stretch
+                          />
+                        </Field>
+
+                        <Field
+                          as="fieldset"
+                          label={(
+                            <span className="flex items-center justify-between gap-2">
+                              <span>คุณภาพ</span>
+                              {hasQualityControls
+                                ? <span className="text-[11px] font-bold text-[var(--moxzk-dim)]">{exportQuality}%</span>
+                                : <span className="text-[11px] font-bold text-[var(--moxzk-dim)]">Lossless</span>}
+                            </span>
+                          )}
+                          className="gap-2"
+                        >
+                          {hasQualityControls ? (
+                            <SegmentedPicker
+                              value={exportQuality}
+                              options={EXPORT_QUALITY_PRESETS.map((value) => ({ value, label: `${value}%` }))}
+                              onChange={onExportQualityChange}
+                              ariaLabel="คุณภาพไฟล์ export"
+                              className="grid grid-cols-4"
+                              buttonClassName="w-full justify-center px-2"
+                              stretch
+                            />
+                          ) : (
+                            <p className="text-xs leading-5 text-[var(--moxzk-muted)]">
+                              PNG เป็น lossless — บันทึกคุณภาพเต็มโดยไม่มีการสูญเสียข้อมูล
+                            </p>
+                          )}
+                        </Field>
+                      </>
+                    )}
 
                     <Field label="ชื่อไฟล์" className="gap-1.5">
                       <input
@@ -657,35 +744,6 @@ export default function ExportDrawer({
                             ? 'ZIP ที่มี 1 ไฟล์ — แนะนำให้ใช้ "บันทึกลงโฟลเดอร์" แทน'
                             : 'บันทึกทุกหน้าเป็นไฟล์ ZIP เดียว'}
                       </p>
-                    </Field>
-
-                    <Field
-                      as="fieldset"
-                      label={(
-                        <span className="flex items-center justify-between gap-2">
-                          <span>คุณภาพ</span>
-                          {hasQualityControls
-                            ? <span className="text-[11px] font-bold text-[var(--moxzk-dim)]">{exportQuality}%</span>
-                            : <span className="text-[11px] font-bold text-[var(--moxzk-dim)]">Lossless</span>}
-                        </span>
-                      )}
-                      className="gap-2"
-                    >
-                      {hasQualityControls ? (
-                        <SegmentedPicker
-                          value={exportQuality}
-                          options={EXPORT_QUALITY_PRESETS.map((value) => ({ value, label: `${value}%` }))}
-                          onChange={onExportQualityChange}
-                          ariaLabel="คุณภาพไฟล์ export"
-                          className="grid grid-cols-4"
-                          buttonClassName="w-full justify-center px-2"
-                          stretch
-                        />
-                      ) : (
-                        <p className="text-xs leading-5 text-[var(--moxzk-muted)]">
-                          PNG เป็น lossless — บันทึกคุณภาพเต็มโดยไม่มีการสูญเสียข้อมูล
-                        </p>
-                      )}
                     </Field>
 
                     {sortedEntries.length > 1 && (

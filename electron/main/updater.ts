@@ -1,7 +1,18 @@
-import { app, BrowserWindow, shell } from 'electron'
-import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater'
+import { app, autoUpdater, BrowserWindow, shell } from 'electron'
 import { shutdownOwnedServices } from './localServices'
 import { IPC_CHANNELS } from '../shared/ipcChannels'
+
+// Moxzk updates run through Squirrel.Windows + the free hosted update server
+// at update.electronjs.org, which serves the `RELEASES` manifest and `.nupkg`
+// packages from the latest GitHub release. Squirrel applies updates by
+// extracting each version into its own `app-<version>` folder under
+// %LocalAppData%\Moxzk and repointing the launcher stub — there is no
+// installer wizard and no elevation prompt.
+//
+// Electron's built-in `autoUpdater` is the Squirrel client. It emits no
+// granular download-progress events: Squirrel downloads in the background and
+// only reports `update-downloaded`. The `downloading` state below therefore
+// carries no percent.
 
 export type NativeUpdateState =
   | 'idle'
@@ -31,55 +42,68 @@ export interface NativeUpdateStatus {
   manualUrl: string
 }
 
-const RELEASES_URL = 'https://github.com/sathidpong01/Moxzk/releases'
-const FIRST_CHECK_DELAY_MS = 12_000
+const REPO_OWNER = 'sathidpong01'
+const REPO_NAME = 'Moxzk'
+const RELEASES_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases`
+const FIRST_CHECK_DELAY_MS = 1_500
 const PERIODIC_CHECK_MS = 4 * 60 * 60 * 1000
 
 let initialized = false
+let feedConfigured = false
 let checking = false
 let updateQuitInProgress = false
 let periodicCheckTimer: NodeJS.Timeout | null = null
 let status: NativeUpdateStatus = createStatus('idle')
 
+function isUpdateSupported(): boolean {
+  return app.isPackaged && process.platform === 'win32'
+}
+
+function disabledStatus(): NativeUpdateStatus {
+  return createStatus('disabled', {
+    error: app.isPackaged
+      ? 'Auto update is only enabled for Windows builds.'
+      : 'Auto update is enabled only in packaged builds.',
+  })
+}
+
+function configureFeed(): boolean {
+  if (feedConfigured) return true
+  if (!isUpdateSupported()) return false
+  // The hosted server compares the running version (last path segment) against
+  // the latest published RELEASES file and returns 204 when already current.
+  const feedUrl = `https://update.electronjs.org/${REPO_OWNER}/${REPO_NAME}/${process.platform}-${process.arch}/${app.getVersion()}`
+  autoUpdater.setFeedURL({ url: feedUrl })
+  feedConfigured = true
+  return true
+}
+
 export function initializeAppUpdater(): void {
   if (initialized) return
   initialized = true
-
-  autoUpdater.autoDownload = true
-  autoUpdater.autoInstallOnAppQuit = false
-  autoUpdater.autoRunAppAfterInstall = true
-  autoUpdater.allowPrerelease = false
-  autoUpdater.fullChangelog = false
-  autoUpdater.logger = console
 
   autoUpdater.on('checking-for-update', () => {
     checking = true
     setStatus(createStatus('checking', status))
   })
 
-  autoUpdater.on('update-available', (info) => {
-    setStatus(createStatus('available', updateInfoToStatus(info)))
+  autoUpdater.on('update-available', () => {
+    // Squirrel begins downloading immediately; it does not report progress.
+    setStatus(createStatus('downloading', status))
   })
 
-  autoUpdater.on('download-progress', (progress) => {
-    setStatus(createStatus('downloading', {
-      ...status,
-      ...progressToStatus(progress),
-    }))
-  })
-
-  autoUpdater.on('update-not-available', (info) => {
+  autoUpdater.on('update-not-available', () => {
     checking = false
-    setStatus(createStatus('not-available', {
-      ...updateInfoToStatus(info),
-      checkedAt: Date.now(),
-    }))
+    setStatus(createStatus('not-available', { checkedAt: Date.now() }))
   })
 
-  autoUpdater.on('update-downloaded', (event) => {
+  autoUpdater.on('update-downloaded', (_event, releaseNotes, releaseName, releaseDate) => {
     checking = false
     setStatus(createStatus('downloaded', {
-      ...updateInfoToStatus(event),
+      version: releaseName || undefined,
+      releaseName: releaseName || null,
+      releaseDate: releaseDate ? new Date(releaseDate).toISOString() : undefined,
+      releaseNotes: normalizeReleaseNotes(releaseNotes),
       downloadedAt: Date.now(),
     }))
   })
@@ -88,17 +112,15 @@ export function initializeAppUpdater(): void {
     checking = false
     setStatus(createStatus('error', {
       ...status,
-      error: error.message || String(error),
+      error: error instanceof Error ? error.message : String(error),
     }))
   })
 }
 
 export function scheduleUpdateChecks(): void {
   initializeAppUpdater()
-  if (!app.isPackaged || process.platform !== 'win32') {
-    setStatus(createStatus('disabled', {
-      error: app.isPackaged ? 'Auto update is only enabled for Windows builds.' : 'Auto update is enabled only in packaged builds.',
-    }))
+  if (!isUpdateSupported()) {
+    setStatus(disabledStatus())
     return
   }
 
@@ -114,10 +136,8 @@ export function scheduleUpdateChecks(): void {
 
 export async function checkForUpdates(): Promise<NativeUpdateStatus> {
   initializeAppUpdater()
-  if (!app.isPackaged || process.platform !== 'win32') {
-    const next = createStatus('disabled', {
-      error: app.isPackaged ? 'Auto update is only enabled for Windows builds.' : 'Auto update is enabled only in packaged builds.',
-    })
+  if (!isUpdateSupported()) {
+    const next = disabledStatus()
     setStatus(next)
     return next
   }
@@ -126,7 +146,10 @@ export async function checkForUpdates(): Promise<NativeUpdateStatus> {
   checking = true
   setStatus(createStatus('checking', status))
   try {
-    await autoUpdater.checkForUpdates()
+    if (!configureFeed()) {
+      throw new Error('Update feed is unavailable.')
+    }
+    autoUpdater.checkForUpdates()
     return status
   } catch (error) {
     checking = false
@@ -146,7 +169,8 @@ export async function installDownloadedUpdate(): Promise<void> {
   updateQuitInProgress = true
   try {
     await shutdownOwnedServices()
-    autoUpdater.quitAndInstall(false, true)
+    // Squirrel swaps the active version folder and relaunches Moxzk.
+    autoUpdater.quitAndInstall()
   } catch (error) {
     updateQuitInProgress = false
     throw error
@@ -184,30 +208,7 @@ function createStatus(state: NativeUpdateState, patch: Partial<NativeUpdateStatu
   }
 }
 
-function updateInfoToStatus(info: UpdateInfo): Partial<NativeUpdateStatus> {
-  return {
-    version: info.version,
-    releaseName: info.releaseName,
-    releaseDate: info.releaseDate,
-    releaseNotes: normalizeReleaseNotes(info.releaseNotes),
-  }
-}
-
-function progressToStatus(progress: ProgressInfo): Partial<NativeUpdateStatus> {
-  return {
-    percent: Math.max(0, Math.min(100, Math.round(progress.percent))),
-    transferred: progress.transferred,
-    total: progress.total,
-    bytesPerSecond: progress.bytesPerSecond,
-  }
-}
-
-function normalizeReleaseNotes(notes: UpdateInfo['releaseNotes']): string | null {
+function normalizeReleaseNotes(notes: string | undefined): string | null {
   if (!notes) return null
-  if (typeof notes === 'string') return notes.slice(0, 1200)
-  return notes
-    .map((item) => `${item.version}: ${item.note ?? ''}`.trim())
-    .filter(Boolean)
-    .join('\n')
-    .slice(0, 1200) || null
+  return notes.slice(0, 1200) || null
 }
