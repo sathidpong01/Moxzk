@@ -406,9 +406,19 @@ export default function FirstRunSetupView({
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
+    let polling = false
 
     const pollOnce = async () => {
-      if (cancelled || busyActionRef.current) return
+      if (cancelled || polling || busyActionRef.current) return
+      polling = true
+      try {
+        await runPoll()
+      } finally {
+        polling = false
+      }
+    }
+
+    const runPoll = async () => {
       const rt = getAppRuntime()
       const s = settingsRef.current
       const done = completedRef.current
