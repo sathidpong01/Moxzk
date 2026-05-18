@@ -7,6 +7,7 @@ import {
   beginUsage,
   endUsage,
   getManagedStatus,
+  getOllamaInstallStatus,
   installOllama,
   startOllama,
   startPanelCleanerBridge,
@@ -99,6 +100,10 @@ export function registerRuntimeIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.localServicesInstallOllama, async () => {
     return nativeActionResult(installOllama)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.localServicesOllamaInstallStatus, async () => {
+    return nativeActionResult(async () => getOllamaInstallStatus())
   })
 
   ipcMain.handle(IPC_CHANNELS.localServicesInstallPanelCleaner, async () => {

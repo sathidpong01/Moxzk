@@ -15,6 +15,13 @@ import {
 import type { Album, AlbumPage } from '../types/database'
 import { useAuthStore } from './authStore'
 
+// Cloudflare API errors are cryptic for end users; keep the raw text in the
+// console and show the user a consistent next step instead.
+function notifyAlbumError(action: string, error: unknown): void {
+  console.error(`[album] ${action} error:`, error)
+  toast.error(`${action}ไม่สำเร็จ — ตรวจการเชื่อมต่อเน็ตแล้วลองอีกครั้ง`)
+}
+
 interface AlbumStore {
   albums: Album[]
   currentAlbum: Album | null
@@ -86,8 +93,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       const albums = await fetchCloudflareAlbums()
       set({ albums, loading: false })
     } catch (error) {
-      console.error('[album] fetchAlbums error:', error)
-      toast.error('โหลดอัลบั้มล้มเหลว')
+      notifyAlbumError('โหลดอัลบั้ม', error)
       set({ loading: false })
     }
   },
@@ -105,8 +111,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       toast.success(`สร้างอัลบั้ม "${title}" แล้ว`)
       return album
     } catch (error) {
-      console.error('[album] createAlbum error:', error)
-      toast.error(error instanceof Error ? `สร้างอัลบั้มล้มเหลว: ${error.message}` : 'สร้างอัลบั้มล้มเหลว')
+      notifyAlbumError('สร้างอัลบั้ม', error)
       return null
     }
   },
@@ -115,7 +120,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     try {
       await updateCloudflareAlbum(id, updates)
     } catch (error) {
-      toast.error(error instanceof Error ? `แก้ไขอัลบั้มล้มเหลว: ${error.message}` : 'แก้ไขอัลบั้มล้มเหลว')
+      notifyAlbumError('แก้ไขอัลบั้ม', error)
       return
     }
 
@@ -134,7 +139,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     try {
       await deleteCloudflareAlbum(id)
     } catch (error) {
-      toast.error(error instanceof Error ? `ลบอัลบั้มล้มเหลว: ${error.message}` : 'ลบอัลบั้มล้มเหลว')
+      notifyAlbumError('ลบอัลบั้ม', error)
       return
     }
 
@@ -155,8 +160,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       set({ currentPages: pages, loading: false })
       return pages
     } catch (error) {
-      console.error('[album] fetchPages error:', error)
-      toast.error('โหลดหน้าล้มเหลว')
+      notifyAlbumError('โหลดหน้า', error)
       set({ loading: false })
       throw error instanceof Error ? error : new Error('Failed to load album pages')
     }
@@ -170,7 +174,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       }))
       return page
     } catch (error) {
-      toast.error(error instanceof Error ? `สร้างหน้าล้มเหลว: ${error.message}` : 'สร้างหน้าล้มเหลว')
+      notifyAlbumError('สร้างหน้า', error)
       return null
     }
   },
@@ -179,7 +183,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     try {
       await updateCloudflarePage(pageId, updates)
     } catch (error) {
-      toast.error(error instanceof Error ? `อัปเดตหน้าล้มเหลว: ${error.message}` : 'อัปเดตหน้าล้มเหลว')
+      notifyAlbumError('อัปเดตหน้า', error)
       return
     }
 
@@ -194,7 +198,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
     try {
       await deleteCloudflarePage(pageId)
     } catch (error) {
-      toast.error(error instanceof Error ? `ลบหน้าล้มเหลว: ${error.message}` : 'ลบหน้าล้มเหลว')
+      notifyAlbumError('ลบหน้า', error)
       return false
     }
 
@@ -241,7 +245,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       await reorderCloudflarePages(albumId, pageIds)
     } catch (error) {
       set({ currentPages: previousPages })
-      toast.error(error instanceof Error ? `เรียงหน้าล้มเหลว: ${error.message}` : 'เรียงหน้าล้มเหลว')
+      notifyAlbumError('เรียงหน้า', error)
     }
   },
 
@@ -295,7 +299,7 @@ export const useAlbumStore = create<AlbumStore>((set, get) => ({
       toast.success(`บันทึกหน้า ${pageNumber} แล้ว`)
       return page
     } catch (error) {
-      toast.error(error instanceof Error ? `สร้างหน้าล้มเหลว: ${error.message}` : 'สร้างหน้าล้มเหลว')
+      notifyAlbumError('สร้างหน้า', error)
       return null
     }
   },

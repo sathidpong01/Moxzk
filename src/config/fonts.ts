@@ -1,5 +1,6 @@
 import type { FontDefinition, FontMoodMap, MoodType, TextRegion } from '../types'
 import { saveFont, fileToArrayBuffer, type StoredFont } from '../services/fontStorage'
+import { parseFontMetadata } from '../services/fontMetadata'
 
 export const BUILT_IN_FONTS: FontDefinition[] = [
   { name: 'Sarabun', family: 'Sarabun', weight: 400, style: 'normal', isCustom: false },
@@ -83,11 +84,15 @@ export async function registerCustomFont(
   await fontFace.load()
   document.fonts.add(fontFace)
 
+  const metadata = parseFontMetadata(arrayBuffer)
+  const weight = metadata.weight ?? 400
+  const style = metadata.style ?? 'normal'
+
   const stored: StoredFont = {
     name,
     family: name,
-    weight: 400,
-    style: 'normal',
+    weight,
+    style,
     data: arrayBuffer,
     mimeType: file.type || 'font/ttf',
     createdAt: Date.now(),
@@ -97,8 +102,8 @@ export async function registerCustomFont(
   return {
     name,
     family: name,
-    weight: 400,
-    style: 'normal',
+    weight,
+    style,
     isCustom: true,
   }
 }

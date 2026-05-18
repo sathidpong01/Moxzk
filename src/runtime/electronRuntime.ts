@@ -7,6 +7,7 @@ import type {
   AppRuntime,
   LocalServiceName,
   ManagedServiceStatus,
+  OllamaInstallStatus,
   PanelCleanerDependencyStatus,
   RuntimeActionResult,
   RuntimeExportFile,
@@ -97,6 +98,9 @@ export class ElectronRuntime implements AppRuntime {
       const result = await this.bridge.localServices.installOllama()
       if (!result.ok) return { ok: false, error: result.error }
       return result.data ?? { ok: true }
+    },
+    getOllamaInstallStatus: async (): Promise<OllamaInstallStatus> => {
+      return unwrapNativeResult(await this.bridge.localServices.getOllamaInstallStatus())
     },
     installPanelCleaner: async (): Promise<RuntimeActionResult> => {
       const result = await this.bridge.localServices.installPanelCleaner()

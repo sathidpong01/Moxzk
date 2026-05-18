@@ -29,6 +29,7 @@ const bridge: MoxzkRuntimeBridge = {
     getPanelCleanerDependencyStatus: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesPanelCleanerDependencyStatus),
     installPython: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesInstallPython),
     installOllama: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesInstallOllama),
+    getOllamaInstallStatus: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesOllamaInstallStatus),
     installPanelCleaner: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesInstallPanelCleaner),
     repairPanelCleaner: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesRepairPanelCleaner),
     pickPanelCleanerExecutable: () => ipcRenderer.invoke(IPC_CHANNELS.localServicesPickPanelCleanerExecutable),

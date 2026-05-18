@@ -207,9 +207,9 @@ export default function ProcessingView({
             try {
               cleanupBoxes = await deriveTextBoxesFromCleanupDiff(imageFile, cleanedImageBlob)
               _cachedCleanupBoxes = cleanupBoxes
-              addLog(`ตำแหน่งจาก cleanup diff: พบ ${cleanupBoxes.length} boxes`)
+              addLog(`พบตำแหน่งข้อความจากการลบฉากหลัง ${cleanupBoxes.length} จุด`)
             } catch (err) {
-              addLog(`ตำแหน่งจาก cleanup diff ใช้ไม่ได้: ${err instanceof Error ? err.message : String(err)}`)
+              addLog(`อ่านตำแหน่งข้อความจากการลบฉากหลังไม่ได้: ${err instanceof Error ? err.message : String(err)}`)
               cleanupBoxes = null
             }
           }
@@ -230,7 +230,7 @@ export default function ProcessingView({
 
         _cachedFailedStep = 'translating'
         setCurrentStep('translating')
-        addLog(`กำลังเรียก Ollama model "${ollamaOptions?.ollamaModel || 'gemma4'}"...`)
+        addLog(`กำลังเรียกโมเดล Ollama "${ollamaOptions?.ollamaModel || 'gemma4'}"...`)
 
         let translatedRegions: TextRegion[] = []
         let resolvedSourceLang = sourceLang
@@ -243,7 +243,7 @@ export default function ProcessingView({
         }
         setState({ status: 'translating', progress: 75, message: 'กำลังให้ Gemma อ่านและแปลในรอบเดียว...' })
         if (cleanupBoxes && cleanupBoxes.length > 0) {
-          addLog(`เริ่ม Gemma boxed vision flow: อ่านและแปลตาม cleanup diff ${cleanupBoxes.length} boxes`)
+          addLog(`เริ่มอ่านและแปลข้อความตามตำแหน่งที่พบ ${cleanupBoxes.length} จุด`)
           translatedRegions = await translateWithOllamaBoxedVision(
             imageFile,
             cleanupBoxes,
@@ -251,12 +251,12 @@ export default function ProcessingView({
             ollamaRunOptions,
           )
         } else {
-          addLog('ไม่มี cleanup diff boxes, ใช้ Gemma vision full flow แทน')
+          addLog('ไม่พบตำแหน่งข้อความจากการลบฉากหลัง ใช้ AI อ่านทั้งภาพแทน')
           translatedRegions = await translateWithOllamaVision(imageFile, resolvedSourceLang, ollamaRunOptions)
         }
 
         if (!hasUsableRegions(translatedRegions)) {
-          addLog('Gemma vision ไม่คืน bbox ที่ใช้ได้ใน flow ใหม่')
+          addLog('AI อ่านตำแหน่งข้อความจากภาพไม่ได้')
         }
 
         addLog(`แปลเสร็จ: ${translatedRegions.length} กล่อง`)
@@ -266,10 +266,10 @@ export default function ProcessingView({
         clearProcessingCache()
         onComplete(translatedRegions, cleanedUrl)
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown error'
+        const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
         setCurrentStep('error')
         setState({ status: 'error', progress: 0, message })
-        addLog(`ERROR: ${message}`)
+        addLog(`ผิดพลาด: ${message}`)
         onError(message)
       }
     }

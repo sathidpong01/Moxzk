@@ -16,6 +16,11 @@ export interface NativeServiceActionResult {
   logs?: string[]
 }
 
+export interface OllamaInstallStatus {
+  installing: boolean
+  logs: string[]
+}
+
 export interface ManagedServiceStatus {
   running: boolean
   ownedByApp: boolean
@@ -78,6 +83,33 @@ const OLLAMA_WINGET_PACKAGE_ID = 'Ollama.Ollama'
 const INSTALL_TIMEOUT_MS = 10 * 60_000
 
 let ollamaInstallPromise: Promise<NativeServiceActionResult> | null = null
+// Live install log read by the renderer while installation runs, so the user
+// sees moving progress instead of a frozen-looking spinner.
+let ollamaInstallLog: string[] = []
+let ollamaInstallProgressAt = -1
+
+function pushInstallPhase(message: string): void {
+  ollamaInstallLog.push(message)
+  ollamaInstallProgressAt = -1
+}
+
+function pushInstallProgress(line: string): void {
+  const text = line.trim()
+  if (!text) return
+  if (ollamaInstallProgressAt >= 0) {
+    ollamaInstallLog[ollamaInstallProgressAt] = text
+  } else {
+    ollamaInstallProgressAt = ollamaInstallLog.length
+    ollamaInstallLog.push(text)
+  }
+}
+
+export function getOllamaInstallStatus(): OllamaInstallStatus {
+  return {
+    installing: ollamaInstallPromise !== null,
+    logs: ollamaInstallLog.slice(-12),
+  }
+}
 
 const SERVICE_CONFIGS: Record<LocalServiceName, LocalServiceConfig> = {
   panelcleaner: {
@@ -498,9 +530,12 @@ function runProcess(command: string, args: string[]): Promise<void> {
 }
 
 async function installOllamaWithWinget(): Promise<NativeServiceActionResult> {
-  const logs: string[] = []
+  ollamaInstallLog = []
+  ollamaInstallProgressAt = -1
+  const logs = ollamaInstallLog
   try {
     if (process.platform !== 'win32') {
+      pushInstallPhase('ติดตั้ง Ollama อัตโนมัติรองรับเฉพาะ Windows')
       return {
         ok: false,
         error: 'ติดตั้ง Ollama อัตโนมัติรองรับเฉพาะ Windows',
@@ -508,14 +543,14 @@ async function installOllamaWithWinget(): Promise<NativeServiceActionResult> {
       }
     }
 
-    logs.push('ติดตั้ง Ollama: ตรวจ winget')
+    pushInstallPhase('กำลังตรวจตัวติดตั้งของ Windows (winget)')
     await runLoggedProcess('winget.exe', ['--version'], {
       logAs: 'winget --version',
       logs,
       timeoutMs: 30_000,
     })
 
-    logs.push(`ติดตั้ง Ollama: ${OLLAMA_WINGET_PACKAGE_ID}`)
+    pushInstallPhase('กำลังดาวน์โหลดและติดตั้ง Ollama — ใช้เวลาสักครู่')
     await runLoggedProcess('winget.exe', [
       'install',
       '-e',
@@ -530,13 +565,14 @@ async function installOllamaWithWinget(): Promise<NativeServiceActionResult> {
       logAs: `winget install ${OLLAMA_WINGET_PACKAGE_ID}`,
       logs,
       timeoutMs: INSTALL_TIMEOUT_MS,
+      onProgress: pushInstallProgress,
     })
 
-    logs.push('ติดตั้ง Ollama เสร็จแล้ว กดเริ่ม Ollama หรือตรวจสถานะอีกครั้ง')
+    pushInstallPhase('ติดตั้ง Ollama เสร็จแล้ว')
     return { ok: true, logs }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    logs.push(`ติดตั้ง Ollama ไม่สำเร็จ: ${message}`)
+    pushInstallPhase(`ติดตั้ง Ollama ไม่สำเร็จ: ${message}`)
     return { ok: false, error: message, logs }
   }
 }
@@ -544,7 +580,7 @@ async function installOllamaWithWinget(): Promise<NativeServiceActionResult> {
 function runLoggedProcess(
   command: string,
   args: string[],
-  options: { logAs: string; logs: string[]; timeoutMs: number },
+  options: { logAs: string; logs: string[]; timeoutMs: number; onProgress?: (line: string) => void },
 ): Promise<void> {
   const label = options.logAs
   options.logs.push(`> ${label}`)
@@ -565,6 +601,13 @@ function runLoggedProcess(
     child.stderr.setEncoding('utf8')
     child.stdout.on('data', (chunk) => {
       stdout += chunk
+      if (options.onProgress) {
+        // winget streams its progress bar using carriage returns; surface the
+        // most recent non-empty segment as a live status line.
+        const segments = String(chunk).split(/[\r\n]+/).map((line) => line.trim()).filter(Boolean)
+        const last = segments[segments.length - 1]
+        if (last) options.onProgress(last)
+      }
     })
     child.stderr.on('data', (chunk) => {
       stderr += chunk

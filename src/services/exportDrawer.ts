@@ -48,3 +48,26 @@ export function normalizeExportQualityPreset(value: number): ExportQualityPreset
     return candidate > best ? candidate : best
   }, EXPORT_QUALITY_PRESETS[0])
 }
+
+export type ExportIntent = 'chat' | 'general' | 'print'
+
+export interface ExportIntentOption {
+  value: ExportIntent
+  label: string
+  hint: string
+  format: ExportFormat
+  quality: ExportQualityPreset
+}
+
+export const EXPORT_INTENT_OPTIONS: ExportIntentOption[] = [
+  { value: 'chat', label: 'ส่งแชท / รีวิว', hint: 'ไฟล์เล็ก โหลดเร็ว', format: 'webp', quality: 75 },
+  { value: 'general', label: 'ใช้งานทั่วไป', hint: 'สมดุลคุณภาพกับขนาดไฟล์', format: 'jpg', quality: 90 },
+  { value: 'print', label: 'ส่งโรงพิมพ์', hint: 'คมชัดสูงสุด ไม่สูญเสียคุณภาพ', format: 'png', quality: 100 },
+]
+
+export function resolveExportIntent(format: ExportFormat, quality: number): ExportIntent | null {
+  const match = EXPORT_INTENT_OPTIONS.find(
+    (option) => option.format === format && (format === 'png' || option.quality === quality),
+  )
+  return match?.value ?? null
+}

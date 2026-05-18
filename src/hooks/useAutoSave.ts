@@ -6,6 +6,7 @@ import type { RuntimeProjectDraft } from '../runtime/types'
 
 export function useAutoSave(intervalMs = 30_000): void {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastFingerprintRef = useRef<string | null>(null)
 
   useEffect(() => {
     timerRef.current = setInterval(() => {
@@ -22,6 +23,19 @@ export function useAutoSave(intervalMs = 30_000): void {
       })
 
       if (!draft) return
+
+      // Skip redundant saves: only persist when the project content actually changed.
+      const fingerprint = JSON.stringify({
+        currentStep: draft.currentStep,
+        activeImageId: draft.activeImageId,
+        regions: draft.regions,
+        brushStrokes: draft.brushStrokes,
+        cleanedImageUrl: draft.cleanedImageUrl,
+        originalImageUrl: draft.originalImageUrl,
+        settings: draft.settings,
+      })
+      if (fingerprint === lastFingerprintRef.current) return
+      lastFingerprintRef.current = fingerprint
 
       void getAppRuntime().projectDraft.save(draft)
       console.log('[autoSave] Draft saved', new Date().toLocaleTimeString())
